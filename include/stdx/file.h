@@ -2,10 +2,15 @@
 #include <stdx/env.h>
 #include <stdx/io.h>
 #include <stdx/async/task.h>
+
+
+
 #ifndef WIN32
 #define MAX_PATH 4096
 #endif
 #ifdef WIN32
+#include <Shlwapi.h>
+#pragma comment(lib,"Shlwapi.lib")
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
 						if(_ERROR_CODE != ERROR_IO_PENDING) \
@@ -23,6 +28,7 @@
 
 namespace stdx
 {
+	using native_file_handle = HANDLE;
 	struct file_io_context
 	{
 		file_io_context()
@@ -111,50 +117,38 @@ namespace stdx
 		size_t size;
 	};
 	//文件访问类型
-	struct file_access_type
+	enum class file_access_type : uint_32
 	{
-		enum
-		{
-			execute = FILE_GENERIC_EXECUTE,
-			read = FILE_GENERIC_READ,
-			write = FILE_GENERIC_WRITE,
-			all = GENERIC_ALL
-		};
+		execute,	//FILE_GENERIC_EXECUTE
+		read,		//FILE_GENERIC_READ
+		write,		//FILE_GENERIC_WRITE
+		all			//GENERIC_ALL
 	};
 
 	//文件共享类型
-	struct file_shared_model
+	enum class file_shared_model : uint_32
 	{
-		enum
-		{
-			unique = 0UL,
-			shared_read = FILE_SHARE_READ,
-			shared_write = FILE_SHARE_WRITE,
-			shared_delete = FILE_SHARE_DELETE
-		};
+		unique,			//0UL,
+		shared_read,	//FILE_SHARE_READ
+		shared_write,	//FILE_SHARE_WRITE
+		shared_delete	//FILE_SHARE_DELETE
 	};
 
 	//文件打开类型
-	struct file_open_type
+	enum class file_open_type : uint_32
 	{
-		enum
-		{
-			open = OPEN_EXISTING,
-			create = CREATE_ALWAYS,
-			new_file = CREATE_NEW,
-			create_open = OPEN_ALWAYS
-		};
+		open,			//OPEN_EXISTING
+		create,			//CREATE_ALWAYS
+		new_file,		//CREATE_NEW
+		create_open		//OPEN_ALWAYS
 	};
 
-	struct file_seek_method
-	{
-		enum
-		{
-			begin = FILE_BEGIN,
-			end = FILE_END,
-			current = FILE_CURRENT
-		};
-	};
+	extern DWORD forward_file_access_type(file_access_type access_type);
+
+	extern DWORD forward_file_shared_model(file_shared_model shared_model);
+
+	extern DWORD forward_file_open_type(file_open_type open_type);
+
 	//文件IO服务实现
 	class _FileIOService
 	{
@@ -482,21 +476,26 @@ namespace stdx
 
 namespace stdx
 {
-	extern stdx::file_stream open_file(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type);
+	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const std::string &path, const DWORD &access_type, const DWORD &open_type);
+
+	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const std::string &path,file_access_type access_type,file_open_type open_type);
 
 	extern stdx::file_handle open_for_senfile(const std::string &path, const int_32 &access_type, const int_32 &open_type);
 }
 #undef _ThrowWinError
 #endif // WIN32
 #ifdef LINUX
+#include <unistd.h>
 #include <stdx/io.h>
 #include <sys/stat.h>
-
+#include <stdio.h>
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
 
 namespace stdx
 {
+	using native_file_handle = int;
+
 	struct file_io_context
 	{
 		int file;
@@ -579,26 +578,28 @@ namespace stdx
 		size_t size;
 	};
 	//文件访问类型
-	struct file_access_type
+	struct file_access_type : uint_32
 	{
 		enum
 		{
-			read = O_RDONLY,
-			write = O_WRONLY,
-			all = O_RDWR
+			read,	//O_RDONLY
+			write,	//O_WRONLY
+			all,	//O_RDWR
 		};
 	};
 	//文件打开类型
-	struct file_open_type
+	struct file_open_type : uint_32
 	{
-		enum
-		{
-			open = 0,
-			create = O_TRUNC,
-			new_file = O_CREAT | O_EXCL,
-			create_open = O_CREAT
-		};
+		open,			// 0
+		create,			//O_TRUNC
+		new_file,		//O_CREAT | O_EXCL
+		create_open,	//O_CREAT
 	};
+
+	extern int_32 forward_file_access_type(file_access_type access_type);
+
+	extern int_32 forward_file_open_type(file_open_type open_type);
+
 	class _FileIOService
 	{
 		using aiocp_t = stdx::aiocp<file_io_context>;
@@ -942,9 +943,57 @@ namespace stdx
 }
 namespace stdx
 {
-	extern stdx::file_stream open_file(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type);
+	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type);
+
+	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const std::string &path, file_access_type access_type, file_open_type open_type);
 
 	extern stdx::file_handle open_for_senfile(const std::string &path, const int_32 &access_type, const int_32 &open_type);
 }
 #undef _ThrowLinuxError
 #endif //LINUX
+
+
+
+
+#if defined(WIN32) | defined(LINUX)
+namespace stdx
+{
+
+
+	class file
+	{
+	public:
+		using cancel_token = int;
+
+		file(const stdx::file_io_service &io_service,const std::string &path);
+
+		~file() = default;
+
+		const std::string &path() const;
+
+		int_64 size() const;
+
+		void remove();
+
+		//预留
+		//void copy_to(const std::string &path, cancel_token *cancel_ptr, std::function<void(const int&)> &&on_progress_change);
+
+		bool exist() const;
+
+#ifdef WIN32
+		stdx::file_stream open_stream(const DWORD &access_type, const DWORD &open_type);
+
+		HANDLE open_native_handle(const DWORD &access_type, const DWORD &open_type) const;
+#else
+		stdx::file_stream open_stream(const stdx::file_io_service &io_service, const int_32 &access_type, const int_32 &open_type);
+
+		int open_native_handle(const int_32 &access_type, const int_32 &open_type) const;
+#endif // WIN32
+
+	private:
+		std::string m_path;
+		stdx::file_io_service m_io_service;
+	};
+}
+#endif // defined
+

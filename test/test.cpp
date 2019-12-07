@@ -6,7 +6,7 @@
 #include <stdx/logger.h>
 int main(int argc, char **argv)
 {
-#define ENABLE_WEB
+//#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -154,49 +154,27 @@ int main(int argc, char **argv)
 	int success = size - errs;
 	std::cout << "转换已完成:	" << "Success(s):" << success << "	Error(s):" << errs << std::endl;
 #endif // ENABLE_FILE_TO_HEADER
-//#define ENABLE_FILE
+#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
-
-	//int fd = service.create_file("./a.txt", stdx::file_access_type::read, stdx::file_open_type::open);
-	//stdx::task_complete_event<stdx::file_read_event> ce;
-	//service.read_file(fd, 1024, 0, [ce](stdx::file_read_event e,std::exception_ptr err)mutable 
-	//{
-	//	ce.set_value(e);
-	//	ce.run_on_this_thread();
-	//});
-	//ce.get_task().then([](stdx::file_read_event e) 
-	//{
-	//	std::cout << e.buffer;
-	//});
-	stdx::file_stream stream = stdx::open_file(service,"./a.txt", stdx::file_access_type::read, stdx::file_open_type::open);
-	stream.read(1024, 0).then([stream](stdx::file_read_event e) mutable
-	{
-		std::cout << e.buffer<<"size:"<<e.buffer.size();
-		std::string str = "OK!";
-		stream.write(str.c_str(),str.size(),e.buffer.size()).then([](stdx::task_result<stdx::file_write_event> r) 
-		{
-			try
-			{
-				r.get();
-
-			}
-			catch (const std::exception&err)
-			{
-				std::cerr << err.what();
-			}
-		});
-	});
+	std::cout << stdx::forward_file_access_type(stdx::file_access_type::read);
 	std::cin.get();
 #endif // ENABLE_FILE
 //#define ENABLE_TASK
 #ifdef ENABLE_TASK
-
-	stdx::task<void> t([]() 
+	auto t = stdx::async([]() 
 	{
-		std::cout << "hello world";
+		return stdx::async([]() 
+		{
+			std::cout << "my age is:";
+			return;
+		});
+	}).then([](stdx::task_result<void> r) 
+	{
+		r.get();
+		std::cout << 13 << "\n";
 	});
-	t.run_on_this_thread();
+	t.wait();
 	std::cin.get();
 #endif // ENABLE_TASK
 //#define ENABLE_TCP

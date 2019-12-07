@@ -1,5 +1,4 @@
 #include <stdx/file.h>
-
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
@@ -15,6 +14,57 @@
 								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
 							} \
 						}\
+
+DWORD stdx::forward_file_access_type(file_access_type access_type)
+{
+	switch (access_type)
+	{
+	case stdx::file_access_type::execute:
+		return FILE_GENERIC_EXECUTE;
+	case stdx::file_access_type::read:
+		return FILE_GENERIC_READ;
+	case stdx::file_access_type::write:
+		return FILE_GENERIC_WRITE;
+	case stdx::file_access_type::all:
+		return GENERIC_ALL;
+	default:
+		_ThrowWinError
+	}
+}
+
+DWORD stdx::forward_file_shared_model(file_shared_model shared_model)
+{
+	switch (shared_model)
+	{
+	case stdx::file_shared_model::unique:
+		return 0UL;
+	case stdx::file_shared_model::shared_read:
+		return FILE_SHARE_READ;
+	case stdx::file_shared_model::shared_write:
+		return FILE_SHARE_WRITE;
+	case stdx::file_shared_model::shared_delete:
+		return FILE_SHARE_DELETE;
+	default:
+		_ThrowWinError
+	}
+}
+
+DWORD stdx::forward_file_open_type(file_open_type open_type)
+{
+	switch (open_type)
+	{
+	case stdx::file_open_type::open:
+		return OPEN_EXISTING;
+	case stdx::file_open_type::create:
+		return CREATE_ALWAYS;
+	case stdx::file_open_type::new_file:
+		return CREATE_NEW;
+	case stdx::file_open_type::create_open:
+		return OPEN_ALWAYS;
+	default:
+		_ThrowWinError
+	}
+}
 
 stdx::_FileIOService::_FileIOService()
 	:m_iocp()
@@ -33,9 +83,8 @@ stdx::_FileIOService::~_FileIOService()
 }
 
 HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model)
-
 {
-	HANDLE file = CreateFile(path.c_str(), access_type, shared_model, 0, file_open_type, FILE_FLAG_OVERLAPPED, 0);
+	HANDLE file = CreateFileA(path.c_str(), access_type, shared_model, 0, file_open_type, FILE_FLAG_OVERLAPPED, 0);
 	if (file == INVALID_HANDLE_VALUE)
 	{
 		_ThrowWinError
@@ -285,40 +334,45 @@ void stdx::_FileStream::close()
 	}
 }
 
-stdx::file_stream stdx::open_file(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type)
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const std::string &path, const DWORD &access_type, const DWORD &open_type)
 {
 	stdx::file_stream file(io_service);
 	DWORD shared = 0;
-	if (access_type  == stdx::file_access_type::read)
+	if (access_type  == FILE_GENERIC_READ)
 	{
-		shared = stdx::file_shared_model::shared_read;
+		shared = FILE_SHARE_READ;
 	}
-	if (access_type == stdx::file_access_type::write)
+	if (access_type == FILE_GENERIC_WRITE)
 	{
-		shared = stdx::file_shared_model::shared_write;
+		shared = FILE_SHARE_WRITE;
 	}
-	if (access_type == stdx::file_access_type::all)
+	if (access_type == GENERIC_ALL)
 	{
-		shared = stdx::file_shared_model::shared_read | stdx::file_shared_model::shared_write;
+		shared = FILE_SHARE_READ | FILE_SHARE_WRITE;
 	}
 	file.init(path, access_type, open_type,shared);
 	return file;
 }
 
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const std::string & path, file_access_type access_type, file_open_type open_type)
+{
+	return stdx::open_file_stream(io_service,path,forward_file_access_type(access_type),forward_file_open_type(open_type));
+}
+
 stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 & access_type, const int_32 & open_type)
 {
 	DWORD shared = 0;
-	if (access_type == stdx::file_access_type::read)
+	if (access_type == FILE_GENERIC_READ)
 	{
-		shared = stdx::file_shared_model::shared_read;
+		shared = FILE_SHARE_READ;
 	}
-	if (access_type == stdx::file_access_type::write)
+	if (access_type == FILE_GENERIC_WRITE)
 	{
-		shared = stdx::file_shared_model::shared_write;
+		shared = FILE_SHARE_WRITE;
 	}
-	if (access_type == stdx::file_access_type::all)
+	if (access_type == GENERIC_ALL)
 	{
-		shared = stdx::file_shared_model::shared_read | stdx::file_shared_model::shared_write;
+		shared = FILE_SHARE_READ | FILE_SHARE_WRITE;
 	}
 	HANDLE file = CreateFile(path.c_str(), access_type, shared, 0, open_type, FILE_FLAG_SEQUENTIAL_SCAN, 0);
 	if (file == INVALID_HANDLE_VALUE)
@@ -327,7 +381,6 @@ stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &
 	}
 	return file;
 }
-#undef _ThrowWinError
 #endif // WIN32
 #ifdef LINUX
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
@@ -352,6 +405,37 @@ stdx::_FileIOService::~_FileIOService()
 	*m_alive = false;
 }
 
+int_32 stdx::forward_file_access_type(file_access_type access_type)
+{
+	switch (access_type)
+	{
+	case stdx::file_access_type::read:
+		return O_RDONLY;
+	case stdx::file_access_type::write:
+		return O_WRONLY;
+	case stdx::file_access_type::all:
+		return O_RDWR;
+	default:
+		_ThrowLinuxError
+	}
+}
+
+int_32 forward_file_open_type(file_open_type open_type)
+{
+	switch (open_type)
+	{
+	case stdx::file_open_type::open:
+		return 0;
+	case stdx::file_open_type::create:
+		return O_TRUNC;
+	case stdx::file_open_type::new_file:
+		return O_CREAT | O_EXCL;
+	case stdx::file_open_type::create_open:
+		return O_CREAT;
+	default:
+		_ThrowLinuxError
+	}
+}
 
 int stdx::_FileIOService::create_file(const std::string & path, int_32 access_type, int_32 open_type, mode_t mode)
 {
@@ -585,16 +669,142 @@ void stdx::_FileStream::close()
 	}
 }
 
-stdx::file_stream stdx::open_file(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type)
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type)
 {
 	stdx::file_stream file(io_service);
 	file.init(path, access_type, open_type);
 	return file;
 }
 
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const std::string & path, file_access_type access_type, file_open_type open_type)
+{
+	return stdx::open_file_stream(io_service, path, forward_file_access_type(access_type), forward_file_open_type(open_type));
+}
+
 stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &access_type, const int_32 &open_type)
 {
 	return open(path.c_str(),access_type|open_type);
 }
+#endif // LINUX
+
+stdx::file::file(const stdx::file_io_service &io_service,const std::string & path)
+	:m_path(path)
+	,m_io_service(io_service)
+{
+}
+
+const std::string & stdx::file::path() const
+{
+	return m_path;
+}
+
+int_64 stdx::file::size() const
+{
+#ifdef WIN32
+	HANDLE handle = open_native_handle(FILE_GENERIC_READ, OPEN_EXISTING);
+	LARGE_INTEGER li;
+	::GetFileSizeEx(handle, &li);
+	return li.QuadPart;
+#endif
+
+#ifdef LINUX
+	struct stat buf;
+	if (::stat(m_path.c_str(),&buf) != 0)
+	{
+		_ThrowLinuxError
+	}
+	return buf.st_size;
+#endif // LINUX
+}
+
+void stdx::file::remove()
+{
+#ifdef WIN32
+	if (::DeleteFileA(m_path.c_str()) == 0)
+	{
+		_ThrowWinError
+	}
+#endif
+	
+#ifdef LINUX
+	if (::remove(m_path.c_str()) != 0)
+	{
+		_ThrowLinuxError
+	}
+#endif // LINUX
+}
+
+#ifdef WIN32
+//DWORD CALLBACK copy_callback(
+//	LARGE_INTEGER TotalFileSize,			//文件总大小
+//	LARGE_INTEGER TotalBytesTransferred,	//已传输的大小
+//	LARGE_INTEGER StreamSize,				//流的大小
+//	LARGE_INTEGER StreamBytesTransferred,	//流已传输的大小
+//	DWORD dwStreamNumber,					//流编号
+//	DWORD dwCallbackReason,					//回调原因
+//	HANDLE hSourceFile,						//源文件句柄
+//	HANDLE hDestinationFile,				//目标文件句柄
+//	LPVOID lpData							//自定义数据
+//)
+//{
+//	std::function<void(const int&)> *callback = (std::function<void(const int&)>*)lpData;
+//}
+#endif // WIN32
+
+
+//void stdx::file::copy_to(const std::string & path,typename stdx::file::cancel_token *cancel_ptr, std::function<void(const int&)>&& on_progress_change)
+//{
+//#ifdef WIN32
+//	//CopyFileExA(m_path.c_str(), path.c_str(),(LPPROGRESS_ROUTINE)copy_callback, &on_progress_change,cancel_ptr, COPY_FILE_FAIL_IF_EXISTS);
+//#endif
+//
+//#ifdef LINUX
+//
+//#endif // LINUX
+//}
+
+bool stdx::file::exist() const
+{
+#ifdef WIN32
+	return ::PathFileExistsA(m_path.c_str());
+#endif
+
+#ifdef LINUX
+	return ::access(m_path.c_str(), F_OK) == 0;
+#endif // LINUX
+}
+
+#ifdef WIN32
+stdx::file_stream stdx::file::open_stream(const DWORD & access_type, const DWORD & open_type)
+{
+	return stdx::open_file_stream(m_io_service,m_path,access_type,open_type);
+}
+HANDLE stdx::file::open_native_handle(const DWORD & access_type, const DWORD & open_type) const
+{
+	HANDLE file = CreateFileA(m_path.c_str(), access_type, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, open_type, FILE_ATTRIBUTE_NORMAL, 0);
+	if (file == INVALID_HANDLE_VALUE)
+	{
+		_ThrowWinError
+	}
+	return file;
+}
+#endif // WIN32
+#ifdef LINUX
+stdx::file_stream stdx::file::open_stream(const stdx::file_io_service & io_service, const int_32 & access_type, const int_32 & open_type)
+{
+	return stdx::open_file_stream(io_service, m_path, access_type, open_type);
+}
+int stdx::file::open_native_handle(const int_32 & access_type, const int_32 & open_type) const
+{
+	return open(m_path.c_str(), access_type |open_type);
+}
+#endif // LINUX
+
+
+
+#ifdef WIN32
+#undef _ThrowWinError
+#endif // WIN32
+#ifdef LINUX
 #undef _ThrowLinuxError
 #endif // LINUX

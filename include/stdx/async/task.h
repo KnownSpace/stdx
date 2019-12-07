@@ -10,6 +10,7 @@
 
 namespace stdx
 {
+#pragma region SomeDataStruct
 	//Task状态
 	struct task_state
 	{
@@ -68,7 +69,7 @@ namespace stdx
 
 		result_t get()
 		{
-			
+
 			return m_future.get();
 		}
 	private:
@@ -106,6 +107,8 @@ namespace stdx
 	private:
 		std::shared_future<void> m_future;
 	};
+#pragma endregion
+
 
 	template<typename R>
 	class _Task;
@@ -203,21 +206,26 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
-        //BasicTask
-    interface_class basic_task:public stdx::basic_runable<void>
+#pragma region InterfaceAndPtrDefined
+	//BasicTask
+	interface_class basic_task : public stdx::basic_runable<void>
 	{
-	public: 
+	public:
 		virtual ~basic_task() = default;
-		virtual void run_on_this_thread()=0;
+		virtual void run_on_this_thread() = 0;
 	};
+
 	template<typename _T>
 	using task_ptr = std::shared_ptr<stdx::_Task<_T>>;
 
-	template<typename _T,typename _Fn,typename ..._Args>
+	template<typename _T, typename _Fn, typename ..._Args>
 	inline task_ptr<_T> make_task_ptr(_Fn &&fn, _Args &&...args)
 	{
 		return std::make_shared<_Task<_T>>(fn, args...);
 	}
+#pragma endregion
+
+#pragma region TaskCompleter
 	//_TaskCompleter模板
 	template<typename _t>
 	struct _TaskCompleter
@@ -319,24 +327,28 @@ namespace stdx
 			return;
 		}
 	};
+#pragma endregion
 
+#pragma region TaskContinuationBuilder
+	//无法通过编译的情况
 	template<typename Input, typename Result, typename Arg>
-	struct _TaskNextBuilder
+	struct _TaskContinuationBuilder
 	{
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			using arg_t = typename stdx::function_info<Fn>::arguments;
-			static_assert( is_arguments_type(Fn, stdx::task_result<Result> )||is_arguments_type(Fn,Result)||is_arguments_type(Fn,void), "the input function not be allowed");
+			static_assert(is_arguments_type(Fn, stdx::task_result<Result>) || is_arguments_type(Fn, Result) || is_arguments_type(Fn, void), "the input function not be allowed");
 			return nullptr;
 		}
 	};
 
+	//上一个Task有返回值,但用户选择忽略的情况
 	template<typename Input, typename Result>
-	struct _TaskNextBuilder<Input,Result,void>
+	struct _TaskContinuationBuilder<Input, Result, void>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future,state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> &future)
 			{
@@ -357,8 +369,10 @@ namespace stdx
 			return t;
 		}
 	};
+
+	//上一个Task有返回值,用户选择使用stdx::task_result<_T>的情况
 	template<typename Input, typename Result>
-	struct _TaskNextBuilder<Input, Result, stdx::task_result<Input>>
+	struct _TaskContinuationBuilder<Input, Result, stdx::task_result<Input>>
 	{
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
@@ -383,7 +397,11 @@ namespace stdx
 	};
 
 	template<typename Result>
-	struct _TaskNextBuilder<void, Result, void>
+	struct _TaskContinuationBuilder<stdx::task<void>, Result, void>;
+
+	//上一个Task返回void
+	template<typename Result>
+	struct _TaskContinuationBuilder<void, Result, void>
 	{
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<void> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
@@ -408,15 +426,16 @@ namespace stdx
 		}
 	};
 
+	//上一个Task有返回值,用户选择直接使用返回值的情况
 	template<typename Input, typename Result>
-	struct _TaskNextBuilder<Input, Result,Input>
+	struct _TaskContinuationBuilder<Input, Result, Input>
 	{
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> &future)
 			{
-				return std::bind(fn,future.get())();
+				return std::bind(fn, future.get())();
 			}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
@@ -433,26 +452,27 @@ namespace stdx
 		}
 	};
 
+	//上一个Task返回一个新的Task,用户选择使用新的Task的返回值的情况
 	template<typename Input, typename Result>
-	struct _TaskNextBuilder<stdx::task<Input>,Result,Input>
+	struct _TaskContinuationBuilder<stdx::task<Input>, Result, Input>
 	{
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			promise_ptr<Input> promise = stdx::make_promise_ptr<Input>();
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn,std::shared_future<Input> result)
+			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> result)
 			{
 				fn(result.get());
-			},fn,(std::shared_future<Input>)promise->get_future());
-			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t,std::shared_future<stdx::task<Input>> &future, promise_ptr<Input> input_promise)
+			}, fn, (std::shared_future<Input>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<Input> input_promise)
 			{
 				auto task = future.get();
-				task.then([input_promise,t](Input &r)
+				task.then([input_promise, t](Input &r)
 				{
 					input_promise->set_value(r);
 					t->run_on_this_thread();
 				});
-			},t,future,promise);
+			}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -468,8 +488,9 @@ namespace stdx
 		}
 	};
 
+	//上一个Task返回一个新的Task,用户选择使用新的Task的task_result的情况
 	template<typename Input, typename Result>
-	struct _TaskNextBuilder<stdx::task<Input>, Result, stdx::task_result<Input>>
+	struct _TaskContinuationBuilder<stdx::task<Input>, Result, stdx::task_result<Input>>
 	{
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
@@ -503,7 +524,80 @@ namespace stdx
 		}
 	};
 
+	//上一个Task返回新的Task<void>,用户选择忽略的情况
+	template<typename Result>
+	struct _TaskContinuationBuilder<stdx::task<void>, Result, void>
+	{
+		template<typename Fn>
+		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<void>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		{
+			promise_ptr<stdx::task_result<void>> promise = stdx::make_promise_ptr<stdx::task_result<void>>();
+			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<stdx::task_result<void>> result)
+			{
+				result.wait();
+				fn();
+			}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> &future, promise_ptr<stdx::task_result<void>> input_promise)
+			{
+				auto task = future.get();
+				task.then([input_promise, t](stdx::task_result<void> &r)
+				{
+					input_promise->set_value(r);
+					t->run_on_this_thread();
+				});
+			}, t, future, promise);
+			lock.lock();
+			if ((*state == task_state::complete) || (*state == task_state::error))
+			{
+				//解锁
+				lock.unlock();
+				//运行
+				start->run();
+				return t;
+			}
+			*next = start;
+			lock.unlock();
+			return t;
+		}
+	};
 
+	//上一个Task返回新的Task,用户选择忽略的情况
+	template<typename Input, typename Result>
+	struct _TaskContinuationBuilder<stdx::task<Input>, Result,void>
+	{
+		template<typename Fn>
+		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		{
+			promise_ptr<void> promise = stdx::make_promise_ptr<void>();
+			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<void> result)
+			{
+				result.wait();
+				fn();
+			}, fn, (std::shared_future<void>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<void> input_promise)
+			{
+				auto task = future.get();
+				task.then([input_promise,t]()
+				{
+					input_promise->set_value();
+					t->run_on_this_thread();
+				});
+			}, t, future, promise);
+			lock.lock();
+			if ((*state == task_state::complete) || (*state == task_state::error))
+			{
+				//解锁
+				lock.unlock();
+				//运行
+				start->run();
+				return t;
+			}
+			*next = start;
+			lock.unlock();
+			return t;
+		}
+	};
+#pragma endregion
 
 	//Task模板的实现
 	template<typename R>
@@ -609,12 +703,6 @@ namespace stdx
 			return c;
 		}
 
-		//template<typename _Fn, typename ..._Args>
-		//static std::shared_ptr<_Task<R>> make(_Fn &fn, _Args &...args)
-		//{
-		//	return std::make_shared<_Task<R>>(std::move(fn), std::move(args)...);
-		//}
-
 		template<typename _Fn, typename ..._Args>
 		static std::shared_ptr<_Task<R>> make(_Fn &&fn, _Args &&...args)
 		{
@@ -626,7 +714,7 @@ namespace stdx
 		std::shared_ptr<_Task<_R>> then(_Fn &&fn)
 		{
 			using args_tl = typename stdx::function_info<_Fn>::arguments;
-			std::shared_ptr<_Task<_R>> t = _TaskNextBuilder<R,_R,stdx::value_type<stdx::type_at<0,args_tl>>>::build(fn,m_future,m_state,m_lock,m_next);
+			std::shared_ptr<_Task<_R>> t = _TaskContinuationBuilder<R,_R,stdx::value_type<stdx::type_at<0,args_tl>>>::build(fn,m_future,m_state,m_lock,m_next);
 			return t;
 		}
 
@@ -656,18 +744,19 @@ namespace stdx
 		return task<_R>::start(fn,args...);
 	}
 
+#pragma region TaskCompleteEvent
 	template<typename _R>
 	class _TaskCompleteEvent
 	{
 	public:
 		_TaskCompleteEvent()
 			:m_promise(stdx::make_promise_ptr<_R>())
-			, m_task([](promise_ptr<_R> promise) 
-			{
-				return promise->get_future().get();
-			},m_promise)
+			, m_task([](promise_ptr<_R> promise)
+		{
+			return promise->get_future().get();
+		}, m_promise)
 		{}
-		~_TaskCompleteEvent()=default;
+		~_TaskCompleteEvent() = default;
 		void set_value(const _R &value)
 		{
 			m_promise->set_value(value);
@@ -741,7 +830,7 @@ namespace stdx
 		task_complete_event(const task_complete_event<_R> &other)
 			:m_impl(other.m_impl)
 		{}
-		~task_complete_event()=default;
+		~task_complete_event() = default;
 		task_complete_event<_R> &operator=(const task_complete_event<_R> &other)
 		{
 			m_impl = other.m_impl;
@@ -821,4 +910,5 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
+#pragma endregion
 }
