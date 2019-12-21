@@ -35,6 +35,7 @@ namespace stdx
 		spin_lock operator=(const spin_lock &other)
 		{
 			m_impl = other.m_impl;
+			return *this;
 		}
 		void lock()
 		{

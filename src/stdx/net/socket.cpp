@@ -63,7 +63,7 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int &addr_family, const i
 	return sock;
 }
 
-void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> &&callback)
+void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> callback)
 {
 	auto *context_ptr = new network_io_context;
 	context_ptr->this_socket = sock;
@@ -103,7 +103,7 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const size_t &
 	}
 }
 
-void stdx::_NetworkIOService::send_file(SOCKET sock, HANDLE file_with_cache,std::function<void(std::exception_ptr)> &&callback)
+void stdx::_NetworkIOService::send_file(SOCKET sock, HANDLE file_with_cache,std::function<void(std::exception_ptr)> callback)
 {
 	stdx::network_io_context *context_ptr = new network_io_context;
 	context_ptr->buffer.buf = NULL;
@@ -132,7 +132,7 @@ void stdx::_NetworkIOService::send_file(SOCKET sock, HANDLE file_with_cache,std:
 }
 
 
-void stdx::_NetworkIOService::recv(SOCKET sock, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> &&callback)
+void stdx::_NetworkIOService::recv(SOCKET sock, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback)
 {
 	auto *context_ptr = new network_io_context;
 	context_ptr->this_socket = sock;
@@ -233,7 +233,7 @@ void stdx::_NetworkIOService::bind(SOCKET sock, network_addr & addr)
 	}
 }
 
-void stdx::_NetworkIOService::send_to(SOCKET sock, const network_addr & addr, const char * data, const size_t & size, std::function<void(stdx::network_send_event, std::exception_ptr)>&& callback)
+void stdx::_NetworkIOService::send_to(SOCKET sock, const network_addr & addr, const char * data, const size_t & size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
 {
 	stdx::network_io_context *context_ptr = new stdx::network_io_context;
 	context_ptr->addr = addr;
@@ -274,7 +274,7 @@ void stdx::_NetworkIOService::send_to(SOCKET sock, const network_addr & addr, co
 	}
 }
 
-void stdx::_NetworkIOService::recv_from(SOCKET sock, const network_addr & addr, const size_t & size, std::function<void(network_recv_event, std::exception_ptr)>&& callback)
+void stdx::_NetworkIOService::recv_from(SOCKET sock, const network_addr & addr, const size_t & size, std::function<void(network_recv_event, std::exception_ptr)> callback)
 {
 	auto *context_ptr = new network_io_context;
 	context_ptr->this_socket = sock;
@@ -418,12 +418,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 close();
  }
 
- stdx::task<stdx::network_send_event> &stdx::_Socket::send(const char * data, const size_t & size,stdx::task_complete_event<stdx::network_send_event> ce)
+ stdx::task<stdx::network_send_event> stdx::_Socket::send(const char * data, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_send_event> ce;
 	 m_io_service.send(m_handle, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -439,12 +440,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<void>& stdx::_Socket::send_file(HANDLE file_handle,stdx::task_complete_event<void> ce)
+ stdx::task<void> stdx::_Socket::send_file(HANDLE file_handle)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<void> ce;
 	 m_io_service.send_file(m_handle, file_handle, [ce](std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -460,12 +462,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_send_event> &stdx::_Socket::send_to(const network_addr & addr, const char * data, const size_t & size,stdx::task_complete_event<stdx::network_send_event> ce)
+ stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const network_addr & addr, const char * data, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_send_event> ce;
 	 m_io_service.send_to(m_handle, addr, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -481,12 +484,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_recv_event> &stdx::_Socket::recv(const size_t & size, stdx::task_complete_event<stdx::network_recv_event> ce)
+ stdx::task<stdx::network_recv_event> stdx::_Socket::recv(const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_recv_event> ce;
 	 m_io_service.recv(m_handle, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -502,12 +506,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_recv_event> &stdx::_Socket::recv_from(const network_addr & addr, const size_t & size,stdx::task_complete_event<stdx::network_recv_event> ce)
+ stdx::task<stdx::network_recv_event> stdx::_Socket::recv_from(const network_addr & addr, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_recv_event> ce;
 	 m_io_service.recv_from(m_handle, addr, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -528,7 +533,6 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 if (m_handle != INVALID_SOCKET)
 	 {
 		 m_io_service.close(m_handle);
-		 //CloseHandle(m_handle);
 		 m_handle = INVALID_SOCKET;
 	 }
  }
@@ -567,7 +571,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 }
 	 if (protocol == stdx::protocol::tcp)
 	 {
-		 /*int flag = fcntl(sock, F_GETFL, 0);
+		/* int flag = fcntl(sock, F_GETFL, 0);
 		 fcntl(sock, F_SETFL, flag | O_NONBLOCK);*/
 	 }
 	 return sock;
@@ -644,15 +648,17 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 }
  }
 
- void stdx::_NetworkIOService::send(int sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> &&callback)
+ void stdx::_NetworkIOService::send(int sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> callback)
  {
-	 stdx::threadpool::run([sock,data,size,callback]() 
+	 char* buf = (char*) ::malloc(size);
+	 ::memcpy(buf,data,size);
+	 stdx::threadpool::run([sock,buf,size,callback]() 
 	 {
 		 ssize_t r = 0;
 		 std::exception_ptr err(nullptr);
 		 try
 		 {
-			 r = ::send(sock, data, size, 0);
+			 r = ::send(sock, buf, size, MSG_NOSIGNAL);
 			 if (r < 1)
 			 {
 				 _ThrowLinuxError
@@ -662,6 +668,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 		 {
 			 err = std::current_exception();
 		 }
+		 ::free(buf);
 		 if (err)
 		 {
 			 callback(network_send_event(), err);
@@ -674,7 +681,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 });
  }
 
- void stdx::_NetworkIOService::send_file(int sock, int file_handle,std::function<void(std::exception_ptr)> &&callback)
+ void stdx::_NetworkIOService::send_file(int sock, int file_handle,std::function<void(std::exception_ptr)> callback)
  {
 	 stdx::threadpool::run([sock,file_handle,callback]()
 	 {
@@ -697,7 +704,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 });
  }
 
- void stdx::_NetworkIOService::recv(int sock, const size_t &size, std::function<void(network_recv_event,std::exception_ptr)>&& callback)
+ void stdx::_NetworkIOService::recv(int sock, const size_t &size, std::function<void(network_recv_event,std::exception_ptr)> callback)
  {
 	 epoll_event ev;
 	 ev.events = stdx::epoll_events::in;
@@ -726,16 +733,18 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 m_reactor.push(sock,ev);
  }
 
- void stdx::_NetworkIOService::send_to(int sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> &&callback)
+ void stdx::_NetworkIOService::send_to(int sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
  {
-	 stdx::threadpool::run([sock,addr,data,size,callback]() 
+	 char* buf = (char*) ::malloc(size);
+	 ::memcpy(buf,data,size);
+	 stdx::threadpool::run([sock,addr,buf,size,callback]() 
 	 {
 		 socklen_t len = stdx::network_addr::addr_len;
 		 ssize_t r = 0;
 		 std::exception_ptr err(nullptr);
 		 try
 		 {
-			 r = ::sendto(sock, data, size, 0, (const sockaddr*)addr, len);
+			 r = ::sendto(sock, buf, size,MSG_NOSIGNAL, (const sockaddr*)addr, len);
 			 if (r < 1)
 			 {
 				 _ThrowLinuxError
@@ -745,6 +754,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 		 {
 			 err = std::current_exception();
 		 }
+		 ::free(buf);
 		 if (err)
 		 {
 			 callback(network_send_event(), err);
@@ -757,16 +767,17 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 });
  }
 
- void stdx::_NetworkIOService::recv_from(int sock, const network_addr &addr, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> &&callback)
+ void stdx::_NetworkIOService::recv_from(int sock, const network_addr &addr, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback)
  {
 	 stdx::threadpool::run([sock,addr,size,callback]() 
 	 {
 		 char *buf = (char*)calloc(size, sizeof(char));
 		 socklen_t len = stdx::network_addr::addr_len;
 		 ssize_t r = 0;
+		 std::exception_ptr err(nullptr);
 		 try
 		 {
-			 r = ::recvfrom(sock, buf, size, 0, addr, &len);
+			 r = ::recvfrom(sock, buf, size, MSG_NOSIGNAL, addr, &len);
 			 if (r < 1)
 			 {
 				 _ThrowLinuxError
@@ -775,7 +786,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 		 catch (const std::exception&)
 		 {
 			 free(buf);
-			 callback(network_recv_event(), err);
+			 callback(network_recv_event(),err);
 			 return;
 		 }
 		 network_recv_event ev;
@@ -806,8 +817,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 					 reactor.get<stdx::network_io_context_finder>([](epoll_event *ev_ptr)
 					 {
 						 stdx::network_io_context *context = (stdx::network_io_context *)ev_ptr->data.ptr;
-						 int r = ::recv(context->this_socket, context->buffer, context->size, 0);
-						 context->size = r;
+						 int r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL);
 						 auto *callback = context->callback;
 						 std::exception_ptr err(nullptr);
 						 try
@@ -821,6 +831,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 						 {
 							 err = std::current_exception();
 						 }
+						 context->size = (size_t)r;
 						 try
 						 {
 							 (*callback)(context, err);
@@ -865,12 +876,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 }
  }
 
- stdx::task<stdx::network_send_event> &stdx::_Socket::send(const char * data, const size_t & size, stdx::task_complete_event<stdx::network_send_event> ce)
+ stdx::task<stdx::network_send_event> stdx::_Socket::send(const char * data, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_send_event> ce;
 	 m_io_service.send(m_handle, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -886,12 +898,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<void>& stdx::_Socket::send_file(int file_handle, stdx::task_complete_event<void> ce)
+ stdx::task<void> stdx::_Socket::send_file(int file_handle)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<void> ce;
 	 m_io_service.send_file(m_handle,file_handle,[ce](std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -907,12 +920,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_send_event> &stdx::_Socket::send_to(const network_addr & addr, const char * data, const size_t & size, stdx::task_complete_event<stdx::network_send_event> ce)
+ stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const network_addr & addr, const char * data, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_send_event> ce;
 	 m_io_service.send_to(m_handle, addr, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -928,12 +942,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_recv_event> &stdx::_Socket::recv(const size_t & size, stdx::task_complete_event<stdx::network_recv_event> ce)
+ stdx::task<stdx::network_recv_event> stdx::_Socket::recv(const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_recv_event> ce;
 	 m_io_service.recv(m_handle, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -949,12 +964,13 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_recv_event> &stdx::_Socket::recv_from(const network_addr & addr, const size_t & size, stdx::task_complete_event<stdx::network_recv_event> ce)
+ stdx::task<stdx::network_recv_event> stdx::_Socket::recv_from(const network_addr & addr, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
+	 stdx::task_complete_event<stdx::network_recv_event> ce;
 	 m_io_service.recv_from(m_handle, addr, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)

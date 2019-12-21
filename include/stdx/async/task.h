@@ -119,21 +119,27 @@ namespace stdx
 	{
 		using impl_t = std::shared_ptr<stdx::_Task<_R>>;
 	public:
-		task() = default;
-		template<typename _Fn, typename ..._Args>
-		task(_Fn &&fn, _Args &&...args)
-			:m_impl(std::make_shared<_Task<_R>>(std::move(fn), args...))
+		task()
+			:m_impl(nullptr)
 		{}
 
-		explicit task(impl_t impl)
-			:m_impl(impl)
-		{}
 		task(const task<_R> &other)
-			:m_impl(other.m_impl)
+			: m_impl(other.m_impl)
 		{}
 
 		task(task<_R> &&other)
-			:m_impl(std::move(other.m_impl))
+			: m_impl(std::move(other.m_impl))
+		{}
+
+		template<typename _Fn, typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		task(_Fn &&fn, _Args &&...args)
+			:m_impl(std::make_shared<_Task<_R>>(std::move(fn), args...))
+		{
+			
+		}
+
+		explicit task(impl_t impl)
+			:m_impl(impl)
 		{}
 
 		task<_R> &operator=(const task<_R> &other)
@@ -168,9 +174,10 @@ namespace stdx
 		}
 
 		template<typename _Fn, typename __R = typename stdx::function_info<_Fn>::result>
-		task<__R> then(_Fn &&fn)
+		stdx::task<__R> then(_Fn &&fn)
 		{
-			return task<__R>(m_impl->then<_Fn>(std::move(fn)));
+			stdx::task<__R> t((*m_impl).then(std::move(fn)));
+			return t;
 		}
 
 		void wait()
@@ -605,6 +612,7 @@ namespace stdx
 	{
 	public:
 		//构造函数
+
 		template<typename _Fn, typename ..._Args>
 		explicit _Task(_Fn &&f, _Args &&...args)
 			:m_action(stdx::make_runable<R>(std::move(f), args...))
@@ -738,7 +746,7 @@ namespace stdx
 	};	
 
 	//启动一个Task
-	template<typename _Fn, typename ..._Args,typename _R = typename stdx::function_info<_Fn>::result>
+	template<typename _Fn, typename ..._Args,typename _R =typename stdx::function_info<_Fn>::result>
 	inline stdx::task<_R> async(_Fn &&fn, _Args &&...args)
 	{
 		return task<_R>::start(fn,args...);
@@ -757,7 +765,11 @@ namespace stdx
 		}, m_promise)
 		{}
 		~_TaskCompleteEvent() = default;
-		void set_value(const _R &value)
+		void set_value(_R &&value)
+		{
+			m_promise->set_value(value);
+		}
+		void set_value(_R &value)
 		{
 			m_promise->set_value(value);
 		}
@@ -765,7 +777,7 @@ namespace stdx
 		{
 			m_promise->set_exception(error);
 		}
-		stdx::task<_R> &get_task()
+		stdx::task<_R> get_task()
 		{
 			return m_task;
 		}
@@ -802,7 +814,7 @@ namespace stdx
 		{
 			m_promise->set_exception(error);
 		}
-		stdx::task<void> &get_task()
+		stdx::task<void> get_task()
 		{
 			return m_task;
 		}
@@ -842,15 +854,21 @@ namespace stdx
 			return other.m_impl == m_impl;
 		}
 
-		void set_value(const _R &value)
+		void set_value(_R &&value)
 		{
-			m_impl->set_value(value);
+			m_impl->set_value(std::move(value));
 		}
+
+		void set_value(_R &value)
+		{
+			m_impl->set_value(std::move(value));
+		}
+
 		void set_exception(const std::exception_ptr &error)
 		{
 			m_impl->set_exception(error);
 		}
-		stdx::task<_R> &get_task()
+		stdx::task<_R> get_task()
 		{
 			return m_impl->get_task();
 		}
@@ -895,7 +913,7 @@ namespace stdx
 		{
 			m_impl->set_exception(error);
 		}
-		stdx::task<void> &get_task()
+		stdx::task<void> get_task()
 		{
 			return m_impl->get_task();
 		}

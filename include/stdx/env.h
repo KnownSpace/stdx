@@ -2,7 +2,7 @@
 //类库遵循以下约定
 //所有的Class(除实现Class外,例如:_XxYy)都是引用类型
 //所有的Struct(除另外说明外)都是值类型
-
+#include <type_traits>
 
 #ifndef WIN32
 #ifndef LINUX
@@ -216,9 +216,9 @@ namespace stdx
 	};
 
 	template<typename _T>
-	typename _Forwarder<_T>::forward_type forward(_T arg)
+	typename _Forwarder<_T>::forward_type forward(typename _Forwarder<_T>::forward_type arg)
 	{
-		return (_T&&)stdx::_Forwarder<_T>::forward(arg);
+		return stdx::_Forwarder<_T>::forward(arg);
 	}
 }
 

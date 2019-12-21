@@ -93,7 +93,7 @@ HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_t
 	return file;
 }
 
-void stdx::_FileIOService::read_file(HANDLE file, const DWORD &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
+void stdx::_FileIOService::read_file(HANDLE file, const DWORD &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	file_io_context *context = new file_io_context;
 	int64_union li;
@@ -163,7 +163,7 @@ void stdx::_FileIOService::read_file(HANDLE file, const DWORD &size, const int_6
 	return;
 }
 
-void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
+void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 	file_io_context *context_ptr = new file_io_context;
 	int64_union li;
@@ -213,7 +213,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 {
 	for (size_t i = 0, cores = cpu_cores() * 2; i < cores; i++)
 	{
-		stdx::threadpool::run([](iocp_t &iocp, std::shared_ptr<bool> alive)
+		stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
 		{
 			while (*alive)
 			{
@@ -283,12 +283,13 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> &stdx::_FileStream::read(const size_t & size, const int_64 & offset, stdx::task_complete_event<stdx::file_read_event> ce)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const int_64 & offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
+	stdx::task_complete_event<stdx::file_read_event> ce;
 	m_io_service.read_file(m_file, size, offset, [ce](file_read_event context, std::exception_ptr error) mutable
 	{
 		if (error)
@@ -304,12 +305,13 @@ stdx::task<stdx::file_read_event> &stdx::_FileStream::read(const size_t & size, 
 	return ce.get_task();
 }
 
-stdx::task<stdx::file_write_event> &stdx::_FileStream::write(const char* buffer, const size_t &size, const int_64 &offset, stdx::task_complete_event<stdx::file_write_event> ce)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const int_64 &offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
+	stdx::task_complete_event<stdx::file_write_event> ce;
 	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
 	{
 		if (error)
@@ -379,7 +381,7 @@ stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &
 	{
 		_ThrowWinError
 	}
-	return file;
+	return stdx::file_handle(file);
 }
 #endif // WIN32
 #ifdef LINUX
@@ -420,7 +422,7 @@ int_32 stdx::forward_file_access_type(file_access_type access_type)
 	}
 }
 
-int_32 forward_file_open_type(file_open_type open_type)
+int_32 stdx::forward_file_open_type(stdx::file_open_type open_type)
 {
 	switch (open_type)
 	{
@@ -439,15 +441,15 @@ int_32 forward_file_open_type(file_open_type open_type)
 
 int stdx::_FileIOService::create_file(const std::string & path, int_32 access_type, int_32 open_type, mode_t mode)
 {
-	return open(path.c_str(), access_type | open_type|O_DIRECT, mode);
+	return ::open(path.c_str(), access_type | open_type|O_DIRECT, mode);
 }
 
 int stdx::_FileIOService::create_file(const std::string & path, int_32 access_type, int_32 open_type)
 {
-	return open(path.c_str(), access_type | open_type|O_DIRECT);
+	return ::open(path.c_str(), access_type | open_type|O_DIRECT);
 }
 
-void stdx::_FileIOService::read_file(int file, const size_t & size, const int_64 & offset, std::function<void(file_read_event, std::exception_ptr)>&& callback)
+void stdx::_FileIOService::read_file(int file, const size_t & size, const int_64 & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	auto  r_size = size;
 	auto tmp = size % 512;
@@ -497,7 +499,7 @@ void stdx::_FileIOService::read_file(int file, const size_t & size, const int_64
 	}
 }
 
-void stdx::_FileIOService::write_file(int file, const char * buffer, const size_t & size, const int_64 & offset, std::function<void(file_write_event, std::exception_ptr)>&& callback)
+void stdx::_FileIOService::write_file(int file, const char * buffer, const size_t & size, const int_64 & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 	auto  r_size = size;
 	auto tmp = size % 512;
@@ -571,13 +573,17 @@ void stdx::_FileIOService::init_thread()
 {
 	for (size_t i = 0, cores = cpu_cores() * 2; i < cores; i++)
 	{
-		stdx::threadpool::run([](aiocp_t &aiocp, std::shared_ptr<bool> alive)
+		stdx::threadpool::run([](aiocp_t aiocp, std::shared_ptr<bool> alive)
 		{
 			while (*alive)
 			{
 				std::exception_ptr error(nullptr);
 				int_64 res = 0;
 				auto *context_ptr = aiocp.get(res);
+				if (context_ptr == nullptr)
+				{
+					continue;
+				}
 				auto *call = context_ptr->callback;
 				try
 				{
@@ -597,6 +603,14 @@ void stdx::_FileIOService::init_thread()
 					error = std::current_exception();
 					(*call)(nullptr, error);
 					delete call;
+					try
+					{
+						delete context_ptr;
+					}
+					catch (const std::exception&)
+					{
+
+					}
 				}
 			}
 		}, m_aiocp, m_alive);
@@ -617,12 +631,13 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> &stdx::_FileStream::read(const size_t & size, const int_64 & offset,stdx::task_complete_event<stdx::file_read_event> ce)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const int_64 & offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
+	stdx::task_complete_event<stdx::file_read_event> ce;
 	m_io_service.read_file(m_file, size, offset, [ce](file_read_event context, std::exception_ptr error) mutable
 	{
 		if (error)
@@ -639,12 +654,13 @@ stdx::task<stdx::file_read_event> &stdx::_FileStream::read(const size_t & size, 
 }
 
 
-stdx::task<stdx::file_write_event> &stdx::_FileStream::write(const char* buffer, const size_t &size, const int_64 &offset,stdx::task_complete_event<stdx::file_write_event> ce)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const int_64 &offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
+	stdx::task_complete_event<stdx::file_write_event> ce;
 	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
 	{
 		if (error)
@@ -683,19 +699,37 @@ stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_servic
 
 stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &access_type, const int_32 &open_type)
 {
-	return open(path.c_str(),access_type|open_type);
+	return ::open(path.c_str(),access_type|open_type);
 }
 #endif // LINUX
 
 stdx::file::file(const stdx::file_io_service &io_service,const std::string & path)
-	:m_path(path)
+	:m_path(std::make_shared<std::string>(path))
 	,m_io_service(io_service)
 {
 }
 
+stdx::file::file(const file & other)
+	:m_io_service(other.m_io_service)
+	,m_path(other.m_path)
+{
+}
+
+stdx::file & stdx::file::operator=(const file & other)
+{
+	m_path = other.m_path;
+	m_io_service = other.m_io_service;
+	return *this;
+}
+
+bool stdx::file::operator==(const file & other) const
+{
+	return (*m_path) == (*other.m_path);
+}
+
 const std::string & stdx::file::path() const
 {
-	return m_path;
+	return *m_path;
 }
 
 int_64 stdx::file::size() const
@@ -709,7 +743,7 @@ int_64 stdx::file::size() const
 
 #ifdef LINUX
 	struct stat buf;
-	if (::stat(m_path.c_str(),&buf) != 0)
+	if (::stat(m_path->c_str(),&buf) != 0)
 	{
 		_ThrowLinuxError
 	}
@@ -720,14 +754,14 @@ int_64 stdx::file::size() const
 void stdx::file::remove()
 {
 #ifdef WIN32
-	if (::DeleteFileA(m_path.c_str()) == 0)
+	if (::DeleteFileA(m_path->c_str()) == 0)
 	{
 		_ThrowWinError
 	}
 #endif
 	
 #ifdef LINUX
-	if (::remove(m_path.c_str()) != 0)
+	if (::remove(m_path->c_str()) != 0)
 	{
 		_ThrowLinuxError
 	}
@@ -766,22 +800,23 @@ void stdx::file::remove()
 bool stdx::file::exist() const
 {
 #ifdef WIN32
-	return ::PathFileExistsA(m_path.c_str());
+	return ::PathFileExistsA(m_path->c_str());
 #endif
 
 #ifdef LINUX
-	return ::access(m_path.c_str(), F_OK) == 0;
+	return ::access(m_path->c_str(), F_OK) == 0;
 #endif // LINUX
 }
 
 #ifdef WIN32
 stdx::file_stream stdx::file::open_stream(const DWORD & access_type, const DWORD & open_type)
 {
-	return stdx::open_file_stream(m_io_service,m_path,access_type,open_type);
+	return stdx::open_file_stream(m_io_service,*m_path,access_type,open_type);
 }
+
 HANDLE stdx::file::open_native_handle(const DWORD & access_type, const DWORD & open_type) const
 {
-	HANDLE file = CreateFileA(m_path.c_str(), access_type, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, open_type, FILE_ATTRIBUTE_NORMAL, 0);
+	HANDLE file = CreateFileA(m_path->c_str(), access_type, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, open_type, FILE_ATTRIBUTE_NORMAL, 0);
 	if (file == INVALID_HANDLE_VALUE)
 	{
 		_ThrowWinError
@@ -792,15 +827,18 @@ HANDLE stdx::file::open_native_handle(const DWORD & access_type, const DWORD & o
 #ifdef LINUX
 stdx::file_stream stdx::file::open_stream(const stdx::file_io_service & io_service, const int_32 & access_type, const int_32 & open_type)
 {
-	return stdx::open_file_stream(io_service, m_path, access_type, open_type);
+	return stdx::open_file_stream(io_service, *m_path, access_type, open_type);
 }
 int stdx::file::open_native_handle(const int_32 & access_type, const int_32 & open_type) const
 {
-	return open(m_path.c_str(), access_type |open_type);
+	return ::open(m_path->c_str(), access_type |open_type);
 }
 #endif // LINUX
 
-
+stdx::file_stream stdx::file::open_stream(const stdx::file_access_type & access_type, const stdx::file_open_type & open_type)
+{
+	return stdx::open_file_stream(m_io_service,*m_path,access_type,open_type);
+}
 
 #ifdef WIN32
 #undef _ThrowWinError

@@ -233,7 +233,6 @@ namespace stdx
 #ifdef LINUX
 #include <memory>
 #include <system_error>
-#include <string>
 #include <string.h>
 #include <sys/epoll.h>
 #include <errno.h>
@@ -299,10 +298,13 @@ namespace stdx
 			:m_impl(other.m_impl)
 		{}
 		~epoll() = default;
+
 		epoll &operator=(const epoll &other)
 		{
 			m_impl = other.m_impl;
+			return *this;
 		}
+
 		void add_event(int fd, epoll_event *event_ptr)
 		{
 			return m_impl->add_event(fd, event_ptr);
@@ -421,7 +423,10 @@ namespace stdx
 		_IOContext *get(int_64 &res)
 		{
 			io_event ev;
-			io_getevents(m_ctxid, 1, 1,&ev,NULL);
+			if (io_getevents(m_ctxid, 1, 1, &ev, NULL) == 0)
+			{
+				return nullptr;
+			}
 			res = ev.res;
 			return (_IOContext*)ev.data;
 		}
@@ -513,7 +518,8 @@ namespace stdx
 		{
 			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
 			epoll_event ev = m_poll.wait(-1);
-			auto *ev_ptr = &ev;
+			auto *ev_ptr = new epoll_event;
+			*ev_ptr = ev;
 			int fd = _Finder::find(ev_ptr);
 			std::function<void(epoll_event*,_Fn)> call = [](epoll_event *ev_ptr,_Fn execute) mutable
 			{
@@ -524,6 +530,7 @@ namespace stdx
 				catch (...)
 				{
 				}
+				delete ev_ptr;
 			};
 			stdx::threadpool::run([this](epoll_event *ev, _Fn execute, int fd, std::function<void(epoll_event*, _Fn)> call) mutable
 			{

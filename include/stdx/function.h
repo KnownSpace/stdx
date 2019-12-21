@@ -75,6 +75,17 @@ namespace stdx
 		using belong_type = _Fn;
 	};
 
+	template <typename T>
+	struct is_callable 
+	{
+	private:
+		class false_t;
+	public:
+		template<typename U>  static auto test(int)->decltype(&U::operator());
+		template<typename U> static false_t test(...);
+		const static bool value = !std::is_same<decltype(test<T>(0)), false_t>::value;
+	};
+
 	template<typename _Fn, typename ..._Args>
 	struct _IsArgs
 	{
@@ -87,6 +98,7 @@ namespace stdx
 			value = is_same(arguments, stdx::type_list<_Args...>)
 		};
 	};
+
 #ifdef WIN32
 #define is_arguments_type(_Fn,...) stdx::_IsArgs<_Fn,__VA_ARGS__>::value
 #else
@@ -166,15 +178,17 @@ namespace stdx
 		_Runable()
 			:basic_runable<_R>()
 		{}
-		_Runable(const _Fn &fn)
+
+		_Runable(_Fn fn)
 			:basic_runable<_R>()
-			, m_func(fn)
+			,m_func(fn)
 		{}
+
 		~_Runable()=default;
 
 		virtual _R run() override
 		{
-			return _ActionRunner<_R,_Fn>::run(std::move(m_func));
+			return _ActionRunner<_R,_Fn>::run(m_func);
 		}
 
 		operator bool()
@@ -191,7 +205,7 @@ namespace stdx
 	template<typename T, typename _Fn>
 	inline runable_ptr<T> make_runable(_Fn &&fn)
 	{
-		return std::make_shared<_Runable<T,_Fn>>(std::move(fn));
+		return std::make_shared<_Runable<T,_Fn>>(fn);
 	}
 
 	template<typename T,typename _Fn,typename ..._Args>
