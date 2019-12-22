@@ -28,8 +28,9 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		c.recv(1024).then([c](stdx::network_recv_event &e) mutable
+		c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
 		{
+			std::cout << "from: " << e.addr.ip() << ":" <<e.addr.port() <<std::endl;
 			std::cout << "recv:" << std::endl
 					<< e.buffer <<std::endl;
 			std::string str = "HTTP/1.1 200 OK\r\nContent-Type:text/html";
