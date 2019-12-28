@@ -63,32 +63,31 @@ namespace stdx
 #pragma endregion
 
 #pragma region Enum
-	struct protocol
+
+	enum class protocol :int
 	{
-		enum
-		{
-			ip = IPPROTO_IP,
-			tcp = IPPROTO_TCP,
-			udp = IPPROTO_UDP
-		};
+		ip = IPPROTO_IP,	//IP
+		tcp = IPPROTO_TCP,	//TCP
+		udp = IPPROTO_UDP	//UDP
 	};
-	struct socket_type
+
+	enum class socket_type :int
 	{
-		enum
-		{
-			raw = SOCK_RAW,
-			stream = SOCK_STREAM,
-			dgram = SOCK_DGRAM
-		};
+		raw = SOCK_RAW,			//原始套接字
+		stream = SOCK_STREAM,	//流式套接字
+		dgram = SOCK_DGRAM		//数据包套接字
 	};
-	struct addr_family
+	enum class addr_family :int
 	{
-		enum
-		{
-			ip = AF_INET,
-			ipv6 = AF_INET6
-		};
+		ip = AF_INET,		//IPv4
+		ipv6 = AF_INET6		//IPv6
 	};
+
+	int forward_protocol(const stdx::protocol &protocol);
+
+	int forward_socket_type(const stdx::socket_type &sock_type);
+
+	int forward_addr_family(const stdx::addr_family &addr_family);
 #pragma endregion
 
 #pragma region StructDef
@@ -101,7 +100,7 @@ namespace stdx
 		}
 		network_addr(unsigned long ip, const uint_16 &port)
 		{
-			m_handle.sin_family = addr_family::ip;
+			m_handle.sin_family =stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_addr.S_un.S_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
@@ -788,6 +787,7 @@ namespace stdx
 namespace stdx
 {
 	extern stdx::socket open_socket(const stdx::network_io_service &io_service, const int &addr_family, const int &sock_type, const int &protocol);
+	extern stdx::socket open_socket(const stdx::network_io_service &io_service, const stdx::addr_family &addr_family, const stdx::socket_type &sock_type, const stdx::protocol &protocol);
 	extern stdx::socket open_tcpsocket(const stdx::network_io_service &io_service);
 	extern stdx::socket open_udpsocket(const stdx::network_io_service &io_service);
 }
@@ -807,32 +807,30 @@ namespace stdx
 namespace stdx
 {
 #pragma region Enum
-	struct protocol
+	enum class protocol :int
 	{
-		enum
-		{
-			ip = IPPROTO_IP,
-			tcp = IPPROTO_TCP,
-			udp = IPPROTO_UDP
-		};
+		ip = IPPROTO_IP,	//IP
+		tcp = IPPROTO_TCP,	//TCP
+		udp = IPPROTO_UDP	//UDP
 	};
-	struct socket_type
+
+	enum class socket_type :int
 	{
-		enum
-		{
-			raw = SOCK_RAW,
-			stream = SOCK_STREAM,
-			dgram = SOCK_DGRAM
-		};
+		raw = SOCK_RAW,			//原始套接字
+		stream = SOCK_STREAM,	//流式套接字
+		dgram = SOCK_DGRAM		//数据包套接字
 	};
-	struct addr_family
+	enum class addr_family :int
 	{
-		enum
-		{
-			ip = AF_INET,
-			ipv6 = AF_INET6
-		};
+		ip = AF_INET,		//IPv4
+		ipv6 = AF_INET6		//IPv6
 	};
+
+	int forward_protocol(const stdx::protocol &protocol);
+
+	int forward_socket_type(const stdx::socket_type &sock_type);
+
+	int forward_addr_family(const stdx::addr_family &addr_family);
 #pragma endregion
 
 #pragma region StructDef
@@ -845,7 +843,7 @@ namespace stdx
 		}
 		network_addr(unsigned long ip, const uint_16 &port)
 		{
-			m_handle.sin_family = addr_family::ip;
+			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_addr.s_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
@@ -1409,6 +1407,7 @@ namespace stdx
 namespace stdx
 {
 	extern stdx::socket open_socket(const stdx::network_io_service &io_service, const int &addr_family, const int &sock_type, const int &protocol);
+	extern stdx::socket open_socket(const stdx::network_io_service &io_service, const stdx::addr_family &addr_family, const stdx::socket_type &sock_type, const stdx::protocol &protocol);
 	extern stdx::socket open_tcpsocket(const stdx::network_io_service &io_service);
 	extern stdx::socket open_udpsocket(const stdx::network_io_service &io_service);
 }

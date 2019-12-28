@@ -24,6 +24,21 @@
 							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_STR.c_str());\
 						}\
 
+int stdx::forward_protocol(const stdx::protocol & protocol)
+{
+	return static_cast<int>(protocol);
+}
+
+int stdx::forward_socket_type(const stdx::socket_type & sock_type)
+{
+	return static_cast<int>(sock_type);
+}
+
+int stdx::forward_addr_family(const stdx::addr_family & addr_family)
+{
+	return static_cast<int>(addr_family);
+}
+
 stdx::_WSAStarter stdx::_wsastarter;
 
 stdx::_NetworkIOService::_NetworkIOService()
@@ -561,6 +576,11 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return sock;
  }
 
+ stdx::socket stdx::open_socket(const stdx::network_io_service & io_service, const stdx::addr_family & addr_family, const stdx::socket_type & sock_type, const stdx::protocol & protocol)
+ {
+	 return stdx::open_socket(io_service,stdx::forward_addr_family(addr_family),stdx::forward_socket_type(sock_type),stdx::forward_protocol(protocol));
+ }
+
  stdx::socket stdx::open_tcpsocket(const stdx::network_io_service &io_service)
  {
 	 return stdx::open_socket(io_service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
@@ -578,6 +598,21 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
 
+
+ int stdx::forward_protocol(const stdx::protocol & protocol)
+ {
+	 return static_cast<int>(protocol);
+ }
+
+ int stdx::forward_socket_type(const stdx::socket_type & sock_type)
+ {
+	 return static_cast<int>(sock_type);
+ }
+
+ int stdx::forward_addr_family(const stdx::addr_family & addr_family)
+ {
+	 return static_cast<int>(addr_family);
+ }
 
  int stdx::_NetworkIOService::create_socket(const int &addr_family, const int &sock_type, const int &protocol)
  {
@@ -1030,6 +1065,11 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 stdx::socket sock(io_service);
 	 sock.init(addr_family, sock_type, protocol);
 	 return sock;
+ }
+
+ stdx::socket stdx::open_socket(const stdx::network_io_service & io_service, const stdx::addr_family & addr_family, const stdx::socket_type & sock_type, const stdx::protocol & protocol)
+ {
+	 return stdx::open_socket(io_service, stdx::forward_addr_family(addr_family), stdx::forward_socket_type(sock_type), stdx::forward_protocol(protocol));
  }
 
  stdx::socket stdx::open_tcpsocket(const stdx::network_io_service &io_service)

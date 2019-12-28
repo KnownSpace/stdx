@@ -15,55 +15,19 @@
 							} \
 						}\
 
-DWORD stdx::forward_file_access_type(file_access_type access_type)
+DWORD stdx::forward_file_access_type(const stdx::file_access_type & access_type)
 {
-	switch (access_type)
-	{
-	case stdx::file_access_type::execute:
-		return FILE_GENERIC_EXECUTE;
-	case stdx::file_access_type::read:
-		return FILE_GENERIC_READ;
-	case stdx::file_access_type::write:
-		return FILE_GENERIC_WRITE;
-	case stdx::file_access_type::all:
-		return GENERIC_ALL;
-	default:
-		_ThrowWinError
-	}
+	return static_cast<DWORD>(access_type);
 }
 
-DWORD stdx::forward_file_shared_model(file_shared_model shared_model)
+DWORD stdx::forward_file_shared_model(const stdx::file_shared_model &shared_model)
 {
-	switch (shared_model)
-	{
-	case stdx::file_shared_model::unique:
-		return 0UL;
-	case stdx::file_shared_model::shared_read:
-		return FILE_SHARE_READ;
-	case stdx::file_shared_model::shared_write:
-		return FILE_SHARE_WRITE;
-	case stdx::file_shared_model::shared_delete:
-		return FILE_SHARE_DELETE;
-	default:
-		_ThrowWinError
-	}
+	return static_cast<DWORD>(shared_model);
 }
 
-DWORD stdx::forward_file_open_type(file_open_type open_type)
+DWORD stdx::forward_file_open_type(const stdx::file_open_type &open_type)
 {
-	switch (open_type)
-	{
-	case stdx::file_open_type::open:
-		return OPEN_EXISTING;
-	case stdx::file_open_type::create:
-		return CREATE_ALWAYS;
-	case stdx::file_open_type::new_file:
-		return CREATE_NEW;
-	case stdx::file_open_type::create_open:
-		return OPEN_ALWAYS;
-	default:
-		_ThrowWinError
-	}
+	return static_cast<DWORD>(open_type);
 }
 
 stdx::_FileIOService::_FileIOService()
@@ -172,9 +136,12 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const siz
 	context_ptr->m_ol.OffsetHigh = li.height;
 	context_ptr->size = 0;
 	context_ptr->offset = 0;
+	char* buf = (char*)::calloc(size, sizeof(char));
+	::memcpy(buf, buffer, size);
 	auto *call = new std::function<void(file_io_context*, std::exception_ptr)>;
-	*call = [callback](file_io_context *context_ptr, std::exception_ptr error)
+	*call = [callback,buf](file_io_context *context_ptr, std::exception_ptr error)
 	{
+		::free(buf);
 		if (error)
 		{
 			delete context_ptr;
@@ -186,7 +153,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const siz
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
-	if (!WriteFile(file, buffer, size, &(context_ptr->size), &(context_ptr->m_ol)))
+	if (!WriteFile(file, buf, size, &(context_ptr->size), &(context_ptr->m_ol)))
 	{
 		try
 		{
@@ -407,36 +374,14 @@ stdx::_FileIOService::~_FileIOService()
 	*m_alive = false;
 }
 
-int_32 stdx::forward_file_access_type(file_access_type access_type)
+int_32 stdx::forward_file_access_type(const stdx::file_access_type & access_type)
 {
-	switch (access_type)
-	{
-	case stdx::file_access_type::read:
-		return O_RDONLY;
-	case stdx::file_access_type::write:
-		return O_WRONLY;
-	case stdx::file_access_type::all:
-		return O_RDWR;
-	default:
-		_ThrowLinuxError
-	}
+	return static_cast<int_32>(access_type);
 }
 
-int_32 stdx::forward_file_open_type(stdx::file_open_type open_type)
+int_32 stdx::forward_file_open_type(const stdx::file_open_type &open_type)
 {
-	switch (open_type)
-	{
-	case stdx::file_open_type::open:
-		return 0;
-	case stdx::file_open_type::create:
-		return O_TRUNC;
-	case stdx::file_open_type::new_file:
-		return O_CREAT | O_EXCL;
-	case stdx::file_open_type::create_open:
-		return O_CREAT;
-	default:
-		_ThrowLinuxError
-	}
+	return static_cast<int_32>(open_type);
 }
 
 int stdx::_FileIOService::create_file(const std::string & path, int_32 access_type, int_32 open_type, mode_t mode)

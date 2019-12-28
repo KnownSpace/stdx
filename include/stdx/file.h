@@ -122,37 +122,37 @@ namespace stdx
 	
 #pragma region EnumDef
 	//文件访问类型
-	enum class file_access_type : uint_32
+	enum class file_access_type : DWORD
 	{
-		execute,	//FILE_GENERIC_EXECUTE
-		read,		//FILE_GENERIC_READ
-		write,		//FILE_GENERIC_WRITE
-		all			//GENERIC_ALL
+		execute = FILE_GENERIC_EXECUTE,	//以执行的形式访问
+		read = FILE_GENERIC_READ,		//以只读的形式访问
+		write = FILE_GENERIC_WRITE,		//以只写的形式访问
+		all = GENERIC_ALL				//以读写的形式访问
 	};
 
 	//文件共享类型
-	enum class file_shared_model : uint_32
+	enum class file_shared_model : DWORD
 	{
-		unique,			//0UL,
-		shared_read,	//FILE_SHARE_READ
-		shared_write,	//FILE_SHARE_WRITE
-		shared_delete	//FILE_SHARE_DELETE
+		unique = 0UL,							//独占
+		shared_read = FILE_SHARE_READ,			//共享读
+		shared_write = FILE_SHARE_WRITE,		//共享写
+		shared_delete= FILE_SHARE_DELETE		//共享删除
 	};
 
 	//文件打开类型
-	enum class file_open_type : uint_32
+	enum class file_open_type : DWORD
 	{
-		open,			//OPEN_EXISTING
-		create,			//CREATE_ALWAYS
-		new_file,		//CREATE_NEW
-		create_open		//OPEN_ALWAYS
+		open = OPEN_EXISTING,					//打开已存在的文件
+		create_always = CREATE_ALWAYS,			//总时创建新文件,若文件已存在会被截断
+		create = CREATE_NEW,					//若文件不存在则创建,存在则出错
+		open_always	= OPEN_ALWAYS				//若文件存在则打开,不存在则创建
 	};
 
-	extern DWORD forward_file_access_type(file_access_type access_type);
+	extern DWORD forward_file_access_type(const file_access_type & access_type);
 
-	extern DWORD forward_file_shared_model(file_shared_model shared_model);
+	extern DWORD forward_file_shared_model(const file_shared_model &shared_model);
 
-	extern DWORD forward_file_open_type(file_open_type open_type);
+	extern DWORD forward_file_open_type(const file_open_type &open_type);
 #pragma endregion
 
 #pragma region IO_SERVICE
@@ -593,22 +593,22 @@ namespace stdx
 	//文件访问类型
 	enum class file_access_type : uint_32
 	{
-		read,	//O_RDONLY
-		write,	//O_WRONLY
-		all,	//O_RDWR
+		read = O_RDONLY,	//以只读的形式访问
+		write = O_WRONLY,	//以只写的形式访问
+		all = O_RDWR,		//以读写的形式访问
 	};
 	//文件打开类型
 	enum class file_open_type : uint_32
 	{
-		open,			// 0
-		create,			//O_TRUNC
-		new_file,		//O_CREAT | O_EXCL
-		create_open,	//O_CREAT
+		open,							//打开已存在的文件
+		create_always = O_TRUNC,		//总时创建新文件,若文件已存在会被截断
+		create = O_CREAT | O_EXCL,		//若文件不存在则创建,存在则出错
+		open_always= O_CREAT,			//若文件存在则打开,不存在则创建
 	};
 
-	extern int_32 forward_file_access_type(file_access_type access_type);
+	extern int_32 forward_file_access_type(const file_access_type &access_type);
 
-	extern int_32 forward_file_open_type(file_open_type open_type);
+	extern int_32 forward_file_open_type(const file_open_type &open_type);
 #pragma endregion
 
 #pragma region IO_SERVICE

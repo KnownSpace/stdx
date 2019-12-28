@@ -51,6 +51,12 @@ void stdx::_Threadpool::add_thread() noexcept
 				*count -= 1;
 				//进入自旋锁
 				lock.lock();
+				if (tasks->empty())
+				{
+					*count += 1;
+					lock.unlock();
+					continue;
+				}
 				//获取任务
 				runable_ptr t(std::move(tasks->front()));
 				//从queue中pop
