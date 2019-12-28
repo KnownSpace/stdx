@@ -13,6 +13,7 @@ int main(int argc, char **argv)
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
 	{
+		std::cout <<typename_of(service)<< "\n";
 		stdx::network_addr addr("0.0.0.0", 8080);
 		s.bind(addr);
 	}
@@ -70,6 +71,5 @@ int main(int argc, char **argv)
 
 	std::cin.get();
 #endif // ENABLE_FILE
-	//#define ENABLE_TASK
 	return 0;
 }

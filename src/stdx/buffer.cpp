@@ -25,6 +25,7 @@ void stdx::_Buffer::init(const size_t &size)
 	{
 		throw std::bad_alloc();
 	}
+	::memset(data, 0, size);
 	init(data, size);
 }
 

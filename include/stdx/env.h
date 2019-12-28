@@ -62,6 +62,9 @@
 
 #endif // WIN32
 
+#define typename_of(_T) typeid(_T).name()
+
+#define name_of(_Var) #_Var
 
 namespace stdx
 {

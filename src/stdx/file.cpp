@@ -68,6 +68,19 @@ void stdx::_FileIOService::read_file(HANDLE file, const DWORD &size, const int_6
 	context->file = file;
 	context->offset = offset;
 	context->buffer = (char*)std::calloc(size, sizeof(char));
+	if (context->buffer == nullptr)
+	{
+		delete context;
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::file_read_event(), std::current_exception());
+		}
+	}
+	::memset(context->buffer, 0, size);
 	context->size = size;
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	*call = [callback, size](file_io_context *context_ptr, std::exception_ptr error)
@@ -137,6 +150,18 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const siz
 	context_ptr->size = 0;
 	context_ptr->offset = 0;
 	char* buf = (char*)::calloc(size, sizeof(char));
+	if (buf == nullptr)
+	{
+		delete context_ptr;
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::file_write_event(), std::current_exception());
+		}
+	}
 	::memcpy(buf, buffer, size);
 	auto *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	*call = [callback,buf](file_io_context *context_ptr, std::exception_ptr error)
@@ -403,8 +428,19 @@ void stdx::_FileIOService::read_file(int file, const size_t & size, const int_64
 		r_size += (512 - tmp);
 	}
 	char *buffer = (char*)calloc(r_size, sizeof(char));
+	if (buffer == nullptr)
+	{
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::file_read_event(), std::current_exception());
+		}
+	}
 	posix_memalign((void**)&buffer, 512, r_size);
-	memset(buffer, 0, r_size);
+	::memset(buffer, 0, r_size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
 	ptr->size = r_size;
@@ -453,9 +489,20 @@ void stdx::_FileIOService::write_file(int file, const char * buffer, const size_
 		r_size += (512 - tmp);
 	}
 	char *buf = (char*)calloc(r_size, sizeof(char));
+	if (buf == nullptr)
+	{
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::file_write_event(), std::current_exception());
+		}
+	}
 	posix_memalign((void**)&buf, 512, r_size);
-	memset(buf, 0, r_size);
-	memcpy(buf, buffer, size);
+	::memset(buf, 0, r_size);
+	::memcpy(buf, buffer, size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
 	ptr->size = r_size;

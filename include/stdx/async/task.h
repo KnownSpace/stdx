@@ -131,11 +131,10 @@ namespace stdx
 			: m_impl(std::move(other.m_impl))
 		{}
 
-		template<typename _Fn, typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 		task(_Fn &&fn, _Args &&...args)
 			:m_impl(std::make_shared<_Task<_R>>(std::move(fn), args...))
 		{
-			
 		}
 
 		explicit task(impl_t impl)
@@ -802,7 +801,7 @@ namespace stdx
 			:m_promise(stdx::make_promise_ptr<void>())
 			, m_task([](promise_ptr<void> promise)
 		{
-			return promise->get_future().get();
+			promise->get_future().get();
 		}, m_promise)
 		{}
 		~_TaskCompleteEvent() = default;

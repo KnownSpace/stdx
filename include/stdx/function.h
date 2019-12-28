@@ -83,7 +83,10 @@ namespace stdx
 	public:
 		template<typename U>  static auto test(int)->decltype(&U::operator());
 		template<typename U> static false_t test(...);
-		const static bool value = !std::is_same<decltype(test<T>(0)), false_t>::value;
+		enum
+		{
+			value = !std::is_same<decltype(test<T>(0)), false_t>::value
+		};
 	};
 
 	template<typename _Fn, typename ..._Args>
@@ -121,7 +124,7 @@ namespace stdx
 	};
 #define is_result_type(_Fn,_Result) stdx::_IsResult<_Fn,_Result>::value
 
-	template<typename _Fn,typename ..._Args>
+	template<typename _Fn,typename ..._Args,class = std::enable_if<stdx::is_callable<_Fn>::value>::type>
 	inline typename stdx::function_info<_Fn>::result invoke( _Fn &&callable,_Args ...args)
 	{
 		return callable(stdx::forward(args)...);
@@ -249,10 +252,11 @@ namespace stdx
 		using impl_t = std::shared_ptr<_BasicFunction<_R,_Args...>>;
 	public:
 		function() = default;
-		template<typename _Fn>
+		template<typename _Fn,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 		function(_Fn &&fn)
 			:m_impl(new _Function<_R,_Fn,_Args...>(std::move(fn)))
-		{}
+		{
+		}
 		function(const function<_R,_Args...> &other)
 			:m_impl(other.m_impl)
 		{}
@@ -265,6 +269,7 @@ namespace stdx
 			m_impl = other.m_impl;
 			return *this;
 		}
+
 		_R operator()(const _Args &...args)
 		{
 			return m_impl->run(args...);

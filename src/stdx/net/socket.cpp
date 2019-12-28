@@ -82,8 +82,20 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const size_t &
 {
 	auto *context_ptr = new network_io_context;
 	context_ptr->this_socket = sock;
-	char *buffer = (char*)std::calloc(sizeof(char), size);
-	std::memcpy(buffer, data, size);
+	char *buffer = (char*) ::calloc(sizeof(char), size);
+	if (buffer == nullptr)
+	{
+		delete context_ptr;
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::network_send_event(), std::current_exception());
+		}
+	}
+	::memcpy(buffer, data, size);
 	context_ptr->buffer.buf = buffer;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -91,13 +103,13 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const size_t &
 	{
 		if (error)
 		{
-			std::free(context_ptr->buffer.buf);
+			::free(context_ptr->buffer.buf);
 			delete context_ptr;
 			callback(network_send_event(), error);
 			return;
 		}
 		network_send_event context(context_ptr);
-		std::free(context_ptr->buffer.buf);
+		::free(context_ptr->buffer.buf);
 		delete context_ptr;
 		callback(context, nullptr);
 	};
@@ -151,8 +163,19 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const size_t &size, std::functio
 {
 	auto *context_ptr = new network_io_context;
 	context_ptr->this_socket = sock;
-	char *buf = (char*)std::calloc(sizeof(char), size);
-	//char *buf = stdx::calloc<char>(size);
+	char *buf = (char*) ::calloc(sizeof(char), size);
+	if (buf == nullptr)
+	{
+		delete context_ptr;
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::network_recv_event(), std::current_exception());
+		}
+	}
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -160,7 +183,7 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const size_t &size, std::functio
 	{
 		if (error)
 		{
-			free(context_ptr->buffer.buf);
+			::free(context_ptr->buffer.buf);
 			delete context_ptr;
 			callback(network_recv_event(), error);
 			return;
@@ -253,8 +276,20 @@ void stdx::_NetworkIOService::send_to(SOCKET sock, const network_addr & addr, co
 	stdx::network_io_context *context_ptr = new stdx::network_io_context;
 	context_ptr->addr = addr;
 	context_ptr->this_socket = sock;
-	char *buf = (char*)std::calloc(sizeof(char), size);
-	std::memcpy(buf, data, size);
+	char *buf = (char*)::calloc(sizeof(char), size);
+	if (buf == nullptr)
+	{
+		delete context_ptr;
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::network_send_event(), std::current_exception());
+		}
+	}
+	::memcpy(buf, data, size);
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -293,7 +328,19 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const size_t & size, std::f
 {
 	auto *context_ptr = new network_io_context;
 	context_ptr->this_socket = sock;
-	char *buf = (char*)std::calloc(sizeof(char), size);
+	char *buf = (char*) ::calloc(sizeof(char), size);
+	if (buf == nullptr)
+	{
+		delete context_ptr;
+		try
+		{
+			throw std::bad_alloc();
+		}
+		catch (const std::exception&)
+		{
+			callback(stdx::network_recv_event(), std::current_exception());
+		}
+	}
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -305,9 +352,9 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const size_t & size, std::f
 	{
 		if (error)
 		{
-			free(addr);
-			free(addr_size);
-			free(context_ptr->buffer.buf);
+			::free(addr);
+			::free(addr_size);
+			::free(context_ptr->buffer.buf);
 			delete context_ptr;
 			callback(network_recv_event(), error);
 			return;
@@ -322,9 +369,9 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const size_t & size, std::f
 			}
 			catch (const std::exception&)
 			{
-				free(addr);
-				free(addr_size);
-				free(context_ptr->buffer.buf);
+				::free(addr);
+				::free(addr_size);
+				::free(context_ptr->buffer.buf);
 				delete context_ptr;
 				try
 				{
@@ -338,8 +385,8 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const size_t & size, std::f
 			return;
 		}
 		context_ptr->addr = *addr;
-		free(addr);
-		free(addr_size);
+		::free(addr);
+		::free(addr_size);
 		network_recv_event context(context_ptr);
 		delete context_ptr;
 		callback(context, std::exception_ptr(nullptr));
@@ -354,7 +401,7 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const size_t & size, std::f
 		catch (const std::exception&)
 		{
 			delete call;
-			free(context_ptr->buffer.buf);
+			::free(context_ptr->buffer.buf);
 			delete context_ptr;
 			callback(stdx::network_recv_event(), std::current_exception());
 			return;
@@ -703,7 +750,18 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 
  void stdx::_NetworkIOService::send(int sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> callback)
  {
-	 char* buf = (char*) ::malloc(size);
+	 char* buf = (char*) ::calloc(size,sizeof(char));
+	 if (buf == nullptr)
+	 {
+		 try
+		 {
+			 throw std::bad_alloc();
+		 }
+		 catch (const std::exception&)
+		 {
+			 callback(stdx::network_send_event(), std::current_exception());
+		 }
+	 }
 	 ::memcpy(buf,data,size);
 	 stdx::threadpool::run([sock,buf,size,callback]() 
 	 {
@@ -766,6 +824,18 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 context->this_socket = sock;
 	 context->size = size;
 	 char *buf = (char*)calloc(size, sizeof(char));
+	 if (buf == nullptr)
+	 {
+		 delete context;
+		 try
+		 {
+			 throw std::bad_alloc();
+		 }
+		 catch (const std::exception&)
+		 {
+			 callback(stdx::network_recv_event(), std::current_exception());
+		 }
+	 }
 	 context->buffer = buf;
 	 context->buffer_size = size;
 	 std::function<void(stdx::network_io_context*,std::exception_ptr)> *call = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
@@ -790,6 +860,17 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  void stdx::_NetworkIOService::send_to(int sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
  {
 	 char* buf = (char*) ::malloc(size);
+	 if (buf == nullptr)
+	 {
+		 try
+		 {
+			 throw std::bad_alloc();
+		 }
+		 catch (const std::exception&)
+		 {
+			 callback(stdx::network_send_event(), std::current_exception());
+		 }
+	 }
 	 ::memcpy(buf,data,size);
 	 stdx::threadpool::run([sock,addr,buf,size,callback]() 
 	 {
@@ -830,6 +911,18 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 context->this_socket = sock;
 	 context->size = size;
 	 char *buf = (char*)calloc(size, sizeof(char));
+	 if (buf == nullptr)
+	 {
+		 delete context;
+		 try
+		 {
+			 throw std::bad_alloc();
+		 }
+		 catch (const std::exception&)
+		 {
+			 callback(stdx::network_recv_event(), std::current_exception());
+		 }
+	 }
 	 context->buffer = buf;
 	 context->buffer_size = size;
 	 std::function<void(stdx::network_io_context*, std::exception_ptr)> *call = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
