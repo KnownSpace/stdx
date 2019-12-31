@@ -3,6 +3,7 @@
 #include <stdx/async/spin_lock.h>
 #include <stdx/io.h>
 #include <stdx/env.h>
+#include <stdx/string.h>
 #ifdef WIN32
 #include <WinSock2.h>
 #include <MSWSock.h>
@@ -147,7 +148,7 @@ namespace stdx
 			return ntohs(m_handle.sin_port);
 		}
 
-		template<typename _String = std::string>
+		template<typename _String = std::string,class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 		_String ip() const
 		{
 			using char_t = typename _String::value_type;
@@ -160,6 +161,11 @@ namespace stdx
 
 			m_handle.sin_addr.S_un.S_addr = inet_addr(ip);
 			return *this;
+		}
+
+		bool operator==(const stdx::network_addr &other) const
+		{
+			return (ip() == other.ip())&&(port() == other.port());
 		}
 	private:
 		SOCKADDR_IN m_handle;
@@ -530,7 +536,7 @@ namespace stdx
 			return (bool)m_impl;
 		}
 
-		bool operator==(const network_io_service &other)
+		bool operator==(const network_io_service &other) const
 		{
 			return m_impl == other.m_impl;
 		}
@@ -892,7 +898,7 @@ namespace stdx
 			return ntohs(m_handle.sin_port);
 		}
 
-		template<typename _String = std::string>
+		template<typename _String = std::string,class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 		_String ip() const
 		{
 			using char_t = typename _String::value_type;
@@ -904,6 +910,11 @@ namespace stdx
 		{
 			m_handle.sin_addr.s_addr = inet_addr(ip);
 			return *this;
+		}
+
+		bool operator==(const stdx::network_addr &other) const
+		{
+			return (ip() == other.ip()) && (port() == other.port());
 		}
 	private:
 		sockaddr_in m_handle;
@@ -1027,7 +1038,7 @@ namespace stdx
 		}
 		int create_socket(const int &addr_family, const int &sock_type, const int &protocol);
 
-		void send(int sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> callback);
+		void send(int sock, const char* data,size_t size, std::function<void(network_send_event, std::exception_ptr)> callback);
 
 		void send_file(int sock, int file_handle, std::function<void(std::exception_ptr)> callback);
 
@@ -1043,7 +1054,7 @@ namespace stdx
 
 		void bind(int sock, network_addr &addr);
 
-		void send_to(int sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
+		void send_to(int sock, const network_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
 
 		void recv_from(int sock, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
@@ -1156,7 +1167,7 @@ namespace stdx
 			return (bool)m_impl;
 		}
 
-		bool operator==(const network_io_service &other)
+		bool operator==(const network_io_service &other) const
 		{
 			return m_impl == other.m_impl;
 		}

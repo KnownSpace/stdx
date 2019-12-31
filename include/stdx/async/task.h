@@ -3,7 +3,6 @@
 #include <stdx/async/spin_lock.h>
 #include <memory>
 #include <future>
-#include <stdx/traits/ref_type.h>
 #include <stdx/traits/value_type.h>
 #include <stdx/function.h>
 #include <stdx/env.h>
@@ -45,7 +44,6 @@ namespace stdx
 	template<typename _T>
 	class task_result
 	{
-		using result_t = stdx::ref_t<const _T>;
 	public:
 		task_result() = default;
 		task_result(std::shared_future<_T> future)
@@ -67,9 +65,9 @@ namespace stdx
 			return *this;
 		}
 
-		result_t get()
+		const _T &get() const
 		{
-
+			
 			return m_future.get();
 		}
 	private:
@@ -100,12 +98,45 @@ namespace stdx
 			return *this;
 		}
 
-		void get()
+		void get() const
 		{
 			m_future.get();
 		}
 	private:
 		std::shared_future<void> m_future;
+	};
+
+	template<typename _T>
+	class task_result<_T&>
+	{
+	public:
+		task_result() = default;
+		task_result(std::shared_future<_T> future)
+			:m_future(future)
+		{}
+
+		~task_result() = default;
+		task_result(const task_result<_T> &other)
+			:m_future(other.m_future)
+		{}
+
+		task_result(task_result<_T> &&other)
+			:m_future(std::move(other.m_future))
+		{}
+
+		task_result<_T> &operator=(const task_result<_T> &other)
+		{
+			m_future = other.m_future;
+			return *this;
+		}
+
+		_T &get() const
+		{
+
+			return m_future.get();
+		}
+	private:
+		std::shared_future<_T> m_future;
 	};
 #pragma endregion
 
@@ -131,7 +162,7 @@ namespace stdx
 			: m_impl(std::move(other.m_impl))
 		{}
 
-		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value && std::is_same<typename stdx::function_info<_Fn>::result,_R>::value>::type>
 		task(_Fn &&fn, _Args &&...args)
 			:m_impl(std::make_shared<_Task<_R>>(std::move(fn), args...))
 		{
@@ -172,7 +203,18 @@ namespace stdx
 			return t;
 		}
 
-		template<typename _Fn, typename __R = typename stdx::function_info<_Fn>::result>
+		template<typename _Fn, typename __R = typename stdx::function_info<_Fn>::result
+			//checkers
+			,class = typename std::enable_if<stdx::is_callable<_Fn>::value 
+			&&
+			(
+				std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>, _R>::value
+				|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,stdx::task_result<_R>>::value 
+				|| std::is_same<typename stdx::function_info<_Fn>::arguments::First,void>::value
+			) 
+			&& 
+			(std::is_same<__R,typename stdx::function_info<_Fn>::result>::value)>::type
+		>
 		stdx::task<__R> then(_Fn &&fn)
 		{
 			stdx::task<__R> t((*m_impl).then(std::move(fn)));
@@ -717,7 +759,7 @@ namespace stdx
 		}
 
 		//延续Task
-		template<typename _Fn,typename _R = typename stdx::function_info<_Fn>::result >
+		template<typename _Fn,typename _R = typename stdx::function_info<_Fn>::result>
 		std::shared_ptr<_Task<_R>> then(_Fn &&fn)
 		{
 			using args_tl = typename stdx::function_info<_Fn>::arguments;
@@ -743,6 +785,14 @@ namespace stdx
 		state_ptr m_state;
 		stdx::spin_lock m_lock;
 	};	
+
+	template<typename R>
+	class _Task<const R>:public _Task<R>
+	{
+		/*
+		Do nothing.
+		*/
+	};
 
 	//启动一个Task
 	template<typename _Fn, typename ..._Args,typename _R =typename stdx::function_info<_Fn>::result>
@@ -801,9 +851,11 @@ namespace stdx
 			:m_promise(stdx::make_promise_ptr<void>())
 			, m_task([](promise_ptr<void> promise)
 		{
+			
 			promise->get_future().get();
 		}, m_promise)
-		{}
+		{
+		}
 		~_TaskCompleteEvent() = default;
 		void set_value()
 		{

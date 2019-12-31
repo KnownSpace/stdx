@@ -194,7 +194,7 @@ namespace stdx
 
 		void update_event(int fd, epoll_event *event_ptr);
 
-		void wait(epoll_event *event_ptr, const int &maxevents, const int &timeout) const;
+		void wait(epoll_event *event_ptr, const int &maxevents, const int &timeout);
 	private:
 		int m_handle;
 	};
@@ -229,12 +229,12 @@ namespace stdx
 			return m_impl->del_event(fd);
 		}
 
-		void wait(epoll_event *event_ptr,const int &maxevents,const int &timeout) const
+		void wait(epoll_event *event_ptr,const int &maxevents,const int &timeout)
 		{
 			return m_impl->wait(event_ptr, maxevents, timeout);
 		}
 
-		epoll_event wait(const int &timeout) const
+		epoll_event wait(const int &timeout)
 		{
 			
 			epoll_event ev;

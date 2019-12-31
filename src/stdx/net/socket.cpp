@@ -669,7 +669,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 _ThrowLinuxError
 	 }
-	 if (protocol == stdx::protocol::tcp)
+	 if (protocol == stdx::forward_protocol(stdx::protocol::tcp))
 	 {
 		/* int flag = fcntl(sock, F_GETFL, 0);
 		 fcntl(sock, F_SETFL, flag | O_NONBLOCK);*/
@@ -748,7 +748,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 }
  }
 
- void stdx::_NetworkIOService::send(int sock, const char* data, const size_t &size, std::function<void(network_send_event, std::exception_ptr)> callback)
+ void stdx::_NetworkIOService::send(int sock, const char* data, size_t size, std::function<void(network_send_event, std::exception_ptr)> callback)
  {
 	 char* buf = (char*) ::calloc(size,sizeof(char));
 	 if (buf == nullptr)
@@ -857,7 +857,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 m_reactor.push(sock,ev);
  }
 
- void stdx::_NetworkIOService::send_to(int sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
+ void stdx::_NetworkIOService::send_to(int sock, const network_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
  {
 	 char* buf = (char*) ::malloc(size);
 	 if (buf == nullptr)

@@ -6,17 +6,17 @@ namespace stdx
 {
 
 	template<typename _Fn>
-	struct function_info;
+	struct _FunctionInfo;
 
 	template<typename _Result, typename ..._Args>
-	struct function_info<_Result(*)(_Args...)>
+	struct _FunctionInfo<_Result(*)(_Args...)>
 	{
 		using result = _Result;
 		using arguments = stdx::type_list<_Args...>;
 	};
 
 	template<typename _Class, typename _Result, typename ..._Args>
-	struct function_info<_Result(_Class::*)(_Args...)>
+	struct _FunctionInfo<_Result(_Class::*)(_Args...)>
 	{
 		using belong_type = _Class;
 		using result = _Result;
@@ -24,7 +24,7 @@ namespace stdx
 	};
 
 	template<typename _Class, typename _Result, typename ..._Args>
-	struct function_info<_Result(_Class::*)(_Args...) const>
+	struct _FunctionInfo<_Result(_Class::*)(_Args...) const>
 	{
 		using belong_type = _Class;
 		using result = _Result;
@@ -32,10 +32,10 @@ namespace stdx
 	};
 
 	template<typename _Fn>
-	struct function_info
+	struct _FunctionInfo
 	{
 	private:
-		using info = function_info<decltype(&_Fn::operator())>;
+		using info = _FunctionInfo<decltype(&_Fn::operator())>;
 	public:
 		using result = typename info::result;
 		using arguments = typename info::arguments;
@@ -43,10 +43,10 @@ namespace stdx
 	};
 
 	template<typename _Fn>
-	struct function_info<_Fn&>
+	struct _FunctionInfo<_Fn&>
 	{
 	private:
-		using info = function_info<_Fn>;
+		using info = _FunctionInfo<_Fn>;
 	public:
 		using result = typename info::result;
 		using arguments = typename info::arguments;
@@ -54,10 +54,10 @@ namespace stdx
 	};
 
 	template<typename _Fn>
-	struct function_info<_Fn&&>
+	struct _FunctionInfo<_Fn&&>
 	{
 	private:
-		using info = function_info<_Fn>;
+		using info = _FunctionInfo<_Fn>;
 	public:
 		using result = typename info::result;
 		using arguments = typename info::arguments;
@@ -65,10 +65,10 @@ namespace stdx
 	};
 
 	template<typename _Fn>
-	struct function_info<const _Fn&>
+	struct _FunctionInfo<const _Fn&>
 	{
 	private:
-		using info = function_info<_Fn>;
+		using info = _FunctionInfo<_Fn>;
 	public:
 		using result = typename info::result;
 		using arguments = typename info::arguments;
@@ -89,6 +89,30 @@ namespace stdx
 		};
 	};
 
+	template<typename _Fn, bool>
+	struct _FunctionInfoChecker;
+
+	template<typename _Fn>
+	struct _FunctionInfoChecker<_Fn, false>
+	{
+		enum
+		{
+			is_callable = 0
+		};
+	};
+
+	template<typename _Fn>
+	struct _FunctionInfoChecker<_Fn, true> :public _FunctionInfo<_Fn>
+	{
+		enum
+		{
+			is_callable = 1
+		};
+	};
+
+	template<typename _Fn>
+	using function_info = _FunctionInfoChecker<_Fn, stdx::is_callable<_Fn>::value>;
+
 	template<typename _Fn, typename ..._Args>
 	struct _IsArgs
 	{
@@ -101,6 +125,7 @@ namespace stdx
 			value = is_same(arguments, stdx::type_list<_Args...>)
 		};
 	};
+
 
 #ifdef WIN32
 #define is_arguments_type(_Fn,...) stdx::_IsArgs<_Fn,__VA_ARGS__>::value
@@ -124,7 +149,7 @@ namespace stdx
 	};
 #define is_result_type(_Fn,_Result) stdx::_IsResult<_Fn,_Result>::value
 
-	template<typename _Fn,typename ..._Args,class = std::enable_if<stdx::is_callable<_Fn>::value>::type>
+	template<typename _Fn,typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 	inline typename stdx::function_info<_Fn>::result invoke( _Fn &&callable,_Args ...args)
 	{
 		return callable(stdx::forward(args)...);

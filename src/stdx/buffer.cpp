@@ -1,4 +1,5 @@
 #include <stdx/buffer.h>
+#include <string.h>
 
 stdx::_Buffer::_Buffer()
 	:m_size(0)
@@ -38,7 +39,7 @@ void stdx::_Buffer::init(char * data, const size_t & size)
 	}
 }
 
-char &stdx::_Buffer::operator[](const size_t &i) const
+char &stdx::_Buffer::operator[](const size_t &i)
 {
 	if (i >= m_size)
 	{
@@ -50,6 +51,20 @@ char &stdx::_Buffer::operator[](const size_t &i) const
 	}
 	return *(m_data + i);
 }
+
+const char & stdx::_Buffer::operator[](const size_t & i) const
+{
+	if (i >= m_size)
+	{
+		throw std::out_of_range("out of range");
+	}
+	if (m_data == nullptr)
+	{
+		throw std::runtime_error("this buffer is null");
+	}
+	return *(m_data + i);
+}
+
 void stdx::_Buffer::realloc(size_t size)
 {
 	if (size == 0)

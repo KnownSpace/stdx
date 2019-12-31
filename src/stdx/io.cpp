@@ -25,7 +25,7 @@ void stdx::_EPOLL::update_event(int fd, epoll_event * event_ptr)
 		_ThrowLinuxError
 	}
 }
-void stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int & timeout) const
+void stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int & timeout) 
 {
 	if (epoll_wait(m_handle, event_ptr, maxevents, timeout) == -1)
 	{

@@ -169,7 +169,7 @@ namespace stdx
 
 		HANDLE create_file(const std::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model);
 
-		void read_file(HANDLE file, const DWORD &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
+		void read_file(HANDLE file,DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
 
 		void write_file(HANDLE file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
 
@@ -218,7 +218,7 @@ namespace stdx
 		{
 			return m_impl->create_file(path, access_type, file_open_type, shared_model);
 		}
-		void read_file(HANDLE file, const size_t &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
+		void read_file(HANDLE file,const size_t &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
 		{
 			return m_impl->read_file(file, size, offset, callback);
 		}
@@ -235,7 +235,7 @@ namespace stdx
 			return m_impl->get_file_size(file);
 		}
 
-		bool operator==(const file_io_service &other)
+		bool operator==(const file_io_service &other) const
 		{
 			return m_impl == other.m_impl;
 		}
@@ -629,9 +629,9 @@ namespace stdx
 
 		int create_file(const std::string &path, int_32 access_type, int_32 open_type);
 
-		void read_file(int file, const size_t &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
+		void read_file(int file,size_t size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
 
-		void write_file(int file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
+		void write_file(int file, const char *buffer,size_t size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
 
 		int_64 get_file_size(int file) const;
 
@@ -697,7 +697,7 @@ namespace stdx
 			return m_impl->get_file_size(file);
 		}
 
-		bool operator==(const file_io_service &other)
+		bool operator==(const file_io_service &other) const
 		{
 			return m_impl == other.m_impl;
 		}

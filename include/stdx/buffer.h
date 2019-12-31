@@ -18,7 +18,9 @@ namespace stdx
 
 		void init(char* data, const size_t &size);
 
-		char &operator[](const size_t &i) const;
+		const char &operator[](const size_t &i) const;
+
+		char &operator[](const size_t &i);
 
 		operator char*() const
 		{

@@ -3,7 +3,25 @@
 #include <string>
 namespace stdx
 {
-	template<typename _String,typename _Container>
+	template<typename _T>
+	struct is_basic_string
+	{
+		enum 
+		{
+			value = 0
+		};
+	};
+
+	template<typename _TChar>
+	struct is_basic_string<std::basic_string<_TChar>>
+	{
+		enum 
+		{
+			value = 1
+		};
+	};
+
+	template<typename _String,typename _Container,class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void _SpitStr(_String &str,const _String &chars, _Container &container)
 	{
 		if (chars.empty())
@@ -29,7 +47,7 @@ namespace stdx
 		}
 	}
 
-	template<typename _Container,typename _String=std::string>
+	template<typename _Container,typename _String=std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void spit_string(_String &str, const _String &chars,_Container &container)
 	{
 		return _SpitStr(str, chars, container);
@@ -42,7 +60,7 @@ namespace stdx
 	//	return _SpitStr(str,c, container);
 	//}
 
-	template<typename _String>
+	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void replace_string(_String &str,const _String &target,const _String &val)
 	{
 		size_t pos = str.find(target);
@@ -57,7 +75,7 @@ namespace stdx
 		}
 	}
 
-	template<typename _String>
+	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void html_decode(_String &str)
 	{
 		replace_string<_String>(str, "&quot;", "\"");
@@ -71,7 +89,7 @@ namespace stdx
 		replace_string<_String>(str, "&#39;", "'");
 	}
 
-	template<typename _String>
+	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void html_encode(_String &str)
 	{
 		replace_string<_String>(str, "\"", "&quot;");
@@ -110,7 +128,7 @@ namespace stdx
 		};
 	};
 
-	template<typename _String = std::string,typename _UnicodeString>
+	template<typename _String = std::string,typename _UnicodeString, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _String unicode_to_utf8(const _UnicodeString &src)
 	{
 		using char_t = typename _String::value_type;
@@ -125,7 +143,7 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _String = std::string, typename _UnicodeString>
+	template<typename _String = std::string, typename _UnicodeString, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _String unicode_to_ansi(const _UnicodeString &src)
 	{
 		using char_t = typename _String::value_type;
@@ -140,7 +158,7 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _UnicodeString = stdx::unicode_string,typename _String>
+	template<typename _UnicodeString = stdx::unicode_string,typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _UnicodeString utf8_to_unicode(const _String &src)
 	{
 		using uchar_t = typename _UnicodeString::value_type;
@@ -155,14 +173,14 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _String = std::string>
+	template<typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline _String utf8_to_ansi(const _String &src)
 	{
 		stdx::unicode_string temp = stdx::utf8_to_unicode(src);
 		return stdx::unicode_to_ansi(temp);
 	}
 
-	template<typename _UnicodeString = stdx::unicode_string, typename _String>
+	template<typename _UnicodeString = stdx::unicode_string, typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _UnicodeString ansi_to_unicode(const _String &src)
 	{
 		using uchar_t = typename _UnicodeString::value_type;
@@ -177,7 +195,7 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _String = std::string>
+	template<typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline _String ansi_to_utf8(const _String &src)
 	{
 		stdx::unicode_string temp = stdx::ansi_to_unicode(src);
@@ -202,7 +220,7 @@ namespace stdx
 #include <iconv.h>
 
 	using unicode_string = std::basic_string<int_16>;
-	template<typename _String = std::string, typename _UnicodeString>
+	template<typename _String = std::string, typename _UnicodeString, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _String unicode_to_utf8(const _UnicodeString &src)
 	{
 		using char_t = typename _String::value_type;
@@ -218,7 +236,7 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _String = std::string, typename _UnicodeString>
+	template<typename _String = std::string, typename _UnicodeString, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _String unicode_to_ansi(const _UnicodeString &src)
 	{
 		using char_t = typename _String::value_type;
@@ -238,7 +256,7 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _UnicodeString = stdx::unicode_string, typename _String>
+	template<typename _UnicodeString = stdx::unicode_string, typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _UnicodeString utf8_to_unicode(const _String &src)
 	{
 		using uchar_t = typename _UnicodeString::value_type;
@@ -254,7 +272,7 @@ namespace stdx
 		iconv_close(conv);
 		return des;
 	}
-	template<typename _String = std::string>
+	template<typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline _String utf8_to_ansi(const _String &src)
 	{
 		using char_t = typename _String::value_type;
@@ -274,7 +292,7 @@ namespace stdx
 		free(p);
 		return des;
 	}
-	template<typename _UnicodeString = stdx::unicode_string, typename _String>
+	template<typename _UnicodeString = stdx::unicode_string, typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
 	inline _UnicodeString ansi_to_unicode(const _String &src)
 	{
 		using uchar_t = typename _UnicodeString::value_type;
@@ -291,7 +309,7 @@ namespace stdx
 		return des;
 	}
 
-	template<typename _String = std::string>
+	template<typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline _String ansi_to_utf8(const _String &src)
 	{
 		using char_t = typename _String::value_type;

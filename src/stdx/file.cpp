@@ -57,7 +57,7 @@ HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_t
 	return file;
 }
 
-void stdx::_FileIOService::read_file(HANDLE file, const DWORD &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	file_io_context *context = new file_io_context;
 	int64_union li;
@@ -419,7 +419,7 @@ int stdx::_FileIOService::create_file(const std::string & path, int_32 access_ty
 	return ::open(path.c_str(), access_type | open_type|O_DIRECT);
 }
 
-void stdx::_FileIOService::read_file(int file, const size_t & size, const int_64 & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	auto  r_size = size;
 	auto tmp = size % 512;
@@ -480,7 +480,7 @@ void stdx::_FileIOService::read_file(int file, const size_t & size, const int_64
 	}
 }
 
-void stdx::_FileIOService::write_file(int file, const char * buffer, const size_t & size, const int_64 & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size, const int_64 & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 	auto  r_size = size;
 	auto tmp = size % 512;
