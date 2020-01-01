@@ -27,7 +27,7 @@ namespace stdx
 			return m_data;
 		}
 
-		void realloc(size_t size);
+		void realloc(const size_t & size);
 
 		const size_t &size() const
 		{

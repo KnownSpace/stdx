@@ -13,7 +13,7 @@ stdx::_Buffer::_Buffer(size_t size, char* data)
 
 stdx::_Buffer::~_Buffer()
 {
-	if (m_data)
+	if (m_data && (m_size !=0))
 	{
 		free(m_data);
 	}
@@ -36,6 +36,10 @@ void stdx::_Buffer::init(char * data, const size_t & size)
 	{
 		m_data = data;
 		m_size = size;
+	}
+	else
+	{
+		throw std::invalid_argument("data cannot be nullptr,size cannot be 0");
 	}
 }
 
@@ -65,7 +69,7 @@ const char & stdx::_Buffer::operator[](const size_t & i) const
 	return *(m_data + i);
 }
 
-void stdx::_Buffer::realloc(size_t size)
+void stdx::_Buffer::realloc(const size_t & size)
 {
 	if (size == 0)
 	{
