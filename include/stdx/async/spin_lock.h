@@ -32,7 +32,7 @@ namespace stdx
 			:m_impl(std::move(other.m_impl))
 		{}
 		~spin_lock() = default;
-		spin_lock operator=(const spin_lock &other)
+		spin_lock &operator=(const spin_lock &other)
 		{
 			m_impl = other.m_impl;
 			return *this;
