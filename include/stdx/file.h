@@ -261,12 +261,12 @@ namespace stdx
 			m_file = m_io_service.create_file(path, access_type, open_type, shared_model);
 		}
 
-		stdx::task<file_read_event> read(const size_t &size, const int_64 &offset);
+		stdx::task<file_read_event> read(const size_t &size, const uint_64 &offset);
 
 
 		//返回true则继续
 		template<typename _Fn>
-		void read_utill(const size_t &size, const int_64 &offset, _Fn call)
+		void read_utill(const size_t &size,uint_64 offset, _Fn call)
 		{
 			using args_t = typename stdx::function_info<_Fn>::arguments;
 			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::task_result<stdx::file_read_event>>::value, "the input function not be allowed");
@@ -281,7 +281,7 @@ namespace stdx
 		}
 
 		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const int_64 &offset, _Fn call, _ErrHandler err_handler)
+		void read_utill_eof(const size_t &size,uint_64 offset, _Fn call, _ErrHandler err_handler)
 		{
 			using args_t = typename stdx::function_info<_Fn>::arguments;
 			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::file_read_event>::value, "the input function not be allowed");
@@ -308,13 +308,19 @@ namespace stdx
 			});
 		}
 
-		stdx::task<stdx::file_read_event> read_to_end(const int_64 &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const uint_64 &offset)
 		{
-			return read(size() - offset, offset);
+			uint64_union u;
+			u.value = size() - offset;
+			if (u.height != 0)
+			{
+				throw std::out_of_range("file is too big");
+			}
+			return read(u.low, offset);
 		}
 
 
-		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const int_64 &offset);
+		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const uint_64 &offset);
 
 
 		void close();
@@ -393,7 +399,7 @@ namespace stdx
 			return m_impl->read_utill_eof(size, offset,call,err_handler);
 		}
 
-		stdx::task<stdx::file_read_event> &read_to_end(const int_64 &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const int_64 &offset)
 		{
 			return m_impl->read_to_end(offset);
 		}
@@ -835,31 +841,16 @@ namespace stdx
 			return *this;
 		}
 
-		stdx::task<file_read_event> _Read(const size_t &size, const int_64 &offset)
+		stdx::task<file_read_event> read(const size_t &size, const int_64 &offset)
 		{
 			return m_impl->read(size, offset);
 		}
 
-		stdx::task<file_read_event> read(const size_t &size, const int_64 &offset)
-		{
-			return _Read(size, offset).then([](stdx::task_result<file_read_event> &ev)
-			{
-				return ev.get();
-			});
-		}
-
-		stdx::task<file_write_event> _Write(const char* buffer, const size_t &size, const int_64 &offset)
+		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const int_64 &offset)
 		{
 			return m_impl->write(buffer, size, offset);
 		}
 
-		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const int_64 &offset)
-		{
-			return _Write(buffer, size, offset).then([](stdx::task_result<file_write_event> &ev)
-			{
-				return ev.get();
-			});
-		}
 
 		stdx::task<file_write_event> write(const std::string &str, const int_64 &offset)
 		{

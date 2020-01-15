@@ -144,6 +144,25 @@ namespace stdx
 	template<typename R>
 	class _Task;
 
+	template<typename _T>
+	struct is_task
+	{
+		enum 
+		{
+			value = 0
+		};
+	};
+
+	template<typename _T>
+	struct _GetTaskResult
+	{
+		class err_result;
+		using type = err_result;
+	};
+
+	template<typename _T>
+	using get_task_result = typename _GetTaskResult<_T>::type;
+
 	//Task模板
 	template<typename _R>
 	class task
@@ -158,11 +177,13 @@ namespace stdx
 			: m_impl(other.m_impl)
 		{}
 
-		task(task<_R> &&other)
-			: m_impl(std::move(other.m_impl))
-		{}
-
-		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value && std::is_same<typename stdx::function_info<_Fn>::result,_R>::value>::type>
+		template<typename _Fn, typename ..._Args
+			//checkers
+			, class = typename std::enable_if<stdx::is_callable<_Fn>::value 
+			&&
+			(std::is_convertible<typename stdx::function_info<_Fn>::result, _R>::value|| std::is_same<typename stdx::value_type<typename stdx::function_info<_Fn>::result>, _R>::value)
+			>::type
+		>
 		task(_Fn &&fn, _Args &&...args)
 			:m_impl(std::make_shared<_Task<_R>>(std::move(fn), args...))
 		{
@@ -198,7 +219,7 @@ namespace stdx
 		template<typename _Fn, typename ..._Args>
 		static task<_R> start(_Fn &&fn, _Args &&...args)
 		{
-			auto t = task<_R>(fn, args...);
+			auto t = task<_R>(std::move(fn), std::move(args)...);
 			t.run();
 			return t;
 		}
@@ -209,8 +230,16 @@ namespace stdx
 			&&
 			(
 				std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>, _R>::value
-				|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,stdx::task_result<_R>>::value 
+				|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,stdx::task_result<_R>>::value
 				|| std::is_same<typename stdx::function_info<_Fn>::arguments::First,void>::value
+				||
+					(
+						stdx::is_task<_R>::value &&
+						(
+							std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,typename stdx::get_task_result<_R>>::value
+							|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,typename stdx::task_result<typename stdx::get_task_result<_R>>>::value
+						)
+					)
 			) 
 			&& 
 			(std::is_same<__R,typename stdx::function_info<_Fn>::result>::value)>::type
@@ -254,6 +283,22 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
+
+	template<typename _T>
+	struct is_task<stdx::task<_T>>
+	{
+		enum 
+		{
+			value = 1
+		};
+	};
+
+	template<typename _T>
+	struct _GetTaskResult<stdx::task<_T>>
+	{
+		using type = _T;
+	};
+
 #pragma region InterfaceAndPtrDefined
 	//BasicTask
 	interface_class basic_task : public stdx::basic_runable<void>
@@ -786,16 +831,8 @@ namespace stdx
 		stdx::spin_lock m_lock;
 	};	
 
-	template<typename R>
-	class _Task<const R>:public _Task<R>
-	{
-		/*
-		Do nothing.
-		*/
-	};
-
 	//启动一个Task
-	template<typename _Fn, typename ..._Args,typename _R =typename stdx::function_info<_Fn>::result>
+	template<typename _Fn, typename _R = typename stdx::function_info<_Fn>::result, typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 	inline stdx::task<_R> async(_Fn &&fn, _Args &&...args)
 	{
 		return task<_R>::start(fn,args...);
@@ -980,4 +1017,56 @@ namespace stdx
 		impl_t m_impl;
 	};
 #pragma endregion
+
+#pragma region task_flag
+	class _TaskFlag
+	{
+	public:
+		_TaskFlag();
+		~_TaskFlag();
+		stdx::task<void> lock();
+		void unlock() noexcept;
+	private:
+		stdx::spin_lock m_lock;
+		bool m_locked;
+		std::queue<stdx::task_complete_event<void>> m_wait_queue;
+	};
+
+	class task_flag
+	{
+		using impl_t = std::shared_ptr<_TaskFlag>;
+	public:
+		task_flag()
+			:m_impl(std::make_shared<_TaskFlag>())
+		{}
+
+		task_flag(const task_flag &other)
+			:m_impl(other.m_impl)
+		{}
+
+		delete_move(stdx::task_flag);
+
+		~task_flag() = default;
+
+		task_flag &operator=(const task_flag &other)
+		{
+			m_impl = other.m_impl;
+			return *this;
+		}
+
+		stdx::task<void> lock()
+		{
+			return m_impl->lock();
+		}
+
+		void unlock() noexcept
+		{
+			m_impl->unlock();
+		}
+
+	private:
+		impl_t m_impl;
+	};
+#pragma endregion
+
 }

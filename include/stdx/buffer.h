@@ -1,10 +1,11 @@
-#pragma once
+ï»¿#pragma once
 #include <stdx/env.h>
 #include <memory>
+#include <stdx/string.h>
 
 namespace stdx
 {
-	//×Ô¶¯ÊÍ·Å»º´æÇøÊµÏÖ
+	//è‡ªåŠ¨é‡Šæ”¾ç¼“å­˜åŒºå®žçŽ°
 	class _Buffer
 	{
 	public:
@@ -37,12 +38,19 @@ namespace stdx
 		void copy_from(const _Buffer &other);
 
 		char *to_raw();
+
+		template<typename _String>
+		_String to_string()
+		{
+			using value_type = typename _String::value_type;
+			return _String((value_type*)m_data,m_size/sizeof(value_type));
+		}
 	private:
 		size_t m_size;
 		char *m_data;
 	};
 
-	//×Ô¶¯ÊÍ·Å»º´æÇø
+	//è‡ªåŠ¨é‡Šæ”¾ç¼“å­˜åŒº
 	class buffer
 	{
 		using impl_t = std::shared_ptr<stdx::_Buffer>;
@@ -102,6 +110,13 @@ namespace stdx
 		{
 			return m_impl->to_raw();
 		}
+
+		template<typename _String = std::string, class = typename std::enable_if<stdx::is_basic_string<_String>::value>::type>
+		_String to_string()
+		{
+			return m_impl->to_string<_String>();
+		}
+
 	private:
 		impl_t m_impl;
 	};

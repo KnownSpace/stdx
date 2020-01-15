@@ -1,4 +1,4 @@
-#include <stdx/file.h>
+ï»¿#include <stdx/file.h>
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
@@ -105,7 +105,7 @@ void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offse
 	{
 		try
 		{
-			//´¦Àí´íÎó
+			//å¤„ç†é”™è¯¯
 			DWORD code = GetLastError();
 			if (code != ERROR_IO_PENDING)
 			{
@@ -275,7 +275,7 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const int_64 & offset)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const uint_64 & offset)
 {
 	if (!m_io_service)
 	{
@@ -297,7 +297,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, c
 	return ce.get_task();
 }
 
-stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const int_64 &offset)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const uint_64 &offset)
 {
 	if (!m_io_service)
 	{
@@ -447,7 +447,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset
 	ptr->buffer = buffer;
 	ptr->offset = offset;
 	ptr->file = file;
-	//ÉèÖÃ»Øµ÷
+	//è®¾ç½®å›è°ƒ
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	*call = [callback, size](file_io_context *context_ptr, std::exception_ptr error)
 	{
@@ -467,7 +467,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset
 		callback(context, nullptr);
 	};
 	ptr->callback = call;
-	//Í¶µİ²Ù×÷
+	//æŠ•é€’æ“ä½œ
 	try
 	{
 		stdx::aio_read(context, file, buffer, r_size, offset, invalid_eventfd, ptr);
@@ -509,7 +509,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	ptr->buffer = buf;
 	ptr->offset = offset;
 	ptr->file = file;
-	//ÉèÖÃ»Øµ÷
+	//è®¾ç½®å›è°ƒ
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	*call = [callback, size](file_io_context *context_ptr, std::exception_ptr error)
 	{
@@ -532,7 +532,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 		callback(context, nullptr);
 	};
 	ptr->callback = call;
-	//Í¶µİ²Ù×÷
+	//æŠ•é€’æ“ä½œ
 	try
 	{
 		stdx::aio_write(context,file,buf,r_size,offset,invalid_eventfd,ptr);
@@ -762,15 +762,15 @@ void stdx::file::remove()
 
 #ifdef WIN32
 //DWORD CALLBACK copy_callback(
-//	LARGE_INTEGER TotalFileSize,			//ÎÄ¼ş×Ü´óĞ¡
-//	LARGE_INTEGER TotalBytesTransferred,	//ÒÑ´«ÊäµÄ´óĞ¡
-//	LARGE_INTEGER StreamSize,				//Á÷µÄ´óĞ¡
-//	LARGE_INTEGER StreamBytesTransferred,	//Á÷ÒÑ´«ÊäµÄ´óĞ¡
-//	DWORD dwStreamNumber,					//Á÷±àºÅ
-//	DWORD dwCallbackReason,					//»Øµ÷Ô­Òò
-//	HANDLE hSourceFile,						//Ô´ÎÄ¼ş¾ä±ú
-//	HANDLE hDestinationFile,				//Ä¿±êÎÄ¼ş¾ä±ú
-//	LPVOID lpData							//×Ô¶¨ÒåÊı¾İ
+//	LARGE_INTEGER TotalFileSize,			//æ–‡ä»¶æ€»å¤§å°
+//	LARGE_INTEGER TotalBytesTransferred,	//å·²ä¼ è¾“çš„å¤§å°
+//	LARGE_INTEGER StreamSize,				//æµçš„å¤§å°
+//	LARGE_INTEGER StreamBytesTransferred,	//æµå·²ä¼ è¾“çš„å¤§å°
+//	DWORD dwStreamNumber,					//æµç¼–å·
+//	DWORD dwCallbackReason,					//å›è°ƒåŸå› 
+//	HANDLE hSourceFile,						//æºæ–‡ä»¶å¥æŸ„
+//	HANDLE hDestinationFile,				//ç›®æ ‡æ–‡ä»¶å¥æŸ„
+//	LPVOID lpData							//è‡ªå®šä¹‰æ•°æ®
 //)
 //{
 //	std::function<void(const int&)> *callback = (std::function<void(const int&)>*)lpData;
