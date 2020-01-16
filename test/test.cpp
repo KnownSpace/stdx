@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 	}
 #pragma endregion
 #endif 
-//#define ENABLE_FILE
+#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
 	stdx::file file(service, "./a.txt");
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	});
 	t.wait();
 	stream.close();
-	int i = 0;
+	int i = stdx::cancel_token_value::none;
 	file.copy_to("./b.txt", &i, [](uint_64 total_size,uint_64 tran_size) 
 	{
 		std::cout << "copy:" << tran_size << " bytes\n";

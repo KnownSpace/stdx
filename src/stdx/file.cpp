@@ -820,8 +820,14 @@ void stdx::file::copy_to(const std::string &path, cancel_token_ptr cancel_ptr, s
 		delete cpy_ptr;
 		auto _ERROR_CODE = GetLastError(); 
 		LPVOID _MSG; 
-		if ((_ERROR_CODE != ERROR_IO_PENDING)&&(_ERROR_CODE != ERROR_REQUEST_ABORTED))
+		if ((_ERROR_CODE != ERROR_IO_PENDING))
 		{ 
+			if (_ERROR_CODE == ERROR_REQUEST_ABORTED)
+			{
+				//调用取消回调
+				on_cancel(0,0);
+				return;
+			}
 			if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, _ERROR_CODE, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&_MSG, 0, NULL))
 			{ 
 				throw std::system_error(std::error_code(_ERROR_CODE, std::system_category()),(char*)_MSG);
