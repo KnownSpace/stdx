@@ -345,6 +345,7 @@ namespace stdx
 					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
+					return;
 				}
 				//解锁
 				lock.unlock();
@@ -396,6 +397,7 @@ namespace stdx
 					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
+					return;
 				}
 				//解锁
 				lock.unlock();
