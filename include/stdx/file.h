@@ -975,8 +975,53 @@ namespace stdx
 
 
 #if defined(WIN32) | defined(LINUX)
+
+#ifdef WIN32
+#define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
+						LPVOID _MSG;\
+						if(_ERROR_CODE != ERROR_IO_PENDING) \
+						{ \
+							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
+							{ \
+								throw std::runtime_error((char*)_MSG);\
+							}else \
+							{ \
+								std::string _ERROR_MSG("windows system error:");\
+								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
+								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
+							} \
+						}\
+
+#endif
 namespace stdx
 {
+	extern stdx::task_flag _FullpathNameFlag;
+
+	template<typename _String= std::string,class = typename std::enable_if<stdx::is_basic_string<_String>::value>::type>
+	stdx::task<_String> realpath(_String path)
+	{
+		return _FullpathNameFlag.lock()
+			.then([path]() 
+			{
+				using value_type = typename _String::value_type;
+#ifdef WIN32
+				char *buf = (char*)::calloc(MAX_PATH, sizeof(char));
+				if (!GetFullPathNameA((char*)path.c_str(), MAX_PATH, buf, nullptr))
+				{
+					::free(buf);
+					_FullpathNameFlag.unlock();
+					_ThrowWinError
+				}
+				_FullpathNameFlag.unlock();
+				return _String((value_type*)buf);
+#endif // WIN32
+
+#ifdef LINUX
+				_FullpathNameFlag.unlock();
+#endif // LINUX
+			});
+	}
+
 	using cancel_token = int;
 	using cancel_token_ptr = int*;
 	struct cancel_token_value
@@ -1032,3 +1077,6 @@ namespace stdx
 }
 #endif
 
+#ifdef WIN32
+#undef _ThrowWinError
+#endif // WIN32

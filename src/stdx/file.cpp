@@ -695,6 +695,8 @@ stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &
 }
 #endif // LINUX
 
+stdx::task_flag stdx::_FullpathNameFlag;
+
 stdx::file::file(const stdx::file_io_service &io_service,const std::string & path)
 	:m_path(std::make_shared<std::string>(path))
 	,m_io_service(io_service)
