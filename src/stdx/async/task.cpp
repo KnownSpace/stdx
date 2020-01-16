@@ -46,6 +46,7 @@ void stdx::_TaskFlag::unlock() noexcept
 	if (!m_wait_queue.empty())
 	{
 		auto ce = m_wait_queue.front();
+		m_wait_queue.pop();
 		ce.set_value();
 		ce.run();
 	}
