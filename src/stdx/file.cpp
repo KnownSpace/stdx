@@ -6,7 +6,7 @@
 						{ \
 							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
 							{ \
-								throw std::runtime_error((char*)_MSG);\
+								throw std::system_error(std::error_code(_ERROR_CODE, std::system_category()),(char*)_MSG);\
 							}else \
 							{ \
 								std::string _ERROR_MSG("windows system error:");\
@@ -761,33 +761,85 @@ void stdx::file::remove()
 }
 
 #ifdef WIN32
-//DWORD CALLBACK copy_callback(
-//	LARGE_INTEGER TotalFileSize,			//文件总大小
-//	LARGE_INTEGER TotalBytesTransferred,	//已传输的大小
-//	LARGE_INTEGER StreamSize,				//流的大小
-//	LARGE_INTEGER StreamBytesTransferred,	//流已传输的大小
-//	DWORD dwStreamNumber,					//流编号
-//	DWORD dwCallbackReason,					//回调原因
-//	HANDLE hSourceFile,						//源文件句柄
-//	HANDLE hDestinationFile,				//目标文件句柄
-//	LPVOID lpData							//自定义数据
-//)
-//{
-//	std::function<void(const int&)> *callback = (std::function<void(const int&)>*)lpData;
-//}
+
+struct copy_struct 
+{
+	std::function<void(uint_64, uint_64)> on_progress_change;
+	std::function<void(uint_64,uint_64)> on_cancel;
+	int *cancel_ptr;
+};
+
+DWORD CALLBACK copy_callback(
+	LARGE_INTEGER TotalFileSize,			//文件总大小
+	LARGE_INTEGER TotalBytesTransferred,	//已传输的大小
+	LARGE_INTEGER StreamSize,				//流的大小
+	LARGE_INTEGER StreamBytesTransferred,	//流已传输的大小
+	DWORD dwStreamNumber,					//流编号
+	DWORD dwCallbackReason,					//回调原因
+	HANDLE hSourceFile,						//源文件句柄
+	HANDLE hDestinationFile,				//目标文件句柄
+	LPVOID lpData							//自定义数据
+)
+{
+	uint_64 total_size = TotalFileSize.QuadPart;
+	uint_64 bytes_transferred = TotalBytesTransferred.QuadPart;
+	copy_struct *cpy_ptr = (copy_struct*)lpData;
+	if (!cpy_ptr)
+	{
+		//出错则取消
+		return PROGRESS_CANCEL;
+	}
+	if (*(cpy_ptr->cancel_ptr))
+	{
+		//操作被取消
+		cpy_ptr->on_cancel(total_size,bytes_transferred);
+		delete cpy_ptr;
+		return PROGRESS_CANCEL;
+	}
+	//复制进程改变
+	cpy_ptr->on_progress_change(total_size, bytes_transferred);
+	if (total_size == bytes_transferred)
+	{
+		//复制完成
+		delete cpy_ptr;
+	}
+	return PROGRESS_CONTINUE;
+}
 #endif // WIN32
 
 
-//void stdx::file::copy_to(const std::string & path,typename stdx::file::cancel_token *cancel_ptr, std::function<void(const int&)>&& on_progress_change)
-//{
-//#ifdef WIN32
-//	//CopyFileExA(m_path.c_str(), path.c_str(),(LPPROGRESS_ROUTINE)copy_callback, &on_progress_change,cancel_ptr, COPY_FILE_FAIL_IF_EXISTS);
-//#endif
-//
-//#ifdef LINUX
-//
-//#endif // LINUX
-//}
+void stdx::file::copy_to(const std::string &path, cancel_token_ptr cancel_ptr, std::function<void(uint_64, uint_64)> &&on_progress_change, std::function<void(uint_64, uint_64)> &&on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/)
+{
+#ifdef WIN32
+	copy_struct *cpy_ptr = new copy_struct;
+	cpy_ptr->on_progress_change = on_progress_change;
+	cpy_ptr->on_cancel = on_cancel;
+	cpy_ptr->cancel_ptr = cancel_ptr;
+	if (!CopyFileExA(m_path->c_str(), path.c_str(), (LPPROGRESS_ROUTINE)copy_callback, cpy_ptr, (LPBOOL)cancel_ptr, COPY_FILE_FAIL_IF_EXISTS))
+	{
+		delete cpy_ptr;
+		auto _ERROR_CODE = GetLastError(); 
+		LPVOID _MSG; 
+		if ((_ERROR_CODE != ERROR_IO_PENDING)&&(_ERROR_CODE != ERROR_REQUEST_ABORTED))
+		{ 
+			if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, _ERROR_CODE, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&_MSG, 0, NULL))
+			{ 
+				throw std::system_error(std::error_code(_ERROR_CODE, std::system_category()),(char*)_MSG);
+			}
+			else 
+			{ 
+				std::string _ERROR_MSG("windows system error:"); 
+				_ERROR_MSG.append(std::to_string(_ERROR_CODE)); 
+				throw std::system_error(std::error_code(_ERROR_CODE, std::system_category()), _ERROR_MSG.c_str()); 
+			} 
+		}
+	}
+#endif
+
+#ifdef LINUX
+
+#endif // LINUX
+}
 
 bool stdx::file::exist() const
 {

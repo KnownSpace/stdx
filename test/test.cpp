@@ -4,6 +4,8 @@
 #include <sstream>
 #include <stdx/string.h>
 #include <stdx/logger.h>
+#include <ppl.h>
+#include <list>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB
@@ -56,7 +58,7 @@ int main(int argc, char **argv)
 	}
 #pragma endregion
 #endif 
-#define ENABLE_FILE
+//#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
 	stdx::file file(service, "./a.txt");
@@ -71,7 +73,15 @@ int main(int argc, char **argv)
 		std::cout << ev.buffer.to_string();
 	});
 	t.wait();
-	//stream.close();
+	stream.close();
+	int i = 0;
+	file.copy_to("./b.txt", &i, [](uint_64 total_size,uint_64 tran_size) 
+	{
+		std::cout << "copy:" << tran_size << " bytes\n";
+	}, [](uint_64 total_size, uint_64 tran_size) 
+	{
+		std::cout << "cancel\n";
+	});
 	std::cin.get();
 #endif // ENABLE_FILE
 	return 0;

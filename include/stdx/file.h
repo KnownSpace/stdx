@@ -977,11 +977,20 @@ namespace stdx
 #if defined(WIN32) | defined(LINUX)
 namespace stdx
 {
-
+	using cancel_token = int;
+	using cancel_token_ptr = int*;
+	struct cancel_token_value
+	{
+		enum 
+		{
+			none = 0,
+			cancel = 1
+		};
+	};
 	class file
 	{
 	public:
-		using cancel_token = int;
+		
 
 		file(const stdx::file_io_service &io_service,const std::string &path);
 
@@ -999,8 +1008,7 @@ namespace stdx
 
 		void remove();
 
-		//预留
-		//void copy_to(const std::string &path, cancel_token *cancel_ptr, std::function<void(const int&)> &&on_progress_change);
+		void copy_to(const std::string &path, cancel_token_ptr cancel_ptr, std::function<void(uint_64,uint_64)> &&on_progress_change, std::function<void(uint_64, uint_64)> &&on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/);
 
 		bool exist() const;
 

@@ -12,50 +12,51 @@ namespace stdx
 		//默认构造函数
 		_Semaphore()
 			:mutex(std::make_shared<std::mutex>())
-			, notify_count(0)
+			, notify_count(std::make_shared<std::atomic_int>(0))
 			, cv(std::make_shared<std::condition_variable>())
 		{}
 		//析构函数
 		~_Semaphore() = default;
 
-		void wait()
-		{
-			std::unique_lock<std::mutex> lock(*mutex);
-			auto &n = notify_count;
-			cv->wait(lock, [&n]() { return n==0; });
-			notify_count -= 1;
-		}
+		void wait();
 
-		void notify()
-		{
-			notify_count += 1;
-			this->cv->notify_one();
-		}
+		void notify();
 
-		void notify_all()
-		{
-			cv->notify_all();
-			notify_count = 0;
-		}
+		void notify_all();
 
 		template<class _Rep,class _Period>
 			bool wait_for(const std::chrono::duration<_Rep, _Period> &time)
 		{
 			std::unique_lock<std::mutex> lock(*mutex);
-			auto &n = notify_count;
-			if (cv->wait_for(lock, time, [&n]() { return (int)n; }))
+			return cv->wait_for(lock, time, [this]() mutable
 			{
-				notify_count -= 1;
-				return true;
-			}
-			else
-			{
-				return false;
-			}
+				int value = notify_count->load();
+				if (value == 0)
+				{
+					return false;
+				}
+				int new_value = value - 1;
+				while (true)
+				{
+					if (value == 0)
+					{
+						return false;
+					}
+					bool exchange = notify_count->compare_exchange_strong(value, new_value);
+					if ((!exchange) && (!value))
+					{
+						return false;
+					}
+					else if (exchange)
+					{
+						return true;
+					}
+				}
+			});
 		}
 	private:
 		std::shared_ptr<std::mutex> mutex;
-		std::atomic_int notify_count;
+		std::shared_ptr<std::atomic_int> notify_count;
 		std::shared_ptr<std::condition_variable> cv;
 	};
 	class semaphore
