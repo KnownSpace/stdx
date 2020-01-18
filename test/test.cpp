@@ -8,15 +8,14 @@
 #include <list>
 int main(int argc, char **argv)
 {
-	//#define ENABLE_WEB
+	#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
 	{
-		std::cout <<typename_of(service)<< "\n";
-		stdx::network_addr addr("0.0.0.0", 8080);
+		stdx::ipv4_addr addr("127.0.0.1", 8080);
 		s.bind(addr);
 	}
 	catch (std::exception &e)
@@ -56,9 +55,10 @@ int main(int argc, char **argv)
 			});
 		});
 	}
+	std::cin.get();
 #pragma endregion
 #endif 
-#define ENABLE_FILE
+//#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
 	stdx::file file(service, "./a.txt");

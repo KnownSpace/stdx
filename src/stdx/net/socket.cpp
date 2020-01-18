@@ -226,9 +226,9 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const size_t &size, std::functio
 	}
 }
 
-void stdx::_NetworkIOService::connect(SOCKET sock, stdx::network_addr &addr)
+void stdx::_NetworkIOService::connect(SOCKET sock, stdx::ipv4_addr &addr)
 {
-	if (WSAConnect(sock, addr, network_addr::addr_len, NULL, NULL, NULL, NULL) == SOCKET_ERROR)
+	if (WSAConnect(sock, addr, ipv4_addr::addr_len, NULL, NULL, NULL, NULL) == SOCKET_ERROR)
 	{
 		_ThrowWSAError
 	}
@@ -243,9 +243,9 @@ SOCKET stdx::_NetworkIOService::accept(SOCKET sock)
 	m_iocp.bind(s);
 	return s;
 }
-SOCKET stdx::_NetworkIOService::accept(SOCKET sock, network_addr & addr)
+SOCKET stdx::_NetworkIOService::accept(SOCKET sock, ipv4_addr & addr)
 {
-	int size = network_addr::addr_len;
+	int size = ipv4_addr::addr_len;
 	SOCKET s = WSAAccept(sock, addr, &size, NULL, NULL);
 	if (s == INVALID_SOCKET)
 	{
@@ -263,15 +263,15 @@ void stdx::_NetworkIOService::listen(SOCKET sock, int backlog)
 	}
 }
 
-void stdx::_NetworkIOService::bind(SOCKET sock, network_addr & addr)
+void stdx::_NetworkIOService::bind(SOCKET sock, ipv4_addr & addr)
 {
-	if (::bind(sock, addr, network_addr::addr_len) == SOCKET_ERROR)
+	if (::bind(sock, addr, ipv4_addr::addr_len) == SOCKET_ERROR)
 	{
 		_ThrowWSAError
 	}
 }
 
-void stdx::_NetworkIOService::send_to(SOCKET sock, const network_addr & addr, const char * data, const size_t & size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
+void stdx::_NetworkIOService::send_to(SOCKET sock, const ipv4_addr & addr, const char * data, const size_t & size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
 {
 	stdx::network_io_context *context_ptr = new stdx::network_io_context;
 	context_ptr->addr = addr;
@@ -308,7 +308,7 @@ void stdx::_NetworkIOService::send_to(SOCKET sock, const network_addr & addr, co
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
-	if (WSASendTo(sock, &(context_ptr->buffer), 1, &(context_ptr->size), NULL, (context_ptr->addr), network_addr::addr_len, &(context_ptr->m_ol), NULL) == SOCKET_ERROR)
+	if (WSASendTo(sock, &(context_ptr->buffer), 1, &(context_ptr->size), NULL, (context_ptr->addr), ipv4_addr::addr_len, &(context_ptr->m_ol), NULL) == SOCKET_ERROR)
 	{
 		try
 		{
@@ -417,10 +417,10 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	}
 }
 
- stdx::network_addr stdx::_NetworkIOService::get_local_addr(SOCKET sock) const
+ stdx::ipv4_addr stdx::_NetworkIOService::get_local_addr(SOCKET sock) const
 {
-	network_addr addr;
-	int len = network_addr::addr_len;
+	ipv4_addr addr;
+	int len = ipv4_addr::addr_len;
 	if (getsockname(sock, addr, &len) == SOCKET_ERROR)
 	{
 		_ThrowWSAError
@@ -428,10 +428,10 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	return addr;
 }
 
- stdx::network_addr stdx::_NetworkIOService::get_remote_addr(SOCKET sock) const
+ stdx::ipv4_addr stdx::_NetworkIOService::get_remote_addr(SOCKET sock) const
  {
-	 network_addr addr;
-	 int len = network_addr::addr_len;
+	 ipv4_addr addr;
+	 int len = ipv4_addr::addr_len;
 	 if (getpeername(sock, addr, &len) == SOCKET_ERROR)
 	 {
 		 _ThrowWSAError
@@ -542,7 +542,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const network_addr & addr, const char * data, const size_t & size)
+ stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const ipv4_addr & addr, const char * data, const size_t & size)
  {
 	 if (!m_io_service)
 	 {
@@ -677,18 +677,18 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return sock;
  }
 
- void stdx::_NetworkIOService::connect(int sock, stdx::network_addr &addr)
+ void stdx::_NetworkIOService::connect(int sock, stdx::ipv4_addr &addr)
  {
-	 if (::connect(sock, addr, network_addr::addr_len) == -1)
+	 if (::connect(sock, addr, ipv4_addr::addr_len) == -1)
 	 {
 		 _ThrowLinuxError
 	 }
  }
 
- stdx::network_addr stdx::_NetworkIOService::get_local_addr(int sock) const
+ stdx::ipv4_addr stdx::_NetworkIOService::get_local_addr(int sock) const
  {
-	 network_addr addr;
-	 socklen_t len = network_addr::addr_len;
+	 ipv4_addr addr;
+	 socklen_t len = ipv4_addr::addr_len;
 	 if (getsockname(sock, addr, &len) == -1)
 	 {
 		 _ThrowLinuxError
@@ -696,10 +696,10 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return addr;
  }
 
- stdx::network_addr stdx::_NetworkIOService::get_remote_addr(int sock)const
+ stdx::ipv4_addr stdx::_NetworkIOService::get_remote_addr(int sock)const
  {
-	 network_addr addr;
-	 socklen_t len = network_addr::addr_len;
+	 ipv4_addr addr;
+	 socklen_t len = ipv4_addr::addr_len;
 	 if (getpeername(sock, addr, &len) == -1)
 	 {
 		 _ThrowLinuxError
@@ -707,9 +707,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return addr;
  }
 
- int stdx::_NetworkIOService::accept(int sock, network_addr &addr)
+ int stdx::_NetworkIOService::accept(int sock, ipv4_addr &addr)
  {
-	 socklen_t len = network_addr::addr_len;
+	 socklen_t len = ipv4_addr::addr_len;
 	 int new_sock = ::accept(sock, (sockaddr*)addr, &len);
 	 if (new_sock == -1)
 	 {
@@ -721,8 +721,8 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  
  int stdx::_NetworkIOService::accept(int sock)
  {
-	 socklen_t len = network_addr::addr_len;
-	 network_addr addr;
+	 socklen_t len = ipv4_addr::addr_len;
+	 ipv4_addr addr;
 	 int new_sock = ::accept(sock, (sockaddr*)addr, &len);
 	 if (new_sock == -1)
 	 {
@@ -740,9 +740,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 }
  }
 
- void stdx::_NetworkIOService::bind(int sock, stdx::network_addr &addr)
+ void stdx::_NetworkIOService::bind(int sock, stdx::ipv4_addr &addr)
  {
-	 if (::bind(sock, addr, network_addr::addr_len) == -1)
+	 if (::bind(sock, addr, ipv4_addr::addr_len) == -1)
 	 {
 		 _ThrowLinuxError
 	 }
@@ -857,7 +857,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 m_reactor.push(sock,ev);
  }
 
- void stdx::_NetworkIOService::send_to(int sock, const network_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
+ void stdx::_NetworkIOService::send_to(int sock, const ipv4_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
  {
 	 char* buf = (char*) ::malloc(size);
 	 if (buf == nullptr)
@@ -874,7 +874,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 ::memcpy(buf,data,size);
 	 stdx::threadpool::run([sock,addr,buf,size,callback]() 
 	 {
-		 socklen_t len = stdx::network_addr::addr_len;
+		 socklen_t len = stdx::ipv4_addr::addr_len;
 		 ssize_t r = 0;
 		 std::exception_ptr err(nullptr);
 		 try
@@ -974,7 +974,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 							 sockaddr_in addr;
 							 socklen_t addr_size = sizeof(sockaddr_in);
 							 r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL, (sockaddr*)&addr, &addr_size);
-							 context->addr = stdx::network_addr(addr);
+							 context->addr = stdx::ipv4_addr(addr);
 						 }
 						 auto *callback = context->callback;
 						 std::exception_ptr err(nullptr);
@@ -1078,7 +1078,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
- stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const network_addr & addr, const char * data, const size_t & size)
+ stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const ipv4_addr & addr, const char * data, const size_t & size)
  {
 	 if (!m_io_service)
 	 {

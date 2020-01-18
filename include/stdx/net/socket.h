@@ -7,6 +7,7 @@
 #ifdef WIN32
 #include <WinSock2.h>
 #include <MSWSock.h>
+#include<WS2tcpip.h>
 #pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib, "Mswsock.lib")
 #endif 
@@ -92,29 +93,35 @@ namespace stdx
 #pragma endregion
 
 #pragma region StructDef
-	class network_addr
+	class ipv4_addr
 	{
 	public:
-		network_addr()
+		ipv4_addr()
+			:m_handle()
 		{
 			::memset(&m_handle, 0, sizeof(SOCKADDR_IN));
 		}
-		network_addr(unsigned long ip, const uint_16 &port)
+		ipv4_addr(unsigned long ip, const uint_16 &port)
 		{
 			m_handle.sin_family =stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_addr.S_un.S_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
-		network_addr(const char *ip, const uint_16 &port)
-			:network_addr(inet_addr(ip), port)
-		{}
-		network_addr(const network_addr &other)
+		ipv4_addr(const char *ip, const uint_16 &port)
+			:m_handle()
+		{
+			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
+			m_handle.sin_port = htons(port);
+			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip, &(m_handle.sin_addr));
+		}
+		ipv4_addr(const ipv4_addr &other)
 			:m_handle(other.m_handle)
 		{}
-		network_addr(const SOCKADDR_IN &addr)
+		ipv4_addr(const SOCKADDR_IN &addr)
 			:m_handle(addr)
 		{}
-		~network_addr() = default;
+		~ipv4_addr() = default;
+
 		operator SOCKADDR_IN* ()
 		{
 			return &m_handle;
@@ -125,20 +132,20 @@ namespace stdx
 			return (sockaddr*)&m_handle;
 		}
 
-		network_addr &operator=(const network_addr &other)
+		ipv4_addr &operator=(const ipv4_addr &other)
 		{
 			m_handle = other.m_handle;
 			return *this;
 		}
 
-		network_addr &operator=(network_addr &&other)
+		ipv4_addr &operator=(ipv4_addr &&other)
 		{
 			m_handle = other.m_handle;
 			return *this;
 		}
 
 		const static int addr_len = sizeof(sockaddr);
-		network_addr &port(const uint_16 &port)
+		ipv4_addr &port(const uint_16 &port)
 		{
 			m_handle.sin_port = htons(port);
 			return *this;
@@ -152,18 +159,18 @@ namespace stdx
 		_String ip() const
 		{
 			using char_t = typename _String::value_type;
-			const char* val = inet_ntoa(m_handle.sin_addr);
-			return _String((char_t*)val);
+			char buf[20];
+			inet_ntop(stdx::forward_addr_family(stdx::addr_family::ip), &(m_handle.sin_addr), buf, 20);
+			return _String((char_t*)buf);
 		}
 
-		network_addr &ip(const char *ip)
+		ipv4_addr &ip(const char *ip)
 		{
-
-			m_handle.sin_addr.S_un.S_addr = inet_addr(ip);
+			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip),ip,&(m_handle.sin_addr));
 			return *this;
 		}
 
-		bool operator==(const stdx::network_addr &other) const
+		bool operator==(const stdx::ipv4_addr &other) const
 		{
 			return (ip() == other.ip())&&(port() == other.port());
 		}
@@ -180,7 +187,7 @@ namespace stdx
 		~network_io_context() = default;
 		WSAOVERLAPPED m_ol;
 		SOCKET this_socket;
-		network_addr addr;
+		ipv4_addr addr;
 		WSABUF buffer;
 		DWORD size;
 		SOCKET target_socket;
@@ -254,7 +261,7 @@ namespace stdx
 		SOCKET sock;
 		stdx::buffer buffer;
 		size_t size;
-		stdx::network_addr addr;
+		stdx::ipv4_addr addr;
 	};
 #pragma endregion
 
@@ -288,7 +295,7 @@ namespace stdx
 	//	SOCKET accept;
 	//	stdx::buffer buffer;
 	//	size_t size;
-	//	network_addr addr;
+	//	ipv4_addr addr;
 	//};
 
 #pragma region IO_SERVICE
@@ -314,25 +321,25 @@ namespace stdx
 		//接收数据
 		void recv(SOCKET sock, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
-		void connect(SOCKET sock, stdx::network_addr &addr);
+		void connect(SOCKET sock, stdx::ipv4_addr &addr);
 
-		SOCKET accept(SOCKET sock, network_addr &addr);
+		SOCKET accept(SOCKET sock, ipv4_addr &addr);
 
 		SOCKET accept(SOCKET sock);
 
 		void listen(SOCKET sock, int backlog);
 
-		void bind(SOCKET sock, network_addr &addr);
+		void bind(SOCKET sock, ipv4_addr &addr);
 
-		void send_to(SOCKET sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
+		void send_to(SOCKET sock, const ipv4_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
 
 		void recv_from(SOCKET sock,const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
 		void close(SOCKET sock);
 
-		network_addr get_local_addr(SOCKET sock) const;
+		ipv4_addr get_local_addr(SOCKET sock) const;
 
-		network_addr get_remote_addr(SOCKET sock) const;
+		ipv4_addr get_remote_addr(SOCKET sock) const;
 
 		//void _GetAcceptEx(SOCKET s, LPFN_ACCEPTEX *ptr)
 		//{
@@ -352,14 +359,14 @@ namespace stdx
 		//		_ThrowWSAError
 		//	}
 		//}
-		//network_addr _GetSocketAddrEx(SOCKET sock,void *buffer,const size_t &size)
+		//ipv4_addr _GetSocketAddrEx(SOCKET sock,void *buffer,const size_t &size)
 		//{
 		//	if (!get_addr_ex)
 		//	{
 		//		_GetAcceptExSockaddr(sock,&get_addr_ex);
 		//	}
-		//	network_addr local;
-		//	network_addr remote;
+		//	ipv4_addr local;
+		//	ipv4_addr remote;
 		//	auto local_ptr = (sockaddr*)local;
 		//	auto remote_ptr = (sockaddr*)remote;
 		//	DWORD len = sizeof(sockaddr);
@@ -482,12 +489,12 @@ namespace stdx
 			m_impl->recv(sock, size, callback);
 		}
 
-		void connect(SOCKET sock, stdx::network_addr &addr)
+		void connect(SOCKET sock, stdx::ipv4_addr &addr)
 		{
 			m_impl->connect(sock, addr);
 		}
 
-		SOCKET accept(SOCKET sock, network_addr &addr)
+		SOCKET accept(SOCKET sock, ipv4_addr &addr)
 		{
 			return m_impl->accept(sock, addr);
 		}
@@ -502,12 +509,12 @@ namespace stdx
 			m_impl->listen(sock, backlog);
 		}
 
-		void bind(SOCKET sock, network_addr &addr)
+		void bind(SOCKET sock, ipv4_addr &addr)
 		{
 			m_impl->bind(sock, addr);
 		}
 
-		void send_to(SOCKET sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> &&callback)
+		void send_to(SOCKET sock, const ipv4_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> &&callback)
 		{
 			m_impl->send_to(sock, addr, data, size, std::move(callback));
 		}
@@ -522,12 +529,12 @@ namespace stdx
 			m_impl->close(sock);
 		}
 
-		network_addr get_local_addr(SOCKET sock) const
+		ipv4_addr get_local_addr(SOCKET sock) const
 		{
 			return m_impl->get_local_addr(sock);
 		}
 
-		network_addr get_remote_addr(SOCKET sock) const
+		ipv4_addr get_remote_addr(SOCKET sock) const
 		{
 			return m_impl->get_remote_addr(sock);
 		}
@@ -575,7 +582,7 @@ namespace stdx
 		stdx::task<void> send_file(HANDLE file_handle);
 
 
-		stdx::task<stdx::network_send_event> send_to(const network_addr &addr, const char *data, const size_t &size);
+		stdx::task<stdx::network_send_event> send_to(const ipv4_addr &addr, const char *data, const size_t &size);
 
 
 		stdx::task<stdx::network_recv_event> recv(const size_t &size);
@@ -583,7 +590,7 @@ namespace stdx
 
 		stdx::task<stdx::network_recv_event> recv_from(const size_t &size);
 
-		void bind(network_addr &addr)
+		void bind(ipv4_addr &addr)
 		{
 			m_io_service.bind(m_handle, addr);
 		}
@@ -593,7 +600,7 @@ namespace stdx
 			m_io_service.listen(m_handle, backlog);
 		}
 
-		SOCKET accept(network_addr &addr)
+		SOCKET accept(ipv4_addr &addr)
 		{
 			return m_io_service.accept(m_handle, addr);
 		}
@@ -605,7 +612,7 @@ namespace stdx
 
 		void close();
 
-		void connect(network_addr &addr)
+		void connect(ipv4_addr &addr)
 		{
 			m_io_service.connect(m_handle, addr);
 		}
@@ -615,12 +622,12 @@ namespace stdx
 			return m_io_service;
 		}
 
-		network_addr local_addr() const
+		ipv4_addr local_addr() const
 		{
 			return m_io_service.get_local_addr(m_handle);
 		}
 
-		network_addr remote_addr() const
+		ipv4_addr remote_addr() const
 		{
 			return m_io_service.get_remote_addr(m_handle);
 		}
@@ -696,7 +703,7 @@ namespace stdx
 			return m_impl->init(addr_family, sock_type, protocol);
 		}
 
-		void bind(network_addr &addr)
+		void bind(ipv4_addr &addr)
 		{
 			m_impl->bind(addr);
 		}
@@ -706,7 +713,7 @@ namespace stdx
 			m_impl->listen(backlog);
 		}
 
-		self_t accept(network_addr &addr)
+		self_t accept(ipv4_addr &addr)
 		{
 			SOCKET s = m_impl->accept(addr);
 			return socket(m_impl->io_service(), s);
@@ -723,17 +730,17 @@ namespace stdx
 			m_impl->close();
 		}
 
-		void connect(network_addr &addr)
+		void connect(ipv4_addr &addr)
 		{
 			m_impl->connect(addr);
 		}
 
-		network_addr local_addr() const
+		ipv4_addr local_addr() const
 		{
 			return m_impl->local_addr();
 		}
 
-		network_addr remote_addr() const
+		ipv4_addr remote_addr() const
 		{
 			return m_impl->remote_addr();
 		}
@@ -748,7 +755,7 @@ namespace stdx
 			return m_impl->send_file(file_with_cache);
 		}
 
-		stdx::task<network_send_event> send_to(const network_addr &addr, const char *data, const size_t &size)
+		stdx::task<network_send_event> send_to(const ipv4_addr &addr, const char *data, const size_t &size)
 		{
 			return m_impl->send_to(addr, data, size);
 		}
@@ -840,31 +847,36 @@ namespace stdx
 #pragma endregion
 
 #pragma region StructDef
-	class network_addr
+	class ipv4_addr
 	{
 	public:
-		network_addr()
+		ipv4_addr()
+			:m_handle()
 		{
 			::memset(&m_handle,0,sizeof(m_handle));
 		}
-		network_addr(unsigned long ip, const uint_16 &port)
+		ipv4_addr(unsigned long ip, const uint_16 &port)
 		{
 			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_addr.s_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
-		network_addr(const char *ip, const uint_16 &port)
-			:network_addr(inet_addr(ip), port)
-		{}
-		network_addr(const network_addr &other)
+		ipv4_addr(const char *ip, const uint_16 &port)
+			:m_handle()
+		{
+			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
+			m_handle.sin_port = htons(port);
+			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip, &(m_handle.sin_addr));
+		}
+		ipv4_addr(const ipv4_addr &other)
 			:m_handle(other.m_handle)
 		{}
 
-		network_addr(const sockaddr_in &addr)
+		ipv4_addr(const sockaddr_in &addr)
 			:m_handle(addr)
 		{}
 
-		~network_addr() = default;
+		~ipv4_addr() = default;
 		operator sockaddr_in* ()
 		{
 			return &m_handle;
@@ -875,20 +887,20 @@ namespace stdx
 			return (sockaddr*)&m_handle;
 		}
 
-		network_addr &operator=(const network_addr &other)
+		ipv4_addr &operator=(const ipv4_addr &other)
 		{
 			m_handle = other.m_handle;
 			return *this;
 		}
 
-		network_addr &operator=(network_addr &&other)
+		ipv4_addr &operator=(ipv4_addr &&other)
 		{
 			m_handle = other.m_handle;
 			return *this;
 		}
 
 		const static int addr_len = sizeof(sockaddr);
-		network_addr &port(const uint_16 &port)
+		ipv4_addr &port(const uint_16 &port)
 		{
 			m_handle.sin_port = htons(port);
 			return *this;
@@ -902,17 +914,18 @@ namespace stdx
 		_String ip() const
 		{
 			using char_t = typename _String::value_type;
-			const char* val = inet_ntoa(m_handle.sin_addr);
-			return _String((char_t*)val);
+			char buf[20];
+			inet_ntop(stdx::forward_addr_family(stdx::addr_family::ip), &(m_handle.sin_addr), buf, 20);
+			return _String((char_t*)buf);
 		}
 
-		network_addr &ip(const char *ip)
+		ipv4_addr &ip(const char *ip)
 		{
-			m_handle.sin_addr.s_addr = inet_addr(ip);
+			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip, &(m_handle.sin_addr));
 			return *this;
 		}
 
-		bool operator==(const stdx::network_addr &other) const
+		bool operator==(const stdx::ipv4_addr &other) const
 		{
 			return (ip() == other.ip()) && (port() == other.port());
 		}
@@ -926,7 +939,7 @@ namespace stdx
 		~network_io_context() = default;
 		int code;
 		int this_socket;
-		network_addr addr;
+		ipv4_addr addr;
 		char *buffer;
 		size_t buffer_size;
 		size_t size;
@@ -1012,7 +1025,7 @@ namespace stdx
 		int sock;
 		stdx::buffer buffer;
 		size_t size;
-		stdx::network_addr addr;
+		stdx::ipv4_addr addr;
 	};
 #pragma endregion
 
@@ -1044,25 +1057,25 @@ namespace stdx
 
 		void recv(int sock, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
-		void connect(int sock, stdx::network_addr &addr);
+		void connect(int sock, stdx::ipv4_addr &addr);
 
-		int accept(int sock, network_addr &addr);
+		int accept(int sock, ipv4_addr &addr);
 
 		int accept(int sock);
 
 		void listen(int sock, int backlog);
 
-		void bind(int sock, network_addr &addr);
+		void bind(int sock, ipv4_addr &addr);
 
-		void send_to(int sock, const network_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
+		void send_to(int sock, const ipv4_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
 
 		void recv_from(int sock, const size_t &size, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
 		void close(int sock);
 
-		network_addr get_local_addr(int sock) const;
+		ipv4_addr get_local_addr(int sock) const;
 
-		network_addr get_remote_addr(int sock) const;
+		ipv4_addr get_remote_addr(int sock) const;
 	private:
 		stdx::reactor m_reactor;
 		std::shared_ptr<bool> m_alive;
@@ -1113,12 +1126,12 @@ namespace stdx
 			m_impl->recv(sock, size, std::move(callback));
 		}
 
-		void connect(int sock, stdx::network_addr &addr)
+		void connect(int sock, stdx::ipv4_addr &addr)
 		{
 			m_impl->connect(sock, addr);
 		}
 
-		int accept(int sock, network_addr &addr)
+		int accept(int sock, ipv4_addr &addr)
 		{
 			return m_impl->accept(sock, addr);
 		}
@@ -1133,12 +1146,12 @@ namespace stdx
 			m_impl->listen(sock, backlog);
 		}
 
-		void bind(int sock, network_addr &addr)
+		void bind(int sock, ipv4_addr &addr)
 		{
 			m_impl->bind(sock, addr);
 		}
 
-		void send_to(int sock, const network_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> &&callback)
+		void send_to(int sock, const ipv4_addr &addr, const char *data, const size_t &size, std::function<void(stdx::network_send_event, std::exception_ptr)> &&callback)
 		{
 			m_impl->send_to(sock, addr, data, size, std::move(callback));
 		}
@@ -1153,12 +1166,12 @@ namespace stdx
 			m_impl->close(sock);
 		}
 
-		network_addr get_local_addr(int sock) const
+		ipv4_addr get_local_addr(int sock) const
 		{
 			return m_impl->get_local_addr(sock);
 		}
 
-		network_addr get_remote_addr(int sock) const
+		ipv4_addr get_remote_addr(int sock) const
 		{
 			return m_impl->get_remote_addr(sock);
 		}
@@ -1200,14 +1213,14 @@ namespace stdx
 		stdx::task<void> send_file(int file_handle);
 
 
-		stdx::task<stdx::network_send_event> send_to(const network_addr &addr, const char *data, const size_t &size);
+		stdx::task<stdx::network_send_event> send_to(const ipv4_addr &addr, const char *data, const size_t &size);
 
 		stdx::task<stdx::network_recv_event> recv(const size_t &size);
 
 
 		stdx::task<stdx::network_recv_event> recv_from(const size_t &size);
 
-		void bind(network_addr &addr)
+		void bind(ipv4_addr &addr)
 		{
 			m_io_service.bind(m_handle, addr);
 		}
@@ -1217,7 +1230,7 @@ namespace stdx
 			m_io_service.listen(m_handle, backlog);
 		}
 
-		int accept(network_addr &addr)
+		int accept(ipv4_addr &addr)
 		{
 			return m_io_service.accept(m_handle, addr);
 		}
@@ -1229,7 +1242,7 @@ namespace stdx
 
 		void close();
 
-		void connect(network_addr &addr)
+		void connect(ipv4_addr &addr)
 		{
 			m_io_service.connect(m_handle, addr);
 		}
@@ -1239,12 +1252,12 @@ namespace stdx
 			return m_io_service;
 		}
 
-		network_addr local_addr() const
+		ipv4_addr local_addr() const
 		{
 			return m_io_service.get_local_addr(m_handle);
 		}
 
-		network_addr remote_addr() const
+		ipv4_addr remote_addr() const
 		{
 			return m_io_service.get_remote_addr(m_handle);
 		}
@@ -1319,7 +1332,7 @@ namespace stdx
 			return m_impl->init(addr_family, sock_type, protocol);
 		}
 
-		void bind(network_addr &addr)
+		void bind(ipv4_addr &addr)
 		{
 			m_impl->bind(addr);
 		}
@@ -1329,7 +1342,7 @@ namespace stdx
 			m_impl->listen(backlog);
 		}
 
-		self_t accept(network_addr &addr)
+		self_t accept(ipv4_addr &addr)
 		{
 			int s = m_impl->accept(addr);
 			return socket(m_impl->io_service(), s);
@@ -1346,17 +1359,17 @@ namespace stdx
 			m_impl->close();
 		}
 
-		void connect(network_addr &addr)
+		void connect(ipv4_addr &addr)
 		{
 			m_impl->connect(addr);
 		}
 
-		network_addr local_addr() const
+		ipv4_addr local_addr() const
 		{
 			return m_impl->local_addr();
 		}
 
-		network_addr remote_addr() const
+		ipv4_addr remote_addr() const
 		{
 			return m_impl->remote_addr();
 		}
@@ -1371,7 +1384,7 @@ namespace stdx
 			return m_impl->send_file(file_handle);
 		}
 
-		stdx::task<network_send_event> send_to(const network_addr &addr, const char *data, const size_t &size)
+		stdx::task<network_send_event> send_to(const ipv4_addr &addr, const char *data, const size_t &size)
 		{
 			return m_impl->send_to(addr, data, size);
 		}
