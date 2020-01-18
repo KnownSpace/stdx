@@ -203,7 +203,7 @@ int_64 stdx::_FileIOService::get_file_size(HANDLE file) const
 
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
-	for (size_t i = 0, cores = cpu_cores() * 2; i < cores; i++)
+	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
 		{
@@ -563,7 +563,7 @@ void stdx::_FileIOService::close_file(int file)
 
 void stdx::_FileIOService::init_thread()
 {
-	for (size_t i = 0, cores = cpu_cores() * 2; i < cores; i++)
+	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::run([](aiocp_t aiocp, std::shared_ptr<bool> alive)
 		{

@@ -2,6 +2,19 @@
 
 const stdx::threadpool::impl_t stdx::threadpool::m_impl = std::make_shared <stdx::_Threadpool>();
 
+uint_32 stdx::suggested_threads_number()
+{
+	uint_32 cores = cpu_cores();
+	if (cores < 8)
+	{
+		return cores*2;
+	}
+	else
+	{
+		return 8;
+	}
+}
+
 //¹¹Ôìº¯Êı
 
 stdx::_Threadpool::_Threadpool() noexcept
@@ -95,9 +108,9 @@ void stdx::_Threadpool::add_thread() noexcept
 
 void stdx::_Threadpool::init_threads() noexcept
 {
-	unsigned int cores = (cpu_cores()) << 2;
-	*m_free_count += cores;
-	for (unsigned int i = 0; i < cores; i++)
+	unsigned int threads_number = suggested_threads_number();
+	*m_free_count += threads_number;
+	for (unsigned int i = 0; i < threads_number; i++)
 	{
 		add_thread();
 	}

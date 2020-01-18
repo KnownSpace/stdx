@@ -444,7 +444,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
-	 for (size_t i = 0, cores = cpu_cores() * 2; i < cores; i++)
+	 for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
 		 stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
 		 {
@@ -953,7 +953,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
-	 for (size_t i = 0,cores = cpu_cores()*2; i < cores; i++)
+	 for (size_t i = 0,cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
 		 stdx::threadpool::run([](stdx::reactor reactor,std::shared_ptr<bool> alive) 
 		 {

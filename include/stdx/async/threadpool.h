@@ -10,6 +10,8 @@
 #define cpu_cores() std::thread::hardware_concurrency()
 namespace stdx
 {
+	extern uint_32 suggested_threads_number();
+
 	//线程池
 	class _Threadpool
 	{
