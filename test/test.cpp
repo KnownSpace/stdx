@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
+		auto t = c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
 		{
 			std::cout << "from: " << e.addr.ip() << ":" << e.addr.port() << std::endl;
 			std::cout << "recv:" << std::endl
@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 			str.append("\r\n");
 			str.append(body);
 			std::cout << str << std::endl;
-			c.send(str.c_str(), str.size()).then([c](stdx::task_result<stdx::network_send_event> &r) mutable
+			auto t = c.send(str.c_str(), str.size()).then([c](stdx::task_result<stdx::network_send_event> &r) mutable
 			{
 				try
 				{

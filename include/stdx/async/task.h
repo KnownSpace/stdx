@@ -11,25 +11,22 @@ namespace stdx
 {
 #pragma region SomeDataStruct
 	//Task状态
-	struct task_state
+	enum class task_state
 	{
-		enum
-		{
-			//就绪
-			ready = 0,
-			//完成
-			complete = 1,
-			//运行中
-			running = 2,
-			//错误
-			error = 3
-		};
+		//就绪
+		ready = 0,
+		//完成
+		complete = 1,
+		//运行中
+		running = 2,
+		//错误
+		error = 3
 	};
 
 	template<typename _T>
 	using promise_ptr = std::shared_ptr<std::promise<_T>>;
 
-	using state_ptr = std::shared_ptr<int>;
+	using state_ptr = std::shared_ptr<task_state>;
 
 	template<typename _T>
 	using shared_future_ptr = std::shared_ptr<std::shared_future<_T>>;
@@ -55,7 +52,7 @@ namespace stdx
 			:m_future(other.m_future)
 		{}
 
-		task_result(task_result<_T> &&other)
+		task_result(task_result<_T> &&other) noexcept
 			:m_future(std::move(other.m_future))
 		{}
 
@@ -88,7 +85,7 @@ namespace stdx
 			:m_future(other.m_future)
 		{}
 
-		task_result(task_result<void> &&other)
+		task_result(task_result<void> &&other) noexcept
 			:m_future(std::move(other.m_future))
 		{}
 
@@ -707,7 +704,7 @@ namespace stdx
 			, m_promise(std::make_shared<std::promise<R>>())
 			, m_future(m_promise->get_future())
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
-			, m_state(std::make_shared<int>(stdx::task_state::ready))
+			, m_state(std::make_shared<task_state>(stdx::task_state::ready))
 			, m_lock()
 		{
 		}
@@ -718,7 +715,7 @@ namespace stdx
 			, m_promise(std::make_shared<std::promise<R>>())
 			, m_future(m_promise->get_future())
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
-			, m_state(std::make_shared<int>(stdx::task_state::ready))
+			, m_state(std::make_shared<task_state>(stdx::task_state::ready))
 			, m_lock()
 		{
 		}
@@ -1054,6 +1051,11 @@ namespace stdx
 		{
 			m_impl = other.m_impl;
 			return *this;
+		}
+
+		bool operator==(const task_flag& other) const
+		{
+			return m_impl == other.m_impl;
 		}
 
 		stdx::task<void> lock()

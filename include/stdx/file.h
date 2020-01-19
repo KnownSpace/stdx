@@ -61,7 +61,7 @@ namespace stdx
 			, offset(other.offset)
 			, eof(other.eof)
 		{}
-		file_read_event(file_read_event &&other)
+		file_read_event(file_read_event &&other) noexcept
 			:file(std::move(other.file))
 			, buffer(std::move(other.buffer))
 			, offset(std::move(other.offset))
@@ -100,7 +100,7 @@ namespace stdx
 			:file(other.file)
 			, size(other.size)
 		{}
-		file_write_event(file_write_event &&other)
+		file_write_event(file_write_event &&other) noexcept
 			:file(std::move(other.file))
 			, size(std::move(other.size))
 		{}
@@ -171,7 +171,7 @@ namespace stdx
 
 		void read_file(HANDLE file,DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
 
-		void write_file(HANDLE file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
+		void write_file(HANDLE file, const char *buffer, const DWORD &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
 
 
 		int_64 get_file_size(HANDLE file) const;
@@ -202,7 +202,7 @@ namespace stdx
 		file_io_service(const file_io_service &other)
 			:m_impl(other.m_impl)
 		{}
-		file_io_service(file_io_service &&other)
+		file_io_service(file_io_service &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 		file_io_service &operator=(const file_io_service &other)
@@ -218,11 +218,11 @@ namespace stdx
 		{
 			return m_impl->create_file(path, access_type, file_open_type, shared_model);
 		}
-		void read_file(HANDLE file,const size_t &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
+		void read_file(HANDLE file,const DWORD &size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
 		{
 			return m_impl->read_file(file, size, offset, callback);
 		}
-		void write_file(HANDLE file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
+		void write_file(HANDLE file, const char *buffer, const DWORD &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
 		{
 			return m_impl->write_file(file, buffer, size, offset,callback);
 		}
@@ -261,7 +261,7 @@ namespace stdx
 			m_file = m_io_service.create_file(path, access_type, open_type, shared_model);
 		}
 
-		stdx::task<file_read_event> read(const size_t &size, const uint_64 &offset);
+		stdx::task<file_read_event> read(const DWORD &size, const uint_64 &offset);
 
 
 		//返回true则继续
@@ -320,7 +320,7 @@ namespace stdx
 		}
 
 
-		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const uint_64 &offset);
+		stdx::task<file_write_event> write(const char* buffer, const DWORD&size, const uint_64 &offset);
 
 
 		void close();
@@ -355,7 +355,7 @@ namespace stdx
 			:m_impl(other.m_impl)
 		{}
 
-		file_stream(file_stream &&other)
+		file_stream(file_stream &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 
@@ -372,19 +372,21 @@ namespace stdx
 			return *this;
 		}
 
-		stdx::task<file_read_event> read(const size_t &size, const int_64 &offset)
+		stdx::task<file_read_event> read(const DWORD&size, const int_64 &offset)
 		{
 			return m_impl->read(size, offset);
 		}
 
-		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const int_64 &offset)
+		stdx::task<file_write_event> write(const char* buffer, const DWORD&size, const int_64 &offset)
 		{
 			return m_impl->write(buffer, size, offset);
 		}
 
 		stdx::task<file_write_event> write(const std::string &str, const int_64 &offset)
 		{
-			return write(str.c_str(), str.size(), offset);
+			uint64_union u64;
+			u64.value = str.size();
+			return write(str.c_str(),u64.low, offset);
 		}
 
 		template<typename _Fn>

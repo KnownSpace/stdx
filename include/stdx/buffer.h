@@ -64,7 +64,7 @@ namespace stdx
 		buffer(const buffer &other)
 			:m_impl(other.m_impl)
 		{}
-		buffer(buffer &&other)
+		buffer(buffer &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 		~buffer() = default;

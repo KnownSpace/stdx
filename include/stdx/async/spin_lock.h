@@ -28,7 +28,7 @@ namespace stdx
 		spin_lock(const spin_lock &other)
 			:m_impl(other.m_impl)
 		{}
-		spin_lock(spin_lock &&other)
+		spin_lock(spin_lock &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 		~spin_lock() = default;

@@ -69,7 +69,7 @@ namespace stdx
 		semaphore(const semaphore &other) 
 			:m_impl(other.m_impl)
 		{}
-		semaphore(semaphore && other)
+		semaphore(semaphore && other) noexcept
 			: m_impl(std::move(other.m_impl))
 		{}
 		~semaphore() = default;

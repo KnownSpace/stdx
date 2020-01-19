@@ -40,7 +40,7 @@ stdx::_FileIOService::_FileIOService()
 stdx::_FileIOService::~_FileIOService()
 {
 	*m_alive = false;
-	for (size_t i = 0,size = cpu_cores()*2; i < size; i++)
+	for (size_t i = 0,size = ((uint_64)cpu_cores())*2; i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}
@@ -60,6 +60,11 @@ HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_t
 void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	file_io_context *context = new file_io_context;
+	if (context == nullptr)
+	{
+		callback(stdx::file_read_event(),std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	int64_union li;
 	li.value = offset;
 	context->m_ol.Offset = li.low;
@@ -71,18 +76,19 @@ void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offse
 	if (context->buffer == nullptr)
 	{
 		delete context;
-		try
-		{
-			throw std::bad_alloc();
-		}
-		catch (const std::exception&)
-		{
-			callback(stdx::file_read_event(), std::current_exception());
-		}
+		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
 	}
 	::memset(context->buffer, 0, size);
 	context->size = size;
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
+	if (call == nullptr)
+	{
+		free(context->buffer);
+		delete context;
+		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	*call = [callback, size](file_io_context *context_ptr, std::exception_ptr error)
 	{
 		if (error)
@@ -140,9 +146,14 @@ void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offse
 	return;
 }
 
-void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const size_t &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWORD & size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 	file_io_context *context_ptr = new file_io_context;
+	if (context_ptr == nullptr)
+	{
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	int64_union li;
 	li.value = offset;
 	context_ptr->m_ol.Offset = li.low;
@@ -153,17 +164,18 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const siz
 	if (buf == nullptr)
 	{
 		delete context_ptr;
-		try
-		{
-			throw std::bad_alloc();
-		}
-		catch (const std::exception&)
-		{
-			callback(stdx::file_write_event(), std::current_exception());
-		}
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
 	}
 	::memcpy(buf, buffer, size);
 	auto *call = new std::function<void(file_io_context*, std::exception_ptr)>;
+	if (call == nullptr)
+	{
+		delete context_ptr;
+		free(buf);
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	*call = [callback,buf](file_io_context *context_ptr, std::exception_ptr error)
 	{
 		::free(buf);
@@ -275,14 +287,17 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const uint_64 & offset)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const DWORD &size, const uint_64 & offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
 	stdx::task_complete_event<stdx::file_read_event> ce;
-	m_io_service.read_file(m_file, size, offset, [ce](file_read_event context, std::exception_ptr error) mutable
+	m_io_service.read_file(m_file, size,
+ offset,
+
+ [ce](file_read_event context, std::exception_ptr error) mutable
 	{
 		if (error)
 		{
@@ -297,7 +312,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, c
 	return ce.get_task();
 }
 
-stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const uint_64 &offset)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const DWORD &size, const uint_64 &offset)
 {
 	if (!m_io_service)
 	{
@@ -430,25 +445,32 @@ void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset
 	char *buffer = (char*)calloc(r_size, sizeof(char));
 	if (buffer == nullptr)
 	{
-		try
-		{
-			throw std::bad_alloc();
-		}
-		catch (const std::exception&)
-		{
-			callback(stdx::file_read_event(), std::current_exception());
-		}
+		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
 	}
 	posix_memalign((void**)&buffer, 512, r_size);
 	::memset(buffer, 0, r_size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
+	if (ptr == nullptr)
+	{
+		free(buffer);
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	ptr->size = r_size;
 	ptr->buffer = buffer;
 	ptr->offset = offset;
 	ptr->file = file;
 	//设置回调
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
+	if (call == nullptr)
+	{
+		free(buffer);
+		delete ptr;
+		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	*call = [callback, size](file_io_context *context_ptr, std::exception_ptr error)
 	{
 		if (error)
@@ -491,26 +513,33 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	char *buf = (char*)calloc(r_size, sizeof(char));
 	if (buf == nullptr)
 	{
-		try
-		{
-			throw std::bad_alloc();
-		}
-		catch (const std::exception&)
-		{
-			callback(stdx::file_write_event(), std::current_exception());
-		}
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
 	}
 	posix_memalign((void**)&buf, 512, r_size);
 	::memset(buf, 0, r_size);
 	::memcpy(buf, buffer, size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
+	if (ptr == nullptr)
+	{
+		free(buf);
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	ptr->size = r_size;
 	ptr->buffer = buf;
 	ptr->offset = offset;
 	ptr->file = file;
 	//设置回调
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
+	if (call == nullptr)
+	{
+		free(buf);
+		delete ptr;
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
 	*call = [callback, size](file_io_context *context_ptr, std::exception_ptr error)
 	{
 		if (context_ptr->buffer != nullptr)
@@ -766,6 +795,29 @@ void stdx::file::remove()
 
 struct copy_struct 
 {
+	copy_struct()
+		:on_progress_change()
+		,on_cancel()
+		,cancel_ptr(nullptr)
+	{}
+	copy_struct(const copy_struct& other)
+		:on_progress_change(other.on_progress_change)
+		,on_cancel(other.on_cancel)
+		,cancel_ptr(other.cancel_ptr)
+	{}
+	copy_struct(copy_struct&& other) noexcept
+		:on_progress_change(other.on_progress_change)
+		,on_cancel(other.on_cancel)
+		,cancel_ptr(other.cancel_ptr)
+	{}
+	~copy_struct() = default;
+	copy_struct& operator=(const copy_struct &other) 
+	{
+		on_progress_change = other.on_progress_change;
+		on_cancel = other.on_cancel;
+		cancel_ptr = other.cancel_ptr;
+		return *this;
+	}
 	std::function<void(uint_64, uint_64)> on_progress_change;
 	std::function<void(uint_64,uint_64)> on_cancel;
 	int *cancel_ptr;
