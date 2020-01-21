@@ -730,6 +730,9 @@ stdx::file::file(const stdx::file_io_service &io_service,const std::string & pat
 	:m_path(std::make_shared<std::string>(path))
 	,m_io_service(io_service)
 {
+#ifdef WIN32
+	stdx::replace_string<std::string>(*m_path,std::string("/"), std::string("\\"));
+#endif // WIN32
 }
 
 stdx::file::file(const file & other)

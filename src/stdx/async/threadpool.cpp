@@ -71,7 +71,7 @@ void stdx::_Threadpool::add_thread() noexcept
 					continue;
 				}
 				//获取任务
-				runable_ptr t(std::move(tasks->front()));
+				runable_ptr t(tasks->front());
 				//从queue中pop
 				tasks->pop();
 				//解锁

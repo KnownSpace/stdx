@@ -558,12 +558,21 @@ namespace stdx
 			}, fn, (std::shared_future<Input>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<Input> input_promise)
 			{
-				auto task = future.get();
-				task.then([input_promise, t](Input &r)
+				try
 				{
-					input_promise->set_value(r);
+					auto task = future.get();
+					auto x = task.then([input_promise, t](Input& r) mutable
+					{
+						input_promise->set_value(r);
+						t->run_on_this_thread();
+					});
+				}
+				catch (const std::exception&)
+				{
+					input_promise->set_exception(std::current_exception());
 					t->run_on_this_thread();
-				});
+				}
+
 			}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
@@ -587,19 +596,42 @@ namespace stdx
 		template<typename Fn>
 		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
-			promise_ptr<stdx::task_result<Input>> promise = stdx::make_promise_ptr<stdx::task_result<Input>>();
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<stdx::task_result<Input>> result)
+			promise_ptr<Input> promise = stdx::make_promise_ptr<Input>();
+			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> result)
 			{
-				fn(result.get());
-			}, fn, (std::shared_future<stdx::task_result<Input>>)promise->get_future());
-			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<stdx::task_result<Input>> input_promise)
+				//使用future来制作task_result
+				fn(stdx::task_result<Input>(result));
+			}, fn, (std::shared_future<Input>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<Input> input_promise)
 			{
-				auto task = future.get();
-				task.then([input_promise, t](stdx::task_result<Input> &r)
+				try
 				{
-					input_promise->set_value(r);
+					//获取task
+					auto task = future.get();
+					//延续task
+					auto x = task.then([input_promise, t](stdx::task_result<Input> &r) mutable
+					{
+						try
+						{
+							//设置promise
+							input_promise->set_value(r.get());
+						}
+						catch (const std::exception&)
+						{
+							//出错则设置异常
+							input_promise->set_exception(std::current_exception());
+						}
+						t->run_on_this_thread();
+					});
+				}
+				catch (const std::exception &)
+				{
+					//获取Task都已出错
+					//设置异常
+					input_promise->set_exception(std::current_exception());
 					t->run_on_this_thread();
-				});
+				}
+
 			}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
@@ -632,7 +664,7 @@ namespace stdx
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> &future, promise_ptr<stdx::task_result<void>> input_promise)
 			{
 				auto task = future.get();
-				task.then([input_promise, t](stdx::task_result<void> &r)
+				auto x = task.then([input_promise, t](stdx::task_result<void> &r) mutable
 				{
 					input_promise->set_value(r);
 					t->run_on_this_thread();
@@ -669,7 +701,7 @@ namespace stdx
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<void> input_promise)
 			{
 				auto task = future.get();
-				task.then([input_promise,t]()
+				auto x = task.then([input_promise, t]() mutable
 				{
 					input_promise->set_value();
 					t->run_on_this_thread();

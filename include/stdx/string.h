@@ -60,7 +60,7 @@ namespace stdx
 	//	return _SpitStr(str,c, container);
 	//}
 
-	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
+	template<typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void replace_string(_String &str,const _String &target,const _String &val)
 	{
 		size_t pos = str.find(target);

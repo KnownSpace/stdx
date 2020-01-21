@@ -2,6 +2,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <atomic>
+#include <stdx/async/spin_lock.h>
 
 namespace stdx
 {
@@ -11,53 +12,34 @@ namespace stdx
 	public:
 		//默认构造函数
 		_Semaphore()
-			:mutex(std::make_shared<std::mutex>())
-			, notify_count(std::make_shared<std::atomic_int>(0))
-			, cv(std::make_shared<std::condition_variable>())
+			:m_lock()
+			,m_notify_count(0)
+			,m_cv()
 		{}
 		//析构函数
 		~_Semaphore() = default;
 
 		void wait();
 
+		template< class Rep, class Period>
+		bool wait_for(const std::chrono::duration<Rep, Period>& rel_time)
+		{
+			std::unique_lock<stdx::spin_lock> lock(m_lock);
+			if (m_cv.wait_for(lock,rel_time,[this](){return m_notify_count != 0;}))
+			{
+				m_notify_count -= 1;
+				return true;
+			}
+			return false;
+		}
+
 		void notify();
 
-		void notify_all();
 
-		template<class _Rep,class _Period>
-			bool wait_for(const std::chrono::duration<_Rep, _Period> &time)
-		{
-			std::unique_lock<std::mutex> lock(*mutex);
-			return cv->wait_for(lock, time, [this]() mutable
-			{
-				int value = notify_count->load();
-				if (value == 0)
-				{
-					return false;
-				}
-				int new_value = value - 1;
-				while (true)
-				{
-					if (value == 0)
-					{
-						return false;
-					}
-					bool exchange = notify_count->compare_exchange_strong(value, new_value);
-					if ((!exchange) && (!value))
-					{
-						return false;
-					}
-					else if (exchange)
-					{
-						return true;
-					}
-				}
-			});
-		}
 	private:
-		std::shared_ptr<std::mutex> mutex;
-		std::shared_ptr<std::atomic_int> notify_count;
-		std::shared_ptr<std::condition_variable> cv;
+		stdx::spin_lock m_lock;
+		int m_notify_count;
+		std::condition_variable_any m_cv;
 	};
 	class semaphore
 	{
@@ -88,15 +70,10 @@ namespace stdx
 			return m_impl->notify();
 		}
 
-		void notify_all()
+		template< class Rep, class Period>
+		bool wait_for(const std::chrono::duration<Rep, Period>& rel_time)
 		{
-			return m_impl->notify_all();
-		}
-
-		template<class _Rep,class _Period>
-			bool wait_for(const std::chrono::duration<_Rep, _Period> &time)
-		{
-			return m_impl->wait_for<_Rep,_Period>(time);
+			return m_impl->wait_for(rel_time);
 		}
 
 		bool operator==(const semaphore &other) const

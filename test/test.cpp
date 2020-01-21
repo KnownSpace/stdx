@@ -8,7 +8,7 @@
 #include <list>
 int main(int argc, char **argv)
 {
-	#define ENABLE_WEB
+	//#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -58,19 +58,24 @@ int main(int argc, char **argv)
 	std::cin.get();
 #pragma endregion
 #endif 
-//#define ENABLE_FILE
+#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
 	stdx::file file(service, "./a.txt");
+	if (file.exist())
+	{
+		file.remove();
+	}
 	stdx::file_stream stream = file.open_stream(stdx::file_access_type::all, stdx::file_open_type::create_always);
 	auto t = stream.write("Hello World", 0)
 		.then([stream](stdx::file_write_event ev) mutable
 	{
 		std::cout << "Total Writed: " << ev.size << " Bytes" << std::endl;
 		return stream.read_to_end(0);
-	}).then([](stdx::file_read_event ev) 
+	}).then([](stdx::task_result<stdx::file_read_event> r)
 	{
-		std::cout << ev.buffer.to_string();
+			auto ev = r.get();
+			std::cout << ev.buffer.to_string();
 	});
 	t.wait();
 	stream.close();
