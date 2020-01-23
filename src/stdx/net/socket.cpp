@@ -488,6 +488,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 			 while (*alive)
 			 {
 				 auto *context_ptr = iocp.get();
+#ifdef DEBUG
+				 printf("[IOCP]IO操作完成\n");
+#endif // DEBUG
 				 if (context_ptr == nullptr)
 				 {
 					 continue;
@@ -999,6 +1002,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 				 {
 					 reactor.get<stdx::network_io_context_finder>([](epoll_event *ev_ptr)
 					 {
+#ifdef DEBUG
+						 printf("[Epoll]检测到IO请求\n");
+#endif // DEBUG
 						 stdx::network_io_context *context = (stdx::network_io_context *)ev_ptr->data.ptr;
 						 ssize_t r = 0;
 						 if (context->code == stdx::network_io_context_code::recv)

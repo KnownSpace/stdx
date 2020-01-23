@@ -259,6 +259,9 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				{
 					error = std::current_exception();
 				}
+#ifdef DEBUG
+				printf("[IOCP]IO操作完成\n");
+#endif
 				auto *call = context_ptr->callback;
 				try
 				{
@@ -601,6 +604,9 @@ void stdx::_FileIOService::init_thread()
 				std::exception_ptr error(nullptr);
 				int_64 res = 0;
 				auto *context_ptr = aiocp.get(res);
+#ifdef DEBUG
+				printf("[Native AIO]IO操作完成\n");
+#endif // DEBUG
 				if (context_ptr == nullptr)
 				{
 					continue;

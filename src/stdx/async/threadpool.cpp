@@ -52,6 +52,9 @@ void stdx::_Threadpool::add_thread() noexcept
 			{
 				//如果10分钟后未通知
 				//退出线程
+#ifdef DEBUG
+				printf("[Threadpool]线程池中的线程过于空闲\n");
+#endif // DEBUG
 				count_lock.lock();
 				*count -= 1;
 				count_lock.unlock();
@@ -59,6 +62,9 @@ void stdx::_Threadpool::add_thread() noexcept
 			}
 			if (!(tasks->empty()))
 			{
+#ifdef DEBUG
+				printf("[Threadpool]当前线程池空闲线程数:%d\n", *count);
+#endif // DEBUG
 				//如果任务列表不为空
 				//减去一个计数
 				*count -= 1;
@@ -70,6 +76,9 @@ void stdx::_Threadpool::add_thread() noexcept
 					lock.unlock();
 					continue;
 				}
+#ifdef DEBUG
+				printf("[Threadpool]线程池已接收被投递的任务\n");
+#endif // DEBUG
 				//获取任务
 				runable_ptr t(tasks->front());
 				//从queue中pop
@@ -88,6 +97,9 @@ void stdx::_Threadpool::add_thread() noexcept
 				{
 					//忽略出现的错误
 				}
+#ifdef DEBUG
+				printf("[Threadpool]当前剩余未处理任务数:%lld\n",tasks->size());
+#endif // DEBUG
 				//完成或终止后
 				//添加计数
 				count_lock.lock();
