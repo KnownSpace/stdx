@@ -35,6 +35,9 @@ stdx::_Threadpool::~_Threadpool() noexcept
 {
 	//终止时设置状态
 	*m_alive = false;
+#ifdef DEBUG
+	printf("[Threadpool]线程池正在销毁\n");
+#endif // DEBUG
 }
 
 //添加线程
@@ -53,7 +56,7 @@ void stdx::_Threadpool::add_thread() noexcept
 				//如果10分钟后未通知
 				//退出线程
 #ifdef DEBUG
-				printf("[Threadpool]线程池中的线程过于空闲\n");
+				printf("[Threadpool]线程池等待任务超时,清除线程\n");
 #endif // DEBUG
 				count_lock.lock();
 				*count -= 1;
@@ -120,6 +123,9 @@ void stdx::_Threadpool::add_thread() noexcept
 
 void stdx::_Threadpool::init_threads() noexcept
 {
+#ifdef DEBUG
+	printf("[Threadpool]正在初始化线程池\n");
+#endif // DEBUG
 	unsigned int threads_number = suggested_threads_number();
 	*m_free_count += threads_number;
 	for (unsigned int i = 0; i < threads_number; i++)

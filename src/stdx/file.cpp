@@ -215,6 +215,9 @@ int_64 stdx::_FileIOService::get_file_size(HANDLE file) const
 
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
+#ifdef DEBUG
+	printf("[File IO Service]正在初始化IO服务\n");
+#endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
@@ -595,6 +598,9 @@ void stdx::_FileIOService::close_file(int file)
 
 void stdx::_FileIOService::init_thread()
 {
+#ifdef DEBUG
+	printf("[File IO Service]正在初始化IO服务\n");
+#endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::run([](aiocp_t aiocp, std::shared_ptr<bool> alive)

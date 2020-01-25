@@ -8,7 +8,7 @@
 #include <list>
 int main(int argc, char **argv)
 {
-	//#define ENABLE_WEB
+	#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -25,7 +25,6 @@ int main(int argc, char **argv)
 	}
 	std::cout << "listen: http://0.0.0.0:8080" << std::endl;
 	s.listen(65535);
-	//stdx::file_io_service file_io_service;
 	while (true)
 	{
 		auto c = s.accept();
@@ -36,7 +35,6 @@ int main(int argc, char **argv)
 				<< e.buffer << std::endl;
 			std::string str = "HTTP/1.1 200 OK\r\nContent-Type:text/html";
 			std::string body = "<html><body><h1>Hello World</h1></body></html>";
-			//str.append(std::to_string(body.size()));
 			str.append("\r\n");
 			str.append("\r\n");
 			str.append(body);
@@ -58,7 +56,7 @@ int main(int argc, char **argv)
 	std::cin.get();
 #pragma endregion
 #endif 
-#define ENABLE_FILE
+//#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
 	stdx::file file(service, "./a.txt");

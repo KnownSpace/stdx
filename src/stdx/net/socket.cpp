@@ -481,6 +481,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
+#ifdef DEBUG
+	 printf("[Network IO Service]正在初始化IO服务\n");
+#endif // DEBUG
 	 for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
 		 stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
@@ -992,6 +995,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
+#ifdef DEBUG
+	 printf("[Network IO Service]正在初始化IO服务\n");
+#endif // DEBUG
 	 for (size_t i = 0,cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
 		 stdx::threadpool::run([](stdx::reactor reactor,std::shared_ptr<bool> alive) 
