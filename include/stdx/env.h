@@ -3,6 +3,29 @@
 //所有的Class(除实现Class外,例如:_XxYy)都是引用类型
 //所有的Struct(除另外说明外)都是值类型
 #include <type_traits>
+#ifndef WIN32
+
+#ifndef LINUX
+
+#ifdef __WIN32
+
+#ifndef WIN32
+#define WIN32
+#endif // !WIN32
+
+#endif // __WIN32
+
+#ifdef __linux__
+
+#ifndef LINUX
+#define LINUX
+#endif // !LINUX
+
+#endif // __linux__
+
+#endif // !LINUX
+
+#endif // !WIN32
 
 #define int_32 int
 #define uint_32 unsigned int
