@@ -79,7 +79,7 @@ void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offse
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	::memset(context->buffer, 0, size);
+	memset(context->buffer, 0, size);
 	context->size = size;
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
@@ -167,7 +167,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	::memcpy(buf, buffer, size);
+	memcpy(buf, buffer, size);
 	auto *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
@@ -455,13 +455,13 @@ void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset
 		return;
 	}
 	posix_memalign((void**)&buffer, 512, r_size);
-	::memset(buffer, 0, r_size);
+	memset(buffer, 0, r_size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
 		free(buffer);
-		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
 	ptr->size = r_size;
@@ -523,8 +523,8 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 		return;
 	}
 	posix_memalign((void**)&buf, 512, r_size);
-	::memset(buf, 0, r_size);
-	::memcpy(buf, buffer, size);
+	memset(buf, 0, r_size);
+	memcpy(buf, buffer, size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
 	if (ptr == nullptr)
