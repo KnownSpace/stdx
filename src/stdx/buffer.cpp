@@ -26,7 +26,7 @@ void stdx::_Buffer::init(const size_t &size)
 	{
 		throw std::bad_alloc();
 	}
-	::memset(data, 0, size);
+	memset(data, 0, size);
 	init(data, size);
 }
 
@@ -84,7 +84,7 @@ void stdx::_Buffer::realloc(const size_t & size)
 		}
 		if (tmp != m_data)
 		{
-			::memcpy(tmp, m_data, m_size);
+			memcpy(tmp, m_data, m_size);
 			m_data = tmp;
 		}
 		m_size = size;
@@ -98,7 +98,7 @@ void stdx::_Buffer::copy_from(const stdx::_Buffer &other)
 	{
 		realloc(new_size);
 	}
-	::memcpy(m_data, other, new_size);
+	memcpy(m_data, other, new_size);
 }
 
 char *stdx::_Buffer::to_raw()
