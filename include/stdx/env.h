@@ -5,7 +5,6 @@
 #include <type_traits>
 
 #define int_32 int
-//#define byte unsigned char
 #define uint_32 unsigned int
 #define int_16 short
 #define uint_16 unsigned short
@@ -17,6 +16,7 @@
 #endif
 
 #ifdef LINUX
+#define uint unsigned int
 #define int_64 long long int
 #define uint_64 unsigned long long int
 #endif

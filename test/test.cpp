@@ -4,7 +4,6 @@
 #include <sstream>
 #include <stdx/string.h>
 #include <stdx/logger.h>
-#include <ppl.h>
 #include <list>
 int main(int argc, char **argv)
 {

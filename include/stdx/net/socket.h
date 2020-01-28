@@ -99,7 +99,7 @@ namespace stdx
 		ipv4_addr()
 			:m_handle()
 		{
-			::memset(&m_handle, 0, sizeof(SOCKADDR_IN));
+			memset(&m_handle, 0, sizeof(SOCKADDR_IN));
 		}
 		ipv4_addr(unsigned long ip, const uint_16 &port)
 		{
@@ -853,7 +853,7 @@ namespace stdx
 		ipv4_addr()
 			:m_handle()
 		{
-			::memset(&m_handle,0,sizeof(m_handle));
+			memset(&m_handle,0,sizeof(m_handle));
 		}
 		ipv4_addr(unsigned long ip, const uint_16 &port)
 		{

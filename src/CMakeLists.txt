@@ -26,12 +26,12 @@ endif()
 
 #判断平台
 if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
-	add_definitions(-DLinux)
+	add_definitions(-DLINUX)
 	MESSAGE(STATUS "current platform: Linux ")
 endif()
 
 if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
-	add_definitions(-DWin32)
+	add_definitions(-DWIN32)
 	MESSAGE(STATUS "current platform: Windows ")
 endif()
 

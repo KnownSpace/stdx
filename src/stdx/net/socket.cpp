@@ -94,7 +94,7 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const DWORD & 
 		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	::memcpy(buffer, data, size);
+	memcpy(buffer, data, size);
 	context_ptr->buffer.buf = buffer;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -186,6 +186,7 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const DWORD &size, std::function
 		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
+	memset(buf, 0, size);
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -305,7 +306,7 @@ void stdx::_NetworkIOService::send_to(SOCKET sock, const ipv4_addr & addr, const
 		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	::memcpy(buf, data, size);
+	memcpy(buf, data, size);
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -363,6 +364,7 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
+	memset(buf, 0, size);
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
 	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
@@ -374,7 +376,7 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	::memset(addr, 0,sizeof(SOCKADDR_IN));
+	memset(addr, 0,sizeof(SOCKADDR_IN));
 	int *addr_size = (int*)::malloc(sizeof(int));
 	if (addr_size == nullptr)
 	{
@@ -799,7 +801,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 		 callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
 		 return;
 	 }
-	 ::memcpy(buf,data,size);
+	 memcpy(buf,data,size);
 	 stdx::threadpool::run([sock,buf,size,callback]() 
 	 {
 		 ssize_t r = 0;
@@ -907,7 +909,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 		 callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
 		 return;
 	 }
-	 ::memcpy(buf,data,size);
+	 memcpy(buf,data,size);
 	 stdx::threadpool::run([sock,addr,buf,size,callback]() 
 	 {
 		 socklen_t len = stdx::ipv4_addr::addr_len;
