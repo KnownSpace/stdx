@@ -1075,7 +1075,7 @@ namespace stdx
 			:m_impl(other.m_impl)
 		{}
 
-		delete_move(stdx::task_flag);
+		delete_move(task_flag);
 
 		~task_flag() = default;
 
