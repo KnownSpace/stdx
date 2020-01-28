@@ -37,6 +37,8 @@ namespace stdx
 
 		void copy_from(const _Buffer &other);
 
+		void set_zero();
+
 		char *to_raw();
 
 		template<typename _String>
@@ -96,6 +98,10 @@ namespace stdx
 		const size_t &size() const
 		{
 			return m_impl->size();
+		}
+		void set_zero()
+		{
+			return m_impl->set_zero();
 		}
 		void copy_from(const buffer &other)
 		{

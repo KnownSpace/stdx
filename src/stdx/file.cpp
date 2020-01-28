@@ -57,7 +57,7 @@ HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_t
 	return file;
 }
 
-void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	file_io_context *context = new file_io_context;
 	if (context == nullptr)
@@ -72,7 +72,7 @@ void stdx::_FileIOService::read_file(HANDLE file,DWORD size, const int_64 &offse
 	context->eof = false;
 	context->file = file;
 	context->offset = offset;
-	context->buffer = (char*)std::calloc(size, sizeof(char));
+	context->buffer = (char*)::calloc(size,sizeof(char));
 	if (context->buffer == nullptr)
 	{
 		delete context;

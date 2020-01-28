@@ -15,18 +15,38 @@ add_library(libstdx STATIC ${src} ${async_src} ${net_src})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 set_target_properties(stdx PROPERTIES OUTPUT_NAME "stdx")
 
+#判断位数
+if(CMAKE_CL_64)
+	#64位
+	set(CMAKE_SYS_BIT 64)
+else()
+	#32位
+	set(CMAKE_SYS_BIT 32)
+endif()
+
+#判断平台
+if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
+	add_definitions(-DLinux)
+	MESSAGE(STATUS "current platform: Linux ")
+endif()
+
+if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
+	add_definitions(-DWin32)
+	MESSAGE(STATUS "current platform: Windows ")
+endif()
+
+#类Unix需要做的额外处理
 if(UNIX)
 	set_target_properties(libstdx PROPERTIES OUTPUT_NAME "stdx")
 endif()
 
+#定义DEBUG符号
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 	add_definitions(-DDEBUG)
 endif()
 
-# TODO: 如有需要，请添加测试并安装目标。
-
+#类Unix使用pthread
 if(UNIX)
-	#pthread
 	find_package(Threads REQUIRED)
 	if(THREADS_HAVE_PTHREAD_ARG)
   		set_property(TARGET stdx  PROPERTY COMPILE_OPTIONS "-pthread")

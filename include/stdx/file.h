@@ -169,7 +169,7 @@ namespace stdx
 
 		HANDLE create_file(const std::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model);
 
-		void read_file(HANDLE file,DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
+		void read_file(HANDLE file, DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
 
 		void write_file(HANDLE file, const char *buffer, const DWORD &size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
 

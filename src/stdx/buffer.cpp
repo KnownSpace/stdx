@@ -75,6 +75,10 @@ void stdx::_Buffer::realloc(const size_t & size)
 	{
 		throw std::invalid_argument("invalid argument: 0");
 	}
+	if (m_data == nullptr)
+	{
+		throw std::logic_error("please init first");
+	}
 	if (size > m_size)
 	{
 		char* tmp = (char*)::realloc(m_data, m_size);
@@ -89,6 +93,15 @@ void stdx::_Buffer::realloc(const size_t & size)
 		}
 		m_size = size;
 	}
+}
+
+void stdx::_Buffer::set_zero()
+{
+	if (m_data == nullptr)
+	{
+		throw std::logic_error("please init first");
+	}
+	memset(m_data, 0, m_size);
 }
 
 void stdx::_Buffer::copy_from(const stdx::_Buffer &other)
