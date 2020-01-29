@@ -4,7 +4,6 @@
 //所有的Struct(除另外说明外)都是值类型
 #include <type_traits>
 #ifndef WIN32
-
 #ifndef LINUX
 
 #ifdef __WIN32
@@ -24,7 +23,6 @@
 #endif // __linux__
 
 #endif // !LINUX
-
 #endif // !WIN32
 
 #define int_32 int

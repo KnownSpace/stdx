@@ -78,25 +78,27 @@ namespace stdx
 	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void html_decode(_String &str)
 	{
-		replace_string<_String>(str, "&quot;", "\"");
-		replace_string<_String>(str, "&#34;", "\"");
-		replace_string<_String>(str, "&amp;", "&");
-		replace_string<_String>(str, "&#38;", "&");
-		replace_string<_String>(str, "&lt;", "<");
-		replace_string<_String>(str, "&#60;", "<");
-		replace_string<_String>(str, "&gt;", ">");
-		replace_string<_String>(str, "&#62;", ">");
-		replace_string<_String>(str, "&#39;", "'");
+		using char_t = typename _String::value_type;
+		replace_string<_String>(str, (const char_t*)"&quot;", (const char_t*)"\"");
+		replace_string<_String>(str, (const char_t*)"&#34;", (const char_t*)"\"");
+		replace_string<_String>(str, (const char_t*)"&amp;", (const char_t*)"&");
+		replace_string<_String>(str, (const char_t*)"&#38;", (const char_t*)"&");
+		replace_string<_String>(str, (const char_t*)"&lt;", (const char_t*)"<");
+		replace_string<_String>(str, (const char_t*)"&#60;", (const char_t*)"<");
+		replace_string<_String>(str, (const char_t*)"&gt;", (const char_t*)">");
+		replace_string<_String>(str, (const char_t*)"&#62;", (const char_t*)">");
+		replace_string<_String>(str, (const char_t*)"&#39;", (const char_t*)"'");
 	}
 
 	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
 	inline void html_encode(_String &str)
 	{
-		replace_string<_String>(str, "\"", "&quot;");
-		replace_string<_String>(str, "&", "&amp;");
-		replace_string<_String>(str, "<", "&lt;");
-		replace_string<_String>(str, ">", "&gt;");
-		replace_string<_String>(str, "'", "&#39;");
+		using char_t = typename _String::value_type;
+		replace_string<_String>(str, (const char_t*)"\"", (const char_t*)"&quot;");
+		replace_string<_String>(str, (const char_t*)"&", (const char_t*)"&amp;");
+		replace_string<_String>(str, (const char_t*)"<", (const char_t*)"&lt;");
+		replace_string<_String>(str, (const char_t*)">", (const char_t*)"&gt;");
+		replace_string<_String>(str, (const char_t*)"'", (const char_t*)"&#39;");
 	}
 
 #ifdef WIN32
@@ -331,4 +333,157 @@ namespace stdx
 
 #undef _ThrowLinuxError
 #endif
+	class string
+	{
+	public:
+#pragma region type_def
+#ifdef WIN32
+		using string_t = std::wstring;
+#else
+		using string_t = std::string;
+#endif
+		using char_t = typename string_t::value_type;
+		using iterator_t = typename string_t::iterator;
+		using size_type = typename string_t::size_type;
+		using const_iterator_t = typename string_t::const_iterator;
+		using reverse_iterator_t = typename string_t::reverse_iterator;
+		using const_reverse_iterator_t = typename string_t::const_reverse_iterator;
+#pragma endregion
+		string()
+			:m_data()
+		{}
+		string(const char_t *str)
+			:m_data(str)
+		{}
+		string(const string_t &str)
+			:m_data(str)
+		{}
+		string(const stdx::string &other)
+			:m_data(other.m_data)
+		{}
+		string(stdx::string &&other)
+			:m_data(std::move(other.m_data))
+		{}
+		~string() = default;
+		
+		stdx::string& operator=(const stdx::string& other)
+		{
+			m_data = other.m_data;
+			return *this;
+		}
+
+		stdx::string& operator=(stdx::string&& other)
+		{
+			m_data = std::move(other.m_data);
+			return *this;
+		}
+
+		static const size_type npos = -1;
+
+		char_t &at(const size_type &pos);
+		char_t at(const size_type &pos) const;
+
+		char_t &front();
+		char_t front() const;
+
+		char_t &back();
+		char_t back() const;
+
+		const char_t *data() const;
+		const char_t *c_str() const;
+
+		iterator_t begin();
+		const_iterator_t cbegin() const;
+
+		iterator_t end();
+		const_iterator_t cend() const;
+
+		reverse_iterator_t rbegin();
+		const_reverse_iterator_t crbegin() const;
+
+		reverse_iterator_t rend();
+		const_reverse_iterator_t crend() const;
+
+		bool empty() const;
+
+		size_type size() const;
+
+		size_type max_size() const;
+
+		size_type capacity() const;
+
+		void shrink_to_fit();
+
+		void clear();
+
+		void insert(const size_type &index,const char_t *str);
+		void insert(const size_type& index, const char_t* str,const size_type &count);
+
+		void erase(size_type index = 0);
+		void erase(size_type index = 0, size_type count = npos);
+		iterator_t erase(iterator_t position);
+		iterator_t erase(const_iterator_t position);
+		iterator_t erase(iterator_t begin, iterator_t end);
+		iterator_t erase(const_iterator_t begin,const_iterator_t end);
+		
+		void push_back(const char_t &ch);
+
+		void append(const char_t *str);
+		void append(const char_t *str,const size_type &size);
+		void append(const stdx::string&other);
+		template<typename InputIt>
+		void append(InputIt first,InputIt last)
+		{
+			m_data.append(first,last);
+		}
+
+		bool begin_with(const char_t *str) const;
+		bool begin_with(const char_t &ch) const;
+		bool begin_with(const stdx::string&other) const;
+
+		bool end_with(const char_t* str) const;
+		bool end_with(char_t ch) const;
+		bool end_with(const stdx::string& other) const;
+
+		void replace(const stdx::string &dest,const stdx::string&text);
+		void replace(const size_type &pos,const size_type &count,const stdx::string&text);
+		void replace(const_iterator_t begin,const_iterator_t end,const stdx::string&text);
+
+		stdx::string substr(size_type pos = 0,size_type count = npos) const;
+		
+		void swap(stdx::string& other);
+
+		size_type find(const stdx::string&str, size_type pos = 0) const;
+		size_type find(const char_t *s, size_type pos = 0) const;
+		size_type find(const char_t &ch, size_type pos = 0) const;
+
+		size_type rfind(const stdx::string& str, size_type pos = 0) const;
+		size_type rfind(const char_t* s, size_type pos = 0) const;
+		size_type rfind(const char_t &ch, size_type pos = 0) const;
+
+		size_type find_first_of(const stdx::string& str, size_type pos = 0) const;
+		size_type find_first_of(const char_t* s, size_type pos, size_type count) const;
+		size_type find_first_of(const char_t* s, size_type pos = 0) const;
+		size_type find_first_of(const char_t &ch, size_type pos = 0) const;
+
+		size_type find_last_of(const stdx::string& str, size_type pos = 0) const;
+		size_type find_last_of(const char_t* s, size_type pos, size_type count) const;
+		size_type find_last_of(const char_t* s, size_type pos = 0) const;
+		size_type find_last_of(const char_t &ch, size_type pos = 0) const;
+
+		bool equal(const stdx::string& other) const;
+
+		string_t to_std_string() const;
+
+		std::string to_u8_string() const;
+
+		std::string to_native_string() const;
+
+		bool operator==(const stdx::string& other) const
+		{
+			return equal(other);
+		}
+	private:
+		string_t m_data;
+	};
 }
