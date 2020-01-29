@@ -51,7 +51,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 stdx::_NetworkIOService::~_NetworkIOService()
 {
 	*m_alive = false;
-	for (size_t i = 0,size = ((uint_64)cpu_cores())*2; i < size; i++)
+	for (size_t i = 0,size = ((uint64_t)cpu_cores())*2; i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}

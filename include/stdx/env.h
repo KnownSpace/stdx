@@ -25,22 +25,7 @@
 #endif // !LINUX
 #endif // !WIN32
 
-#define int_32 int
-#define uint_32 unsigned int
-#define int_16 short
-#define uint_16 unsigned short
-
-#ifdef WIN32
-#define uint unsigned int
-#define int_64 __int64
-#define uint_64 unsigned __int64
-#endif
-
-#ifdef LINUX
-#define uint unsigned int
-#define int_64 long long int
-#define uint_64 unsigned long long int
-#endif
+#include <stdint.h>
 
 #define interface_class class
 #define get_byte(x,ptr) *((char*)ptr+(x))
@@ -75,40 +60,40 @@ namespace stdx
 	{
 		struct 
 		{
-			uint_32 low;
-			int_32 height;
+			uint32_t low;
+			int32_t height;
 		};
-		int_64 value;
+		int64_t value;
 	};
 
 	union int32_union
 	{
 		struct
 		{
-			uint_16 low;
-			int_16 height;
+			uint16_t low;
+			int16_t height;
 		};
-		int_32 value;
+		int32_t value;
 	};
 
 	union uint64_union
 	{
 		struct
 		{
-			uint_32 low;
-			uint_32 height;
+			uint32_t low;
+			uint32_t height;
 		};
-		uint_64 value;
+		uint64_t value;
 	};
 
 	union uint32_union
 	{
 		struct
 		{
-			uint_16 low;
-			uint_16 height;
+			uint16_t low;
+			uint16_t height;
 		};
-		uint_32 value;
+		uint32_t value;
 	};
 }
 
@@ -169,7 +154,7 @@ namespace stdx
 
 namespace stdx
 {
-	template<uint_64 i>
+	template<uint64_t i>
 	struct bin
 	{
 		enum
@@ -230,13 +215,13 @@ namespace stdx
 
 namespace stdx
 {
-	template<uint bytes_count>
+	template<uint32_t bytes_count>
 	struct sys_bit;
 
 	template<>
 	struct sys_bit<4>
 	{
-		using uint_ptr_t = uint_32;
+		using uint_ptr_t = uint32_t;
 		enum
 		{
 			bit = 32
@@ -246,7 +231,7 @@ namespace stdx
 	template<>
 	struct sys_bit<8>
 	{
-		using uint_ptr_t = uint_64;
+		using uint_ptr_t = uint64_t;
 		enum
 		{
 			bit = 64

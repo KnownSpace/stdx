@@ -10,7 +10,7 @@
 #define cpu_cores() std::thread::hardware_concurrency()
 namespace stdx
 {
-	extern uint_32 suggested_threads_number();
+	extern uint32_t suggested_threads_number();
 
 	//线程池
 	class _Threadpool
@@ -42,7 +42,7 @@ namespace stdx
 		}
 
 	private:
-		std::shared_ptr<uint_32> m_free_count;
+		std::shared_ptr<uint32_t> m_free_count;
 		stdx::spin_lock m_count_lock;
 		std::shared_ptr<bool> m_alive;
 		std::shared_ptr<std::queue<runable_ptr>> m_task_queue;

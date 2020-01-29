@@ -1,4 +1,43 @@
 #include <stdx/string.h>
+#include <iostream>
+
+stdx::string::string()
+	:m_data()
+{}
+
+stdx::string::string(const char_t* str)
+	:m_data(str)
+{}
+
+stdx::string::string(const string_t& str)
+	:m_data(str)
+{}
+
+stdx::string::string(const stdx::string& other)
+	:m_data(other.m_data)
+{}
+
+stdx::string::string(stdx::string&& other) noexcept
+	:m_data(std::move(other.m_data))
+{}
+
+stdx::string &stdx::string::operator=(const stdx::string &other)
+{
+	m_data = other.m_data;
+	return *this;
+}
+
+stdx::string &stdx::string::operator=(stdx::string &&other) noexcept
+{
+	m_data = std::move(other.m_data);
+	return *this;
+}
+
+stdx::string& stdx::string::operator=(const stdx::string::char_t* str)
+{
+	m_data = str;
+	return *this;
+}
 
 typename stdx::string::char_t& stdx::string::at(const size_type& pos)
 {
@@ -25,7 +64,7 @@ typename stdx::string::char_t& stdx::string::back()
 	return m_data.back();
 }
 
-const stdx::string::char_t stdx::string::back() const
+typename stdx::string::char_t stdx::string::back() const
 {
 	return m_data.back();
 }
@@ -135,20 +174,20 @@ typename stdx::string::iterator_t stdx::string::erase(iterator_t position)
 	return m_data.erase(position);
 }
 
-typename stdx::string::iterator_t stdx::string::erase(const_iterator_t position)
-{
-	return m_data.erase(position);
-}
+//typename stdx::string::iterator_t stdx::string::erase(const_iterator_t position)
+//{
+//	return m_data.erase(position);
+//}
 
 typename stdx::string::iterator_t stdx::string::erase(iterator_t begin, iterator_t end)
 {
 	return m_data.erase(begin,end);
 }
 
-typename stdx::string::iterator_t stdx::string::erase(const_iterator_t begin, const_iterator_t end)
-{
-	return m_data.erase(begin,end);
-}
+//typename stdx::string::iterator_t stdx::string::erase(const_iterator_t begin, const_iterator_t end)
+//{
+//	return m_data.erase(begin,end);
+//}
 
 void stdx::string::push_back(const char_t& ch)
 {
@@ -172,7 +211,11 @@ void stdx::string::append(const string& other)
 
 bool stdx::string::begin_with(const char_t* str) const
 {
+#ifdef WIN32
+	size_t size = wcslen(str);
+#else
 	size_t size = strlen(str);
+#endif
 	if (size > this->size())
 	{
 		return false;
@@ -210,7 +253,11 @@ bool stdx::string::begin_with(const string& other) const
 
 bool stdx::string::end_with(const char_t* str) const
 {
+#ifdef WIN32
+	size_t size = wcslen(str);
+#else
 	size_t size = strlen(str);
+#endif
 	if (size > this->size())
 	{
 		return false;
@@ -248,9 +295,9 @@ bool stdx::string::end_with(const string& other) const
 	return true;
 }
 
-void stdx::string::replace(const string& dest, const string& text)
+void stdx::string::replace(const stdx::string& dest, const stdx::string& text)
 {
-	stdx::replace_string(m_data, dest, text);
+	stdx::replace_string(m_data, dest.m_data, text.m_data);
 }
 
 void stdx::string::replace(const size_type& pos, const size_type& count, const string& text)
@@ -258,7 +305,7 @@ void stdx::string::replace(const size_type& pos, const size_type& count, const s
 	m_data.replace(pos, count, text.m_data);
 }
 
-void stdx::string::replace(const_iterator_t begin, const_iterator_t end, const string& text)
+void stdx::string::replace(iterator_t begin,iterator_t end, const string& text)
 {
 	m_data.replace(begin, end, text.m_data);
 }
@@ -370,4 +417,98 @@ std::string stdx::string::to_native_string() const
 #else
 	return m_data;
 #endif
+}
+
+stdx::string stdx::string::from_native_string(const std::string& str)
+{
+#ifdef WIN32
+	return stdx::string(stdx::ansi_to_unicode(str));
+#else
+	return stdx::string(str);
+#endif
+}
+
+stdx::string stdx::string::from_u8_string(const std::string& str)
+{
+#ifdef WIN32
+	return stdx::string(stdx::utf8_to_unicode(str));
+#else
+	return stdx::string(str);
+#endif
+}
+
+#ifdef WIN32
+std::wostream& operator<<(std::wostream& out, const stdx::string& str)
+{
+	return (out << str.m_data);
+}
+
+std::wistream& operator>>(std::wistream& in, stdx::string& str)
+{
+	return (in >> str.m_data);
+}
+#else
+std::ostream& operator<<(std::ostream& out, const stdx::string& str)
+{
+	return (out << str.m_data);
+}
+
+std::istream& operator>>(std::istream& in, stdx::string& str)
+{
+	return (in >> str.m_data);
+}
+#endif
+
+stdx::string stdx::to_string(int val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif // WIN32
+}
+
+stdx::string stdx::to_string(long long int val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif // WIN32
+}
+
+stdx::string stdx::to_string(double val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif // WIN32
+}
+
+stdx::string stdx::to_string(long double val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif // WIN32
+}
+
+stdx::string stdx::to_string(unsigned int val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif // WIN32
+}
+
+stdx::string stdx::to_string(unsigned long long int val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif // WIN32
 }

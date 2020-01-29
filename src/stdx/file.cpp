@@ -40,15 +40,15 @@ stdx::_FileIOService::_FileIOService()
 stdx::_FileIOService::~_FileIOService()
 {
 	*m_alive = false;
-	for (size_t i = 0,size = ((uint_64)cpu_cores())*2; i < size; i++)
+	for (size_t i = 0,size = ((uint64_t)cpu_cores())*2; i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}
 }
 
-HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model)
+HANDLE stdx::_FileIOService::create_file(const stdx::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model)
 {
-	HANDLE file = CreateFileA(path.c_str(), access_type, shared_model, 0, file_open_type, FILE_FLAG_OVERLAPPED, 0);
+	HANDLE file = CreateFileW(path.c_str(), access_type, shared_model, 0, file_open_type, FILE_FLAG_OVERLAPPED, 0);
 	if (file == INVALID_HANDLE_VALUE)
 	{
 		_ThrowWinError
@@ -57,7 +57,7 @@ HANDLE stdx::_FileIOService::create_file(const std::string &path, DWORD access_t
 	return file;
 }
 
-void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const int_64 &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	file_io_context *context = new file_io_context;
 	if (context == nullptr)
@@ -65,7 +65,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const int_64 &offs
 		callback(stdx::file_read_event(),std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	int64_union li;
+	uint64_union li;
 	li.value = offset;
 	context->m_ol.Offset = li.low;
 	context->m_ol.OffsetHigh = li.height;
@@ -146,7 +146,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const int_64 &offs
 	return;
 }
 
-void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWORD & size, const int_64 &offset, std::function<void(file_write_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWORD & size, const uint64_t &offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 	file_io_context *context_ptr = new file_io_context;
 	if (context_ptr == nullptr)
@@ -154,7 +154,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	int64_union li;
+	uint64_union li;
 	li.value = offset;
 	context_ptr->m_ol.Offset = li.low;
 	context_ptr->m_ol.OffsetHigh = li.height;
@@ -206,7 +206,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 	}
 }
 
-int_64 stdx::_FileIOService::get_file_size(HANDLE file) const
+uint64_t stdx::_FileIOService::get_file_size(HANDLE file) const
 {
 	LARGE_INTEGER li;
 	::GetFileSizeEx(file, &li);
@@ -293,7 +293,7 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> stdx::_FileStream::read(const DWORD &size, const uint_64 & offset)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const DWORD &size, const uint64_t & offset)
 {
 	if (!m_io_service)
 	{
@@ -318,7 +318,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const DWORD &size, con
 	return ce.get_task();
 }
 
-stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const DWORD &size, const uint_64 &offset)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const DWORD &size, const uint64_t &offset)
 {
 	if (!m_io_service)
 	{
@@ -349,7 +349,7 @@ void stdx::_FileStream::close()
 	}
 }
 
-stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const std::string &path, const DWORD &access_type, const DWORD &open_type)
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, const DWORD &access_type, const DWORD &open_type)
 {
 	stdx::file_stream file(io_service);
 	DWORD shared = 0;
@@ -369,12 +369,12 @@ stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service
 	return file;
 }
 
-stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const std::string & path, file_access_type access_type, file_open_type open_type)
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const stdx::string & path, file_access_type access_type, file_open_type open_type)
 {
 	return stdx::open_file_stream(io_service,path,forward_file_access_type(access_type),forward_file_open_type(open_type));
 }
 
-stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 & access_type, const int_32 & open_type)
+stdx::file_handle stdx::open_for_senfile(const stdx::string &path, const DWORD & access_type, const DWORD & open_type)
 {
 	DWORD shared = 0;
 	if (access_type == FILE_GENERIC_READ)
@@ -389,7 +389,7 @@ stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &
 	{
 		shared = FILE_SHARE_READ | FILE_SHARE_WRITE;
 	}
-	HANDLE file = CreateFile(path.c_str(), access_type, shared, 0, open_type, FILE_FLAG_SEQUENTIAL_SCAN, 0);
+	HANDLE file = CreateFileW(path.c_str(), access_type, shared, 0, open_type, FILE_FLAG_SEQUENTIAL_SCAN, 0);
 	if (file == INVALID_HANDLE_VALUE)
 	{
 		_ThrowWinError
@@ -408,7 +408,7 @@ stdx::_FileIOService::_FileIOService()
 	init_thread();
 }
 
-stdx::_FileIOService::_FileIOService(uint_32 nr_events)
+stdx::_FileIOService::_FileIOService(uint32_t nr_events)
 	:m_aiocp(nr_events)
 	, m_alive(std::make_shared<bool>(true))
 {
@@ -420,27 +420,27 @@ stdx::_FileIOService::~_FileIOService()
 	*m_alive = false;
 }
 
-int_32 stdx::forward_file_access_type(const stdx::file_access_type & access_type)
+int32_t stdx::forward_file_access_type(const stdx::file_access_type & access_type)
 {
-	return static_cast<int_32>(access_type);
+	return static_cast<int32_t>(access_type);
 }
 
-int_32 stdx::forward_file_open_type(const stdx::file_open_type &open_type)
+int32_t stdx::forward_file_open_type(const stdx::file_open_type &open_type)
 {
-	return static_cast<int_32>(open_type);
+	return static_cast<int32_t>(open_type);
 }
 
-int stdx::_FileIOService::create_file(const std::string & path, int_32 access_type, int_32 open_type, mode_t mode)
+int stdx::_FileIOService::create_file(const stdx::string & path, int32_t access_type, int32_t open_type, mode_t mode)
 {
 	return ::open(path.c_str(), access_type | open_type|O_DIRECT, mode);
 }
 
-int stdx::_FileIOService::create_file(const std::string & path, int_32 access_type, int_32 open_type)
+int stdx::_FileIOService::create_file(const stdx::string & path, int32_t access_type, int32_t open_type)
 {
 	return ::open(path.c_str(), access_type | open_type|O_DIRECT);
 }
 
-void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 	auto  r_size = size;
 	auto tmp = size % 512;
@@ -508,7 +508,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const int_64 & offset
 	}
 }
 
-void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size, const int_64 & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size, const uint64_t & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 	auto  r_size = size;
 	auto tmp = size % 512;
@@ -581,7 +581,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 
 }
 
-int_64 stdx::_FileIOService::get_file_size(int file) const
+uint64_t stdx::_FileIOService::get_file_size(int file) const
 {
 	struct stat state;
 	if (fstat(file, &state) == -1)
@@ -608,7 +608,7 @@ void stdx::_FileIOService::init_thread()
 			while (*alive)
 			{
 				std::exception_ptr error(nullptr);
-				int_64 res = 0;
+				int64_t res = 0;
 				auto *context_ptr = aiocp.get(res);
 #ifdef DEBUG
 				printf("[Native AIO]IO操作完成\n");
@@ -664,7 +664,7 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const int_64 & offset)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const int64_t & offset)
 {
 	if (!m_io_service)
 	{
@@ -687,7 +687,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, c
 }
 
 
-stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const int_64 &offset)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const int64_t &offset)
 {
 	if (!m_io_service)
 	{
@@ -718,19 +718,19 @@ void stdx::_FileStream::close()
 	}
 }
 
-stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const std::string &path, const int_32 &access_type, const int_32 &open_type)
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, const int32_t &access_type, const int32_t &open_type)
 {
 	stdx::file_stream file(io_service);
 	file.init(path, access_type, open_type);
 	return file;
 }
 
-stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const std::string & path, file_access_type access_type, file_open_type open_type)
+stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const stdx::string & path, file_access_type access_type, file_open_type open_type)
 {
 	return stdx::open_file_stream(io_service, path, forward_file_access_type(access_type), forward_file_open_type(open_type));
 }
 
-stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &access_type, const int_32 &open_type)
+stdx::file_handle stdx::open_for_senfile(const stdx::string &path, const int32_t &access_type, const int32_t &open_type)
 {
 	return ::open(path.c_str(),access_type|open_type);
 }
@@ -738,12 +738,12 @@ stdx::file_handle stdx::open_for_senfile(const std::string &path, const int_32 &
 
 stdx::task_flag stdx::_FullpathNameFlag;
 
-stdx::file::file(const stdx::file_io_service &io_service,const std::string & path)
-	:m_path(std::make_shared<std::string>(path))
+stdx::file::file(const stdx::file_io_service &io_service,const stdx::string & path)
+	:m_path(std::make_shared<stdx::string>(path))
 	,m_io_service(io_service)
 {
 #ifdef WIN32
-	stdx::replace_string<std::string>(*m_path,std::string("/"), std::string("\\"));
+	m_path->replace(U("/"),U("\\"));
 #endif // WIN32
 }
 
@@ -765,12 +765,12 @@ bool stdx::file::operator==(const file & other) const
 	return (*m_path) == (*other.m_path);
 }
 
-const std::string & stdx::file::path() const
+const stdx::string & stdx::file::path() const
 {
 	return *m_path;
 }
 
-int_64 stdx::file::size() const
+int64_t stdx::file::size() const
 {
 #ifdef WIN32
 	HANDLE handle = open_native_handle(FILE_GENERIC_READ, OPEN_EXISTING);
@@ -792,7 +792,7 @@ int_64 stdx::file::size() const
 void stdx::file::remove()
 {
 #ifdef WIN32
-	if (::DeleteFileA(m_path->c_str()) == 0)
+	if (::DeleteFileW(m_path->c_str()) == 0)
 	{
 		_ThrowWinError
 	}
@@ -833,8 +833,8 @@ struct copy_struct
 		cancel_ptr = other.cancel_ptr;
 		return *this;
 	}
-	std::function<void(uint_64, uint_64)> on_progress_change;
-	std::function<void(uint_64,uint_64)> on_cancel;
+	std::function<void(uint64_t, uint64_t)> on_progress_change;
+	std::function<void(uint64_t,uint64_t)> on_cancel;
 	int *cancel_ptr;
 };
 
@@ -850,8 +850,8 @@ DWORD CALLBACK copy_callback(
 	LPVOID lpData							//自定义数据
 )
 {
-	uint_64 total_size = TotalFileSize.QuadPart;
-	uint_64 bytes_transferred = TotalBytesTransferred.QuadPart;
+	uint64_t total_size = TotalFileSize.QuadPart;
+	uint64_t bytes_transferred = TotalBytesTransferred.QuadPart;
 	copy_struct *cpy_ptr = (copy_struct*)lpData;
 	if (!cpy_ptr)
 	{
@@ -877,14 +877,14 @@ DWORD CALLBACK copy_callback(
 #endif // WIN32
 
 
-void stdx::file::copy_to(const std::string &path, cancel_token_ptr cancel_ptr, std::function<void(uint_64, uint_64)> &&on_progress_change, std::function<void(uint_64, uint_64)> &&on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/)
+void stdx::file::copy_to(const stdx::string &path, cancel_token_ptr cancel_ptr, std::function<void(uint64_t, uint64_t)> &&on_progress_change, std::function<void(uint64_t, uint64_t)> &&on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/)
 {
 #ifdef WIN32
 	copy_struct *cpy_ptr = new copy_struct;
 	cpy_ptr->on_progress_change = on_progress_change;
 	cpy_ptr->on_cancel = on_cancel;
 	cpy_ptr->cancel_ptr = cancel_ptr;
-	if (!CopyFileExA(m_path->c_str(), path.c_str(), (LPPROGRESS_ROUTINE)copy_callback, cpy_ptr, (LPBOOL)cancel_ptr, COPY_FILE_FAIL_IF_EXISTS))
+	if (!CopyFileExW(m_path->c_str(), path.c_str(), (LPPROGRESS_ROUTINE)copy_callback, cpy_ptr, (LPBOOL)cancel_ptr, COPY_FILE_FAIL_IF_EXISTS))
 	{
 		delete cpy_ptr;
 		auto _ERROR_CODE = GetLastError(); 
@@ -919,7 +919,7 @@ void stdx::file::copy_to(const std::string &path, cancel_token_ptr cancel_ptr, s
 bool stdx::file::exist() const
 {
 #ifdef WIN32
-	return ::PathFileExistsA(m_path->c_str());
+	return ::PathFileExistsW(m_path->c_str());
 #endif
 
 #ifdef LINUX
@@ -935,7 +935,7 @@ stdx::file_stream stdx::file::open_stream(const DWORD & access_type, const DWORD
 
 HANDLE stdx::file::open_native_handle(const DWORD & access_type, const DWORD & open_type) const
 {
-	HANDLE file = CreateFileA(m_path->c_str(), access_type, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, open_type, FILE_ATTRIBUTE_NORMAL, 0);
+	HANDLE file = CreateFileW(m_path->c_str(), access_type, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, open_type, FILE_ATTRIBUTE_NORMAL, 0);
 	if (file == INVALID_HANDLE_VALUE)
 	{
 		_ThrowWinError
@@ -944,11 +944,11 @@ HANDLE stdx::file::open_native_handle(const DWORD & access_type, const DWORD & o
 }
 #endif // WIN32
 #ifdef LINUX
-stdx::file_stream stdx::file::open_stream(const stdx::file_io_service & io_service, const int_32 & access_type, const int_32 & open_type)
+stdx::file_stream stdx::file::open_stream(const stdx::file_io_service & io_service, const int32_t & access_type, const int32_t & open_type)
 {
 	return stdx::open_file_stream(io_service, *m_path, access_type, open_type);
 }
-int stdx::file::open_native_handle(const int_32 & access_type, const int_32 & open_type) const
+int stdx::file::open_native_handle(const int32_t & access_type, const int32_t & open_type) const
 {
 	return ::open(m_path->c_str(), access_type |open_type);
 }

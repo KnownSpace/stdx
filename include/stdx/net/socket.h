@@ -101,13 +101,13 @@ namespace stdx
 		{
 			memset(&m_handle, 0, sizeof(SOCKADDR_IN));
 		}
-		ipv4_addr(unsigned long ip, const uint_16 &port)
+		ipv4_addr(unsigned long ip, const uint16_t &port)
 		{
 			m_handle.sin_family =stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_addr.S_un.S_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
-		ipv4_addr(const char *ip, const uint_16 &port)
+		ipv4_addr(const char *ip, const uint16_t &port)
 			:m_handle()
 		{
 			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
@@ -145,28 +145,26 @@ namespace stdx
 		}
 
 		const static int addr_len = sizeof(sockaddr);
-		ipv4_addr &port(const uint_16 &port)
+		ipv4_addr &port(const uint16_t &port)
 		{
 			m_handle.sin_port = htons(port);
 			return *this;
 		}
-		uint_16 port() const
+		uint16_t port() const
 		{
 			return ntohs(m_handle.sin_port);
 		}
 
-		template<typename _String = std::string,class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-		_String ip() const
+		stdx::string ip() const
 		{
-			using char_t = typename _String::value_type;
-			char buf[20];
-			inet_ntop(stdx::forward_addr_family(stdx::addr_family::ip), &(m_handle.sin_addr), buf, 20);
-			return _String((char_t*)buf);
+			wchar_t buf[20];
+			InetNtopW(stdx::forward_addr_family(stdx::addr_family::ip), &(m_handle.sin_addr), buf, 20);
+			return stdx::string(buf);
 		}
 
-		ipv4_addr &ip(const char *ip)
+		ipv4_addr &ip(const stdx::string ip)
 		{
-			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip),ip,&(m_handle.sin_addr));
+			InetPtonW(stdx::forward_addr_family(stdx::addr_family::ip),ip.c_str(), &(m_handle.sin_addr));
 			return *this;
 		}
 
@@ -855,13 +853,13 @@ namespace stdx
 		{
 			memset(&m_handle,0,sizeof(m_handle));
 		}
-		ipv4_addr(unsigned long ip, const uint_16 &port)
+		ipv4_addr(unsigned long ip, const uint16_t &port)
 		{
 			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_addr.s_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
-		ipv4_addr(const char *ip, const uint_16 &port)
+		ipv4_addr(const char *ip, const uint16_t &port)
 			:m_handle()
 		{
 			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
@@ -900,28 +898,27 @@ namespace stdx
 		}
 
 		const static int addr_len = sizeof(sockaddr);
-		ipv4_addr &port(const uint_16 &port)
+		ipv4_addr &port(const uint16_t &port)
 		{
 			m_handle.sin_port = htons(port);
 			return *this;
 		}
-		uint_16 port() const
+		uint16_t port() const
 		{
 			return ntohs(m_handle.sin_port);
 		}
 
-		template<typename _String = std::string,class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-		_String ip() const
+		
+		stdx::string ip() const
 		{
-			using char_t = typename _String::value_type;
 			char buf[20];
 			inet_ntop(stdx::forward_addr_family(stdx::addr_family::ip), &(m_handle.sin_addr), buf, 20);
-			return _String((char_t*)buf);
+			return stdx::string(buf);
 		}
 
-		ipv4_addr &ip(const char *ip)
+		ipv4_addr &ip(const stdx::string &ip)
 		{
-			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip, &(m_handle.sin_addr));
+			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip.c_str(), &(m_handle.sin_addr));
 			return *this;
 		}
 

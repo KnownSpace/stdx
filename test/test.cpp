@@ -29,7 +29,8 @@ int main(int argc, char **argv)
 		auto c = s.accept();
 		auto t = c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
 		{
-			std::cout << "from: " << e.addr.ip() << ":" << e.addr.port() << std::endl;
+			stdx::string ip = e.addr.ip();
+			std::cout << "from: " << ip.c_str() << ":" << e.addr.port() << std::endl;
 			std::cout << "recv:" << std::endl
 				<< e.buffer << std::endl;
 			std::string str = "HTTP/1.1 200 OK\r\nContent-Type:text/html";
@@ -77,10 +78,10 @@ int main(int argc, char **argv)
 	t.wait();
 	stream.close();
 	int i = stdx::cancel_token_value::none;
-	file.copy_to("./b.txt", &i, [](uint_64 total_size,uint_64 tran_size) 
+	file.copy_to("./b.txt", &i, [](uint64_t total_size,uint64_t tran_size) 
 	{
 		std::cout << "copy:" << tran_size << " bytes\n";
-	}, [](uint_64 total_size, uint_64 tran_size) 
+	}, [](uint64_t total_size, uint64_t tran_size) 
 	{
 		std::cout << "cancel\n";
 	});

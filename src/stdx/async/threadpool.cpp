@@ -2,9 +2,9 @@
 
 const stdx::threadpool::impl_t stdx::threadpool::m_impl = std::make_shared <stdx::_Threadpool>();
 
-uint_32 stdx::suggested_threads_number()
+uint32_t stdx::suggested_threads_number()
 {
-	uint_32 cores = cpu_cores();
+	uint32_t cores = cpu_cores();
 	if (cores < 8)
 	{
 		return cores*2;
@@ -18,7 +18,7 @@ uint_32 stdx::suggested_threads_number()
 //构造函数
 
 stdx::_Threadpool::_Threadpool() noexcept
-	:m_free_count(std::make_shared<uint_32>())
+	:m_free_count(std::make_shared<uint32_t>())
 	, m_count_lock()
 	, m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable_ptr>>())
@@ -45,7 +45,7 @@ stdx::_Threadpool::~_Threadpool() noexcept
 void stdx::_Threadpool::add_thread() noexcept
 {
 	//创建线程
-	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, stdx::spin_lock lock, std::shared_ptr<uint_32> count, stdx::spin_lock count_lock, std::shared_ptr<bool> alive)
+	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, stdx::spin_lock lock, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock, std::shared_ptr<bool> alive)
 	{
 		//如果存活
 		while (*alive)
