@@ -382,11 +382,11 @@ namespace stdx
 			return m_impl->write(buffer, size, offset);
 		}
 
-		stdx::task<file_write_event> write(const std::string &str, const uint64_t &offset)
+		stdx::task<file_write_event> write(const stdx::string &str, const uint64_t &offset)
 		{
 			uint64_union u64;
-			u64.value = str.size();
-			return write(str.c_str(),u64.low, offset);
+			u64.value = str.size()*sizeof(wchar_t);
+			return write((char*)str.c_str(),u64.low, offset);
 		}
 
 		template<typename _Fn>
