@@ -999,30 +999,7 @@ namespace stdx
 {
 	extern stdx::task_flag _FullpathNameFlag;
 
-	template<typename _String= std::string,class = typename std::enable_if<stdx::is_basic_string<_String>::value>::type>
-	stdx::task<_String> realpath(_String path)
-	{
-		return _FullpathNameFlag.lock()
-			.then([path]() 
-			{
-				using value_type = typename _String::value_type;
-#ifdef WIN32
-				char *buf = (char*)::calloc(MAX_PATH, sizeof(char));
-				if (!GetFullPathNameA((char*)path.c_str(), MAX_PATH, buf, nullptr))
-				{
-					::free(buf);
-					_FullpathNameFlag.unlock();
-					_ThrowWinError
-				}
-				_FullpathNameFlag.unlock();
-				return _String((value_type*)buf);
-#endif // WIN32
-
-#ifdef LINUX
-				_FullpathNameFlag.unlock();
-#endif // LINUX
-			});
-	}
+	extern stdx::task<stdx::string> realpath(stdx::string path);
 
 	using cancel_token = int;
 	using cancel_token_ptr = int*;
