@@ -345,7 +345,7 @@ class buffer;
 
 namespace stdx
 {
-	class string
+	struct string
 	{
 	public:
 #pragma region type_def
