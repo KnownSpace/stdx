@@ -341,6 +341,8 @@ extern std::ostream& operator<<(std::ostream& out, const stdx::string& str);
 extern std::istream& operator>>(std::istream& in, stdx::string& str);
 #endif
 
+class buffer;
+
 namespace stdx
 {
 	class string
@@ -482,6 +484,8 @@ namespace stdx
 		static stdx::string from_native_string(const std::string &str);
 
 		static stdx::string from_u8_string(const std::string &str);
+
+		static stdx::string from_buffer(const stdx::buffer &buf);
 
 		template<typename _Container = std::vector<stdx::string>>
 		_Container split(const stdx::string &text)
