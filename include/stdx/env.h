@@ -76,6 +76,16 @@ namespace stdx
 		int32_t value;
 	};
 
+	union int16_union
+	{
+		struct
+		{
+			 unsigned char low;
+			char height;
+		};
+		int16_t value;
+	};
+
 	union uint64_union
 	{
 		struct
@@ -94,6 +104,15 @@ namespace stdx
 			uint16_t height;
 		};
 		uint32_t value;
+	};
+	union uint16_union
+	{
+		struct
+		{
+			unsigned char low;
+			unsigned char height;
+		};
+		uint16_t value;
 	};
 }
 
