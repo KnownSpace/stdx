@@ -442,11 +442,17 @@ stdx::string stdx::string::from_buffer(const stdx::buffer &buf)
 {
 	stdx::string str;
 #ifdef WIN32
-	int16_union u;
-	for(size_t i = 0,size = buf.size();i<size;++i)
+	wchar_t *p = (wchar_t*)((char*)buf);
+	size_t size = buf.size();
+	for(size_t i = 0,len = size/sizeof(wchar_t);i<len;++i)
 	{
-		u.low = buf[i];
-		str.push_back((wchar_t)u.value);
+		str.push_back(p[i]);
+	}
+	if((size % 2) != 0)
+	{
+		int16_union u16;
+		u16.low = buf[size-1];
+		str.push_back((wchar_t)u16.value);
 	}
 #else
 	for(size_t i = 0,size = buf.size();i<size;++i)
