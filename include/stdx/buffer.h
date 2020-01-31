@@ -19,7 +19,7 @@ namespace stdx
 
 		void init(char* data, const size_t &size);
 
-		const char &operator[](const size_t &i) const;
+		char operator[](const size_t &i) const;
 
 		char &operator[](const size_t &i);
 
@@ -80,10 +80,17 @@ namespace stdx
 			m_impl = other.m_impl;
 			return *this;
 		}
+
 		char &operator[](const size_t &i)
 		{
 			return m_impl->operator[](i);
 		}
+
+		char operator[](const size_t& i) const
+		{
+			return m_impl->operator[](i);
+		}
+
 		void realloc(size_t size)
 		{
 			m_impl->realloc(size);

@@ -56,7 +56,7 @@ char &stdx::_Buffer::operator[](const size_t &i)
 	return *(m_data + i);
 }
 
-const char & stdx::_Buffer::operator[](const size_t & i) const
+char  stdx::_Buffer::operator[](const size_t & i) const
 {
 	if (i >= m_size)
 	{

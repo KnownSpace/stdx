@@ -30,11 +30,21 @@ namespace stdx
 		template<typename _Fn, typename ..._Args>
 		void run(_Fn &&task, _Args &&...args) noexcept
 		{
+#ifdef DEBUG
+			printf("[Threadpool]正在投递任务\n");
+#endif // DEBUG
 			m_count_lock.lock();
-			if (*m_free_count ==0)
+			if ((*m_free_count) == 0 || (m_task_queue->size() > (*m_free_count)))
 			{
-				*m_free_count+=1;
+#ifdef DEBUG
+				printf("[Threadpool]空闲线程数为0或空闲线程数不足以执行需执行的任务,创建新线程\n");
+#endif // DEBUG
+				*m_free_count = *m_free_count + 1;
+				m_count_lock.unlock();
 				add_thread();
+				m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
+				m_barrier.notify();
+				return;
 			}
 			m_count_lock.unlock();
 			m_task_queue->emplace(stdx::make_runable<void>(std::move(task), args...));
@@ -47,7 +57,6 @@ namespace stdx
 		std::shared_ptr<bool> m_alive;
 		std::shared_ptr<std::queue<runable_ptr>> m_task_queue;
 		stdx::semaphore m_barrier;
-		stdx::spin_lock m_lock;
 
 		//添加线程
 		void add_thread() noexcept;

@@ -109,6 +109,9 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 	context->callback = call;
 	if (!ReadFile(file, context->buffer, size, &(context->size), &(context->m_ol)))
 	{
+#ifdef DEBUG
+		printf("[File IO Service]IO操作投递失败\n");
+#endif // DEBUG
 		try
 		{
 			//处理错误
@@ -143,6 +146,9 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 			return;
 		}
 	}
+#ifdef DEBUG
+	printf("[File IO Service]IO操作已投递\n");
+#endif // DEBUG
 	return;
 }
 
@@ -192,6 +198,9 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 	context_ptr->callback = call;
 	if (!WriteFile(file, buf, size, &(context_ptr->size), &(context_ptr->m_ol)))
 	{
+#ifdef DEBUG
+		printf("[File IO Service]IO操作投递失败\n");
+#endif // DEBUG
 		try
 		{
 			_ThrowWinError
@@ -204,6 +213,10 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 			return;
 		}
 	}
+#ifdef DEBUG
+	printf("[File IO Service]IO操作已投递\n");
+#endif // DEBUG
+	return;
 }
 
 uint64_t stdx::_FileIOService::get_file_size(HANDLE file) const
@@ -398,6 +411,7 @@ stdx::file_handle stdx::open_for_senfile(const stdx::string &path, const DWORD &
 }
 #endif // WIN32
 #ifdef LINUX
+#include <sys/sendfile.h>
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
 
@@ -499,9 +513,13 @@ void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offs
 	try
 	{
 		stdx::aio_read(context, file, buffer, r_size, offset, invalid_eventfd, ptr);
+#ifdef DEBUG
+		printf("[File IO Service]IO操作已投递\n");
+#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
+		free(buffer);
 		delete call;
 		delete ptr;
 		callback(file_read_event(), std::current_exception());
@@ -571,9 +589,13 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	try
 	{
 		stdx::aio_write(context,file,buf,r_size,offset,invalid_eventfd,ptr);
+#ifdef DEBUG
+		printf("[File IO Service]IO操作已投递\n");
+#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
+		free(buf);
 		delete call;
 		delete ptr;
 		callback(file_write_event(), std::current_exception());
@@ -664,7 +686,7 @@ stdx::_FileStream::~_FileStream()
 	}
 }
 
-stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const int64_t & offset)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, const uint64_t & offset)
 {
 	if (!m_io_service)
 	{
@@ -687,7 +709,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, c
 }
 
 
-stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const int64_t &offset)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const size_t &size, const uint64_t &offset)
 {
 	if (!m_io_service)
 	{
@@ -803,7 +825,7 @@ const stdx::string & stdx::file::path() const
 	return *m_path;
 }
 
-int64_t stdx::file::size() const
+uint64_t stdx::file::size() const
 {
 #ifdef WIN32
 	HANDLE handle = open_native_handle(FILE_GENERIC_READ, OPEN_EXISTING);
@@ -945,7 +967,30 @@ void stdx::file::copy_to(const stdx::string &path, cancel_token_ptr cancel_ptr, 
 #endif
 
 #ifdef LINUX
-
+	int in_fd = -1,out_fd = -1;
+	uint64_t size = this->size();
+	loff_t in_off = 0,out_off = 0;
+	if (!(*cancel_ptr))
+	{
+		in_fd = open_native_handle(stdx::forward_file_access_type(stdx::file_access_type::read), stdx::forward_file_open_type(stdx::file_open_type::open));
+		out_fd = ::open(path.c_str(),stdx::forward_file_access_type(stdx::file_access_type::write) | stdx::forward_file_open_type(stdx::file_open_type::create));
+	}
+	while (!(*cancel_ptr))
+	{
+		ssize_t cp_size = splice(in_fd, &in_off, out_fd, &out_off, 4096, SPLICE_F_MOVE);
+		if (cp_size == -1)
+		{
+			_ThrowLinuxError
+		}
+		in_off += cp_size;
+		out_off += cp_size;
+		on_progress_change(in_off, size);
+		if (size == in_off)
+		{
+			return;
+		}
+	}
+	on_cancel(in_off, size);
 #endif // LINUX
 }
 

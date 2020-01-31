@@ -7,7 +7,7 @@
 #include <list>
 int main(int argc, char **argv)
 {
-	#define ENABLE_WEB
+	//#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -56,29 +56,65 @@ int main(int argc, char **argv)
 	std::cin.get();
 #pragma endregion
 #endif 
-//#define ENABLE_FILE
+#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
-	stdx::file file(service, "./a.txt");
+	stdx::file file(service, U("./a.txt"));
 	if (file.exist())
 	{
 		file.remove();
 	}
-	stdx::file_stream stream = file.open_stream(stdx::file_access_type::all, stdx::file_open_type::create_always);
+	stdx::realpath(file.path()).then([](stdx::task_result<stdx::string> r) 
+	{
+			try
+			{
+				auto path = r.get();
+#ifdef WIN32
+				printf("full path is %ls\n", path.c_str());
+#else
+				printf("full path is %s\n", path.c_str());
+#endif
+			}
+			catch (const std::system_error & err)
+			{
+				std::cerr << err.code().message() << "\n";
+				throw;
+			}
+	});
+	stdx::file_stream stream = file.open_stream(stdx::file_access_type::all, stdx::file_open_type::create);
 	auto t = stream.write("Hello World", 0)
-		.then([stream](stdx::file_write_event ev) mutable
+		.then([stream](stdx::task_result<stdx::file_write_event> r) mutable
 	{
-		std::cout << "Total Writed: " << ev.size << " Bytes" << std::endl;
-		return stream.read_to_end(0);
-	}).then([](stdx::task_result<stdx::file_read_event> r)
-	{
+		std::cout << "写入完成\n";
+		try
+		{
 			auto ev = r.get();
-			std::cout << ev.buffer.to_string();
+			
+			std::cout << "Total Writed: " << ev.size << " Bytes" << std::endl;
+		}
+		catch (const std::system_error &err)
+		{
+			std::cerr << err.code().message() <<"\n";
+			throw;
+		}
+		return stream.read_to_end(0);
+	}).then([stream](stdx::task_result<stdx::file_read_event> r) mutable
+	{
+			stream.close();
+			try
+			{
+				auto ev = r.get();
+				std::cout <<"content:"<< ev.buffer <<"\n";
+			}
+			catch (const std::system_error &err)
+			{
+				std::cerr << err.code().message() << "\n";
+				throw;
+			}
 	});
 	t.wait();
-	stream.close();
 	int i = stdx::cancel_token_value::none;
-	file.copy_to("./b.txt", &i, [](uint64_t total_size,uint64_t tran_size) 
+	file.copy_to(U("./b.txt"), &i, [](uint64_t total_size,uint64_t tran_size) 
 	{
 		std::cout << "copy:" << tran_size << " bytes\n";
 	}, [](uint64_t total_size, uint64_t tran_size) 

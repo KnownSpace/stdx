@@ -341,10 +341,10 @@ extern std::ostream& operator<<(std::ostream& out, const stdx::string& str);
 extern std::istream& operator>>(std::istream& in, stdx::string& str);
 #endif
 
-class buffer;
-
 namespace stdx
 {
+	class buffer;
+
 	struct string
 	{
 	public:

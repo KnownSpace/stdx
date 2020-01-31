@@ -1,4 +1,4 @@
-#include <stdx/async/threadpool.h>
+ï»¿#include <stdx/async/threadpool.h>
 
 const stdx::threadpool::impl_t stdx::threadpool::m_impl = std::make_shared <stdx::_Threadpool>();
 
@@ -15,7 +15,7 @@ uint32_t stdx::suggested_threads_number()
 	}
 }
 
-//¹¹Ôìº¯Êı
+//æ„é€ å‡½æ•°
 
 stdx::_Threadpool::_Threadpool() noexcept
 	:m_free_count(std::make_shared<uint32_t>())
@@ -23,72 +23,78 @@ stdx::_Threadpool::_Threadpool() noexcept
 	, m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable_ptr>>())
 	, m_barrier()
-	, m_lock()
 {
-	//³õÊ¼»¯Ïß³Ì³Ø
+	//åˆå§‹åŒ–çº¿ç¨‹æ± 
 	init_threads();
 }
 
-//Îö¹¹º¯Êı
+//ææ„å‡½æ•°
 
 stdx::_Threadpool::~_Threadpool() noexcept
 {
-	//ÖÕÖ¹Ê±ÉèÖÃ×´Ì¬
+	//ç»ˆæ­¢æ—¶è®¾ç½®çŠ¶æ€
 	*m_alive = false;
 #ifdef DEBUG
-	printf("[Threadpool]Ïß³Ì³ØÕıÔÚÏú»Ù\n");
+	printf("[Threadpool]çº¿ç¨‹æ± æ­£åœ¨é”€æ¯\n");
 #endif // DEBUG
 }
 
-//Ìí¼ÓÏß³Ì
+//æ·»åŠ çº¿ç¨‹
 
 void stdx::_Threadpool::add_thread() noexcept
 {
-	//´´½¨Ïß³Ì
-	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, stdx::spin_lock lock, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock, std::shared_ptr<bool> alive)
+#ifdef DEBUG
+	printf("[Threadpool]æ­£åœ¨åˆ›å»ºæ–°çº¿ç¨‹\n");
+#endif // DEBUG
+	//åˆ›å»ºçº¿ç¨‹
+	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock, std::shared_ptr<bool> alive)
 	{
-		//Èç¹û´æ»î
+		//å¦‚æœå­˜æ´»
 		while (*alive)
 		{
-			//µÈ´ıÍ¨Öª
+			//ç­‰å¾…é€šçŸ¥
 			if (!semaphore.wait_for(std::chrono::minutes(10)))
 			{
-				//Èç¹û10·ÖÖÓºóÎ´Í¨Öª
-				//ÍË³öÏß³Ì
+				//å¦‚æœ10åˆ†é’Ÿåæœªé€šçŸ¥
+				//é€€å‡ºçº¿ç¨‹
 #ifdef DEBUG
-				printf("[Threadpool]Ïß³Ì³ØµÈ´ıÈÎÎñ³¬Ê±,Çå³ıÏß³Ì\n");
+				printf("[Threadpool]çº¿ç¨‹æ± ç­‰å¾…ä»»åŠ¡è¶…æ—¶,æ¸…é™¤çº¿ç¨‹\n");
 #endif // DEBUG
 				count_lock.lock();
-				*count -= 1;
+				*count = *count - 1;
 				count_lock.unlock();
 				return;
 			}
 			if (!(tasks->empty()))
 			{
 #ifdef DEBUG
-				printf("[Threadpool]µ±Ç°Ïß³Ì³Ø¿ÕÏĞÏß³ÌÊı:%d\n", *count);
+				printf("[Threadpool]å½“å‰çº¿ç¨‹æ± ç©ºé—²çº¿ç¨‹æ•°:%d\n", *count);
 #endif // DEBUG
-				//Èç¹ûÈÎÎñÁĞ±í²»Îª¿Õ
-				//¼õÈ¥Ò»¸ö¼ÆÊı
-				*count -= 1;
-				//½øÈë×ÔĞıËø
-				lock.lock();
+				//å¦‚æœä»»åŠ¡åˆ—è¡¨ä¸ä¸ºç©º
+				//å‡å»ä¸€ä¸ªè®¡æ•°
+				count_lock.lock();
+				* count = *count - 1;
+				count_lock.unlock();
+#ifdef DEBUG
+				printf("[Threadpool]å½“å‰çº¿ç¨‹æ± ç©ºé—²çº¿ç¨‹æ•°:%d\n", *count);
+#endif // DEBUG
+				//è¿›å…¥è‡ªæ—‹é”
 				if (tasks->empty())
 				{
+					count_lock.lock();
 					*count += 1;
-					lock.unlock();
+					count_lock.unlock();
 					continue;
 				}
 #ifdef DEBUG
-				printf("[Threadpool]Ïß³Ì³ØÒÑ½ÓÊÕ±»Í¶µİµÄÈÎÎñ\n");
+				printf("[Threadpool]å½“å‰çº¿ç¨‹æ± ç©ºé—²çº¿ç¨‹æ•°:%d\n", *count);
+				printf("[Threadpool]çº¿ç¨‹æ± å·²æ¥æ”¶è¢«æŠ•é€’çš„ä»»åŠ¡\n");
 #endif // DEBUG
-				//»ñÈ¡ÈÎÎñ
+				//è·å–ä»»åŠ¡
 				runable_ptr t(tasks->front());
-				//´ÓqueueÖĞpop
+				//ä»queueä¸­pop
 				tasks->pop();
-				//½âËø
-				lock.unlock();
-				//Ö´ĞĞÈÎÎñ
+				//æ‰§è¡Œä»»åŠ¡
 				try
 				{
 					if (t)
@@ -96,17 +102,23 @@ void stdx::_Threadpool::add_thread() noexcept
 						t->run();
 					}
 				}
+				catch (const std::exception &err)
+				{
+					//å¿½ç•¥å‡ºç°çš„é”™è¯¯
+#ifdef DEBUG
+					fprintf(stderr, "[Threadpool]æ‰§è¡Œä»»åŠ¡çš„è¿‡ç¨‹ä¸­å‡ºé”™,%s\n",err.what());
+#endif // DEBUG
+				}
 				catch (...)
 				{
-					//ºöÂÔ³öÏÖµÄ´íÎó
 				}
 #ifdef DEBUG
-				printf("[Threadpool]µ±Ç°Ê£ÓàÎ´´¦ÀíÈÎÎñÊı:%lld\n",tasks->size());
+				printf("[Threadpool]å½“å‰å‰©ä½™æœªå¤„ç†ä»»åŠ¡æ•°:%lld\n",tasks->size());
 #endif // DEBUG
-				//Íê³É»òÖÕÖ¹ºó
-				//Ìí¼Ó¼ÆÊı
+				//å®Œæˆæˆ–ç»ˆæ­¢å
+				//æ·»åŠ è®¡æ•°
 				count_lock.lock();
-				*count += 1;
+				*count = *count + 1;
 				count_lock.unlock();
 			}
 			else
@@ -114,22 +126,25 @@ void stdx::_Threadpool::add_thread() noexcept
 				continue;
 			}
 		}
-	}, m_task_queue, m_barrier, m_lock, m_free_count, m_count_lock, m_alive);
-	//·ÖÀëÏß³Ì
+	}, m_task_queue, m_barrier, m_free_count, m_count_lock, m_alive);
+	//åˆ†ç¦»çº¿ç¨‹
 	t.detach();
 }
 
-//³õÊ¼»¯Ïß³Ì³Ø
+//åˆå§‹åŒ–çº¿ç¨‹æ± 
 
 void stdx::_Threadpool::init_threads() noexcept
 {
 #ifdef DEBUG
-	printf("[Threadpool]ÕıÔÚ³õÊ¼»¯Ïß³Ì³Ø\n");
+	printf("[Threadpool]æ­£åœ¨åˆå§‹åŒ–çº¿ç¨‹æ± \n");
 #endif // DEBUG
-	unsigned int threads_number = suggested_threads_number();
+	uint32_t threads_number = suggested_threads_number();
 	*m_free_count += threads_number;
 	for (unsigned int i = 0; i < threads_number; i++)
 	{
 		add_thread();
 	}
+#ifdef DEBUG
+	printf("[Threadpool]åˆå§‹åŒ–å®Œæˆ,å…±åˆ›å»º%dæ¡çº¿ç¨‹\n",threads_number);
+#endif // DEBUG
 }

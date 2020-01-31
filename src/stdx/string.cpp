@@ -1,5 +1,6 @@
 #include <stdx/string.h>
 #include <iostream>
+#include <stdx/buffer.h>
 
 stdx::string::string()
 	:m_data()

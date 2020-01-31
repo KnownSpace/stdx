@@ -325,7 +325,7 @@ namespace stdx
 
 		void close();
 
-		int64_t size() const
+		uint64_t size() const
 		{
 			return m_io_service.get_file_size(m_file);
 		}
@@ -372,17 +372,17 @@ namespace stdx
 			return *this;
 		}
 
-		stdx::task<file_read_event> read(const DWORD&size, const int64_t &offset)
+		stdx::task<file_read_event> read(const DWORD&size, const uint64_t &offset)
 		{
 			return m_impl->read(size, offset);
 		}
 
-		stdx::task<file_write_event> write(const char* buffer, const DWORD&size, const int64_t &offset)
+		stdx::task<file_write_event> write(const char* buffer, const DWORD&size, const uint64_t &offset)
 		{
 			return m_impl->write(buffer, size, offset);
 		}
 
-		stdx::task<file_write_event> write(const std::string &str, const int64_t &offset)
+		stdx::task<file_write_event> write(const std::string &str, const uint64_t &offset)
 		{
 			uint64_union u64;
 			u64.value = str.size();
@@ -390,23 +390,23 @@ namespace stdx
 		}
 
 		template<typename _Fn>
-		void read_utill(const size_t &size, const int64_t &offset, _Fn &&call)
+		void read_utill(const size_t &size, const uint64_t &offset, _Fn &&call)
 		{
 			return m_impl->read_utill(size, offset, call);
 		}
 
 		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const int64_t &offset, _Fn &&call, _ErrHandler &&err_handler)
+		void read_utill_eof(const size_t &size, const uint64_t &offset, _Fn &&call, _ErrHandler &&err_handler)
 		{
 			return m_impl->read_utill_eof(size, offset,call,err_handler);
 		}
 
-		stdx::task<stdx::file_read_event> read_to_end(const int64_t &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{
 			return m_impl->read_to_end(offset);
 		}
 
-		int64_t size() const
+		uint64_t size() const
 		{
 			return m_impl->size();
 		}
@@ -501,7 +501,7 @@ namespace stdx
 #undef _ThrowWinError
 #endif // WIN32
 #ifdef LINUX
-#include<fcntl.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdx/io.h>
 #include <sys/stat.h>
@@ -688,11 +688,11 @@ namespace stdx
 			return m_impl->create_file(path, access_type, file_open_type);
 		}
 
-		void read_file(int file, const size_t &size, const int64_t &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
+		void read_file(int file, const size_t &size, const uint64_t &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
 		{
 			return m_impl->read_file(file, size, offset,callback);
 		}
-		void write_file(int file, const char *buffer, const size_t &size, const int64_t &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
+		void write_file(int file, const char *buffer, const size_t &size, const uint64_t &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
 		{
 			return m_impl->write_file(file, buffer, size, offset,callback);
 		}
@@ -700,7 +700,7 @@ namespace stdx
 		{
 			return m_impl->close_file(file);
 		}
-		int64_t get_file_size(int file) const
+		uint64_t get_file_size(int file) const
 		{
 			return m_impl->get_file_size(file);
 		}
@@ -736,11 +736,11 @@ namespace stdx
 			m_file = m_io_service.create_file(path, access_type, open_type);
 		}
 
-		stdx::task<file_read_event> read(const size_t &size, const int64_t &offset);
+		stdx::task<file_read_event> read(const size_t &size, const uint64_t &offset);
 
 		//返回true则继续
 		template<typename _Fn>
-		void read_utill(const size_t &size, const int64_t &offset, _Fn call)
+		void read_utill(const size_t &size, const uint64_t &offset, _Fn call)
 		{
 			using args_t = typename stdx::function_info<_Fn>::arguments;
 			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::task_result<stdx::file_read_event>>::value, "the input function not be allowed");
@@ -755,7 +755,7 @@ namespace stdx
 		}
 
 		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const int64_t &offset, _Fn call, _ErrHandler err_handler)
+		void read_utill_eof(const size_t &size, const uint64_t &offset, _Fn call, _ErrHandler err_handler)
 		{
 			using args_t = typename stdx::function_info<_Fn>::arguments;
 			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::file_read_event>::value, "the input function not be allowed");
@@ -782,17 +782,17 @@ namespace stdx
 			});
 		}
 
-		stdx::task<stdx::file_read_event> read_to_end(const int64_t &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{
 			return read(size() - offset, offset);
 		}
 
 
-		stdx::task<stdx::file_write_event> write(const char* buffer, const size_t &size, const int64_t &offset);
+		stdx::task<stdx::file_write_event> write(const char* buffer, const size_t &size, const uint64_t &offset);
 
 		void close();
 
-		int64_t size() const
+		uint64_t size() const
 		{
 			return m_io_service.get_file_size(m_file);
 		}
@@ -843,40 +843,40 @@ namespace stdx
 			return *this;
 		}
 
-		stdx::task<file_read_event> read(const size_t &size, const int64_t &offset)
+		stdx::task<file_read_event> read(const size_t &size, const uint64_t &offset)
 		{
 			return m_impl->read(size, offset);
 		}
 
-		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const int64_t &offset)
+		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const uint64_t &offset)
 		{
 			return m_impl->write(buffer, size, offset);
 		}
 
 
-		stdx::task<file_write_event> write(const std::string &str, const int64_t &offset)
+		stdx::task<file_write_event> write(const stdx::string &str, const uint64_t &offset)
 		{
 			return write(str.c_str(), str.size(), offset);
 		}
 
 		template<typename _Fn>
-		void read_utill(const size_t &size, const int64_t &offset, _Fn &&call)
+		void read_utill(const size_t &size, const uint64_t &offset, _Fn &&call)
 		{
 			return m_impl->read_utill(size, offset,call);
 		}
 
 		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const int64_t &offset, _Fn &&call, _ErrHandler &&err_handler)
+		void read_utill_eof(const size_t &size, const uint64_t &offset, _Fn &&call, _ErrHandler &&err_handler)
 		{
 			return m_impl->read_utill_eof(size, offset,call,err_handler);
 		}
 
-		stdx::task<stdx::file_read_event> read_to_end(const int64_t &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{
 			return m_impl->read_to_end(offset);
 		}
 
-		int64_t size() const
+		uint64_t size() const
 		{
 			return m_impl->size();
 		}
@@ -1028,7 +1028,7 @@ namespace stdx
 
 		const stdx::string &path() const;
 
-		int64_t size() const;
+		uint64_t size() const;
 
 		void remove();
 

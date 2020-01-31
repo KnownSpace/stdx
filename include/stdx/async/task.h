@@ -208,7 +208,7 @@ namespace stdx
 			m_impl->run();
 		}
 
-		void run_on_this_thread()
+		void run_on_this_thread() noexcept
 		{
 			m_impl->run_on_this_thread();
 		}
@@ -756,7 +756,7 @@ namespace stdx
 		virtual ~_Task() = default;
 
 		//启动一个Task
-		virtual void run() override
+		virtual void run() noexcept override
 		{
 			//加锁
 			m_lock.lock();
@@ -787,7 +787,7 @@ namespace stdx
 			//放入线程池
 			stdx::threadpool::run(f, m_action, m_promise, m_next, m_lock, m_state);
 		}
-		void run_on_this_thread() override 
+		virtual void run_on_this_thread() noexcept override
 		{
 		    m_lock.lock();
 			if (!m_state)
@@ -805,7 +805,14 @@ namespace stdx
 				return;
 		    }
 		    m_lock.unlock();
-		    stdx::_TaskCompleter<R>::call(m_action,m_promise,m_next,m_lock,m_state);
+			try
+			{
+				stdx::_TaskCompleter<R>::call(m_action, m_promise, m_next, m_lock, m_state);
+			}
+			catch (const std::exception&)
+			{
+
+			}
 		}
 
 		//等待当前Task(不包括后续)完成
