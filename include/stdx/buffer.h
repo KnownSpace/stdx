@@ -40,13 +40,6 @@ namespace stdx
 		void set_zero();
 
 		char *to_raw();
-
-		template<typename _String>
-		_String to_string()
-		{
-			using value_type = typename _String::value_type;
-			return _String((value_type*)m_data,m_size/sizeof(value_type));
-		}
 	private:
 		size_t m_size;
 		char *m_data;
@@ -115,12 +108,6 @@ namespace stdx
 		char *to_raw()
 		{
 			return m_impl->to_raw();
-		}
-
-		template<typename _String = std::string, class = typename std::enable_if<stdx::is_basic_string<_String>::value>::type>
-		_String to_string()
-		{
-			return m_impl->to_string<_String>();
 		}
 
 	private:
