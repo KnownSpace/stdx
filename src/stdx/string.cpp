@@ -405,7 +405,7 @@ std::string stdx::string::to_u8_string() const
 #ifdef WIN32
 	return stdx::unicode_to_utf8(m_data);
 #else
-	//LinuxÄ¬ÈÏÊ¹ÓÃutf×÷ÎªÔ­Éú×Ö·û´®
+	//Linuxé»˜è®¤ä½¿ç”¨utfä½œä¸ºåŸç”Ÿå­—ç¬¦ä¸²
 	return m_data;
 #endif
 }
@@ -435,6 +435,25 @@ stdx::string stdx::string::from_u8_string(const std::string& str)
 #else
 	return stdx::string(str);
 #endif
+}
+
+stdx::string stdx::string::from_buffer(const stdx::buffer &buf)
+{
+	stdx::string str;
+#ifdef WIN32
+	int16_union u;
+	for(size_t i = 0,size = buf.size();i<size;++i)
+	{
+		u.low = buf[i];
+		str.push_back((wchar_t)u.value);
+	}
+#else
+	for(size_t i = 0,size = buf.size();i<size;++i)
+	{
+		str.push_back(buf[i]);
+	}
+#endif
+	return str;
 }
 
 #ifdef WIN32
