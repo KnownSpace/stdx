@@ -738,6 +738,39 @@ stdx::file_handle stdx::open_for_senfile(const stdx::string &path, const int32_t
 
 stdx::task_flag stdx::_FullpathNameFlag;
 
+stdx::task<stdx::string> stdx::realpath(stdx::string path)
+{
+	return _FullpathNameFlag.lock()
+		.then([path]() 
+		{
+#ifdef WIN32
+			wchar_t *buf = (wchar_t*)calloc(MAX_PATH, sizeof(wchar_t));
+			if (!GetFullPathNameW(path.c_str(), MAX_PATH, buf, nullptr))
+			{
+				_FullpathNameFlag.unlock();
+				free(buf);
+				_ThrowWinError
+			}
+			_FullpathNameFlag.unlock();
+			stdx::string str(buf);
+			free(buf);
+			return str;
+#else
+			char *buf = (char*)calloc(MAX_PATH,sizeof(char));
+			if(::realpath(path.c_str(),buf) == nullptr)
+			{
+				_FullpathNameFlag.unlock();
+				free(buf);
+				_ThrowLinuxError
+			}
+			_FullpathNameFlag.unlock();
+			stdx::string str(buf);
+			free(buf);
+			return str;
+#endif
+		});
+}
+
 stdx::file::file(const stdx::file_io_service &io_service,const stdx::string & path)
 	:m_path(std::make_shared<stdx::string>(path))
 	,m_io_service(io_service)
