@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
 	{
-		stdx::ipv4_addr addr("127.0.0.1", 8080);
+		stdx::ipv4_addr addr(U("127.0.0.1"), 8080);
 		s.bind(addr);
 	}
 	catch (std::exception &e)
@@ -80,9 +80,9 @@ int main(int argc, char **argv)
 				std::cerr << err.code().message() << "\n";
 				throw;
 			}
-	});
+	}).wait();
 	stdx::file_stream stream = file.open_stream(stdx::file_access_type::all, stdx::file_open_type::create);
-	auto t = stream.write("Hello World", 0)
+	auto t = stream.write(U("Hello World"), 0)
 		.then([stream](stdx::task_result<stdx::file_write_event> r) mutable
 	{
 		std::cout << "写入完成\n";

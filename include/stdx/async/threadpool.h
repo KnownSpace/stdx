@@ -33,22 +33,19 @@ namespace stdx
 #ifdef DEBUG
 			printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
-			m_count_lock.lock();
-			if ((*m_free_count) == 0 || (m_task_queue->size() > (*m_free_count)))
+			m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
+			m_barrier.notify();
+			std::unique_lock<stdx::spin_lock> lock(m_count_lock);
+			if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
 			{
 #ifdef DEBUG
-				printf("[Threadpool]空闲线程数为0或空闲线程数不足以执行需执行的任务,创建新线程\n");
+				printf("[Threadpool]空闲线程数(%d)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
 				*m_free_count = *m_free_count + 1;
-				m_count_lock.unlock();
+				lock.unlock();
 				add_thread();
-				m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
-				m_barrier.notify();
 				return;
 			}
-			m_count_lock.unlock();
-			m_task_queue->emplace(stdx::make_runable<void>(std::move(task), args...));
-			m_barrier.notify();
 		}
 
 	private:

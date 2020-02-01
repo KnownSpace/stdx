@@ -107,12 +107,12 @@ namespace stdx
 			m_handle.sin_addr.S_un.S_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
-		ipv4_addr(const char *ip, const uint16_t &port)
+		ipv4_addr(const stdx::string &ip, const uint16_t &port)
 			:m_handle()
 		{
 			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_port = htons(port);
-			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip, &(m_handle.sin_addr));
+			InetPtonW(stdx::forward_addr_family(stdx::addr_family::ip), ip.c_str(), &(m_handle.sin_addr));
 		}
 		ipv4_addr(const ipv4_addr &other)
 			:m_handle(other.m_handle)
@@ -162,7 +162,7 @@ namespace stdx
 			return stdx::string(buf);
 		}
 
-		ipv4_addr &ip(const stdx::string ip)
+		ipv4_addr &ip(const stdx::string &ip)
 		{
 			InetPtonW(stdx::forward_addr_family(stdx::addr_family::ip),ip.c_str(), &(m_handle.sin_addr));
 			return *this;
@@ -859,12 +859,12 @@ namespace stdx
 			m_handle.sin_addr.s_addr = ip;
 			m_handle.sin_port = htons(port);
 		}
-		ipv4_addr(const char *ip, const uint16_t &port)
+		ipv4_addr(const stdx::string &ip, const uint16_t &port)
 			:m_handle()
 		{
 			m_handle.sin_family = stdx::forward_addr_family(addr_family::ip);
 			m_handle.sin_port = htons(port);
-			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip, &(m_handle.sin_addr));
+			inet_pton(stdx::forward_addr_family(stdx::addr_family::ip), ip.c_str(), &(m_handle.sin_addr));
 		}
 		ipv4_addr(const ipv4_addr &other)
 			:m_handle(other.m_handle)

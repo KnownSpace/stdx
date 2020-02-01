@@ -442,7 +442,7 @@ stdx::string stdx::string::from_buffer(const stdx::buffer &buf)
 {
 	stdx::string str;
 #ifdef WIN32
-	wchar_t *p = (wchar_t*)((char*)buf);
+	const wchar_t *p = (const wchar_t*)((const char*)buf);
 	size_t size = buf.size();
 	for(size_t i = 0,len = size/sizeof(wchar_t);i<len;++i)
 	{

@@ -1,4 +1,5 @@
 ﻿#include <stdx/file.h>
+#include <sys/sendfile.h>
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
@@ -969,26 +970,45 @@ void stdx::file::copy_to(const stdx::string &path, cancel_token_ptr cancel_ptr, 
 #ifdef LINUX
 	int in_fd = -1,out_fd = -1;
 	uint64_t size = this->size();
-	loff_t in_off = 0,out_off = 0;
+	loff_t in_off = 0;
 	if (!(*cancel_ptr))
 	{
 		in_fd = open_native_handle(stdx::forward_file_access_type(stdx::file_access_type::read), stdx::forward_file_open_type(stdx::file_open_type::open));
+		if (in_fd == -1)
+		{
+			_ThrowLinuxError
+		}
 		out_fd = ::open(path.c_str(),stdx::forward_file_access_type(stdx::file_access_type::write) | stdx::forward_file_open_type(stdx::file_open_type::create));
+		if (out_fd == -1)
+		{
+			_ThrowLinuxError
+		}
 	}
 	while (!(*cancel_ptr))
 	{
-		ssize_t cp_size = splice(in_fd, &in_off, out_fd, &out_off, 4096, SPLICE_F_MOVE);
+		size_t len = 0;
+		if ((size-in_off)<4096)
+		{
+			len = (size-in_off);
+		}
+		else
+		{
+			len = 4096;
+		}
+		//ssize_t cp_size = splice(in_fd, &in_off, out_fd, &out_off,len, SPLICE_F_MOVE);
+		ssize_t cp_size = sendfile(out_fd,in_fd,&in_off,len);
 		if (cp_size == -1)
 		{
 			_ThrowLinuxError
 		}
 		in_off += cp_size;
-		out_off += cp_size;
-		on_progress_change(in_off, size);
-		if (size == in_off)
+		if (in_off >= size)
 		{
+			in_off = size;
+			on_progress_change(in_off, size);
 			return;
 		}
+		on_progress_change(in_off, size);
 	}
 	on_cancel(in_off, size);
 #endif // LINUX

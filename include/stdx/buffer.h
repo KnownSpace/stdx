@@ -23,7 +23,12 @@ namespace stdx
 
 		char &operator[](const size_t &i);
 
-		operator char*() const
+		operator char*()
+		{
+			return m_data;
+		}
+
+		operator const char* () const
 		{
 			return m_data;
 		}
@@ -72,6 +77,10 @@ namespace stdx
 			m_impl->init(data, size);
 		}
 		operator char*()
+		{
+			return *m_impl;
+		}
+		operator const char* () const
 		{
 			return *m_impl;
 		}
