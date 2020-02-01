@@ -128,6 +128,7 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const DWORD & 
 		}
 		catch (const std::exception&)
 		{
+			free(context_ptr->buffer.buf);
 			delete call;
 			delete context_ptr;
 			callback(stdx::network_send_event(), std::current_exception());
@@ -340,6 +341,7 @@ void stdx::_NetworkIOService::send_to(SOCKET sock, const ipv4_addr & addr, const
 		}
 		catch (const std::exception&)
 		{
+			free(context_ptr->buffer.buf);
 			delete call;
 			delete context_ptr;
 			callback(stdx::network_send_event(), std::current_exception());
@@ -440,6 +442,8 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 		catch (const std::exception&)
 		{
 			delete call;
+			free(addr);
+			free(addr_size);
 			::free(context_ptr->buffer.buf);
 			delete context_ptr;
 			callback(stdx::network_recv_event(), std::current_exception());
@@ -484,7 +488,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
 #ifdef DEBUG
-	 printf("[Network IO Service]正在初始化IO服务\n");
+	 printf("[Network IO Service]姝ｅ湪鍒濆鍖朓O鏈嶅姟\n");
 #endif // DEBUG
 	 for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
@@ -494,7 +498,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 			 {
 				 auto *context_ptr = iocp.get();
 #ifdef DEBUG
-				 printf("[IOCP]IO操作完成\n");
+				 printf("[IOCP]IO鎿嶄綔瀹屾垚\n");
 #endif // DEBUG
 				 if (context_ptr == nullptr)
 				 {
@@ -998,7 +1002,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
 #ifdef DEBUG
-	 printf("[Network IO Service]正在初始化IO服务\n");
+	 printf("[Network IO Service]姝ｅ湪鍒濆鍖朓O鏈嶅姟\n");
 #endif // DEBUG
 	 for (size_t i = 0,cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
@@ -1011,7 +1015,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 					 reactor.get<stdx::network_io_context_finder>([](epoll_event *ev_ptr)
 					 {
 #ifdef DEBUG
-						 printf("[Epoll]检测到IO请求\n");
+						 printf("[Epoll]妫�娴嬪埌IO璇锋眰\n");
 #endif // DEBUG
 						 stdx::network_io_context *context = (stdx::network_io_context *)ev_ptr->data.ptr;
 						 ssize_t r = 0;
@@ -1032,6 +1036,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 						 {
 							 if (r < 1)
 							 {
+								free(context->buffer);
 								 _ThrowLinuxError
 							 }
 						 }
