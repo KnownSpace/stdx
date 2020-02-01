@@ -141,6 +141,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 		}
 		catch (const std::exception&)
 		{
+			free(context->buffer);
 			delete call;
 			delete context;
 			callback(stdx::file_read_event(), std::current_exception());
@@ -208,6 +209,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 		}
 		catch (const std::exception&)
 		{
+			free(context_ptr->buffer);
 			delete call;
 			delete context_ptr;
 			callback(stdx::file_write_event(), std::current_exception());
