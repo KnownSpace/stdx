@@ -7,7 +7,7 @@
 #include <list>
 int main(int argc, char **argv)
 {
-	//#define ENABLE_WEB
+	#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 		auto t = c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
 		{
 			stdx::string ip = e.addr.ip();
-			std::cout << "from: " << ip.c_str() << ":" << e.addr.port() << std::endl;
+			stdx::cout() << U("from: ") << ip << U(":") << e.addr.port() << std::endl;
 			std::cout << "recv:" << std::endl
 				<< e.buffer << std::endl;
 			std::string str = "HTTP/1.1 200 OK\r\nContent-Type:text/html";
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 	std::cin.get();
 #pragma endregion
 #endif 
-#define ENABLE_FILE
+//#define ENABLE_FILE
 #ifdef ENABLE_FILE
 	stdx::file_io_service service;
 	stdx::file file(service, U("./a.txt"));
@@ -64,7 +64,8 @@ int main(int argc, char **argv)
 	{
 		file.remove();
 	}
-	stdx::realpath(file.path()).then([](stdx::task_result<stdx::string> r) 
+	stdx::file_stream stream = file.open_stream(stdx::file_access_type::all, stdx::file_open_type::create);
+	stdx::realpath(file.path()).then([](stdx::task_result<stdx::string> r)
 	{
 			try
 			{
@@ -81,20 +82,20 @@ int main(int argc, char **argv)
 				throw;
 			}
 	}).wait();
-	stdx::file_stream stream = file.open_stream(stdx::file_access_type::all, stdx::file_open_type::create);
 	auto t = stream.write(U("Hello World"), 0)
 		.then([stream](stdx::task_result<stdx::file_write_event> r) mutable
 	{
-		std::cout << "写入完成\n";
+		stdx::cout() << U("写入完成\n");
 		try
 		{
 			auto ev = r.get();
 			
-			std::cout << "Total Writed: " << ev.size << " Bytes" << std::endl;
+			stdx::cout() << U("Total Writed: ") << ev.size << U(" Bytes") << std::endl;
 		}
 		catch (const std::system_error &err)
 		{
-			std::cerr << err.code().message() <<"\n";
+			stdx::string str = stdx::string::from_native_string(err.code().message());
+			stdx::cerr() << str << U("\n");
 			throw;
 		}
 		return stream.read_to_end(0);
@@ -104,11 +105,14 @@ int main(int argc, char **argv)
 			try
 			{
 				auto ev = r.get();
-				std::cout <<"content:"<< ev.buffer <<"\n";
+				stdx::string str = stdx::string::from_buffer(ev.buffer);
+				stdx::cout() << U("content:") << str << U("\n");
+
 			}
 			catch (const std::system_error &err)
 			{
-				std::cerr << err.code().message() << "\n";
+				stdx::string str = stdx::string::from_native_string(err.code().message());
+				stdx::cerr() << str << U("\n");
 				throw;
 			}
 	});
@@ -116,10 +120,10 @@ int main(int argc, char **argv)
 	int i = stdx::cancel_token_value::none;
 	file.copy_to(U("./b.txt"), &i, [](uint64_t total_size,uint64_t tran_size) 
 	{
-		std::cout << "copy:" << tran_size << " bytes\n";
+		stdx::cout() << U("copy:") << tran_size << U(" bytes\n");
 	}, [](uint64_t total_size, uint64_t tran_size) 
 	{
-		std::cout << "cancel\n";
+		std::cout << U("cancel\n");
 	});
 	std::cin.get();
 #endif // ENABLE_FILE

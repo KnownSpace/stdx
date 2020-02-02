@@ -1,4 +1,5 @@
 ﻿#include <stdx/io.h>
+#include <iostream>
 
 #ifdef LINUX
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
@@ -180,3 +181,31 @@ void stdx::_Reactor::loop(int fd)
 	}
 }
 #endif // LINUX
+
+#ifdef WIN32
+std::wistream& stdx::cin()
+{
+	return std::wcin;
+}
+std::wostream& stdx::cout()
+{
+	return std::wcout;
+}
+std::wostream &stdx::cerr()
+{
+	return std::wcerr;
+}
+#else
+std::istream &stdx::cin()
+{
+	return std::cin;
+}
+std::ostream &stdx::cout()
+{
+	return std::cout;
+}
+std::ostream &stdx::cerr()
+{
+	return std::cerr;
+}
+#endif

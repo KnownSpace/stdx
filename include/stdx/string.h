@@ -131,6 +131,10 @@ namespace stdx
 		using char_t = typename _String::value_type;
 		DWORD size = WideCharToMultiByte(stdx::code_page::utf8, NULL, src.c_str(), -1, NULL, 0, NULL, FALSE);
 		char* buf = (char*)calloc(size, sizeof(char));
+		if (buf == nullptr)
+		{
+			throw std::bad_alloc();
+		}
 		if (!(WideCharToMultiByte(stdx::code_page::utf8, NULL, src.c_str(), -1, buf, size, NULL, FALSE)))
 		{
 			_ThrowWinError
@@ -146,6 +150,10 @@ namespace stdx
 		using char_t = typename _String::value_type;
 		DWORD size = WideCharToMultiByte(stdx::code_page::ansi, NULL, src.c_str(), -1, NULL, 0, NULL, FALSE);
 		char* buf = (char*)calloc(size, sizeof(char));
+		if (buf == nullptr)
+		{
+			throw std::bad_alloc();
+		}
 		if (!(WideCharToMultiByte(stdx::code_page::ansi, NULL, src.c_str(), -1, buf, size, NULL, FALSE)))
 		{
 			_ThrowWinError
@@ -161,6 +169,10 @@ namespace stdx
 		using uchar_t = typename _UnicodeString::value_type;
 		DWORD size = MultiByteToWideChar(stdx::code_page::utf8, NULL, src.c_str(), -1, NULL, 0);
 		wchar_t* buf = (wchar_t*)calloc(size, sizeof(wchar_t));
+		if (buf == nullptr)
+		{
+			throw std::bad_alloc();
+		}
 		if (!(MultiByteToWideChar(stdx::code_page::utf8, NULL, src.c_str(), -1, buf, size)))
 		{
 			_ThrowWinError
@@ -183,6 +195,10 @@ namespace stdx
 		using uchar_t = typename _UnicodeString::value_type;
 		DWORD size = MultiByteToWideChar(stdx::code_page::ansi, NULL, src.c_str(), -1, NULL, 0);
 		wchar_t* buf = (wchar_t*)calloc(size, sizeof(wchar_t));
+		if (buf == nullptr)
+		{
+			throw std::bad_alloc();
+		}
 		if (!(MultiByteToWideChar(stdx::code_page::ansi, NULL, src.c_str(), -1, buf, size)))
 		{
 			_ThrowWinError
@@ -329,7 +345,7 @@ namespace stdx
 #undef _ThrowLinuxError
 #endif
 
-	class string;
+	struct string;
 
 }
 

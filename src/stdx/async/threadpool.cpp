@@ -11,7 +11,7 @@ uint32_t stdx::suggested_threads_number()
 	}
 	else
 	{
-		return 8;
+		return 16;
 	}
 }
 

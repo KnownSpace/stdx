@@ -1,5 +1,4 @@
 ﻿#include <stdx/file.h>
-#include <sys/sendfile.h>
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
@@ -41,7 +40,7 @@ stdx::_FileIOService::_FileIOService()
 stdx::_FileIOService::~_FileIOService()
 {
 	*m_alive = false;
-	for (size_t i = 0,size = ((uint64_t)cpu_cores())*2; i < size; i++)
+	for (size_t i = 0,size = suggested_threads_number(); i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}
@@ -110,9 +109,6 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 	context->callback = call;
 	if (!ReadFile(file, context->buffer, size, &(context->size), &(context->m_ol)))
 	{
-#ifdef DEBUG
-		printf("[File IO Service]IO操作投递失败\n");
-#endif // DEBUG
 		try
 		{
 			//处理错误
@@ -141,6 +137,9 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 		}
 		catch (const std::exception&)
 		{
+#ifdef DEBUG
+			printf("[File IO Service]IO操作投递失败\n");
+#endif // DEBUG
 			free(context->buffer);
 			delete call;
 			delete context;
@@ -200,15 +199,15 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 	context_ptr->callback = call;
 	if (!WriteFile(file, buf, size, &(context_ptr->size), &(context_ptr->m_ol)))
 	{
-#ifdef DEBUG
-		printf("[File IO Service]IO操作投递失败\n");
-#endif // DEBUG
 		try
 		{
 			_ThrowWinError
 		}
 		catch (const std::exception&)
 		{
+#ifdef DEBUG
+			printf("[File IO Service]IO操作投递失败\n");
+#endif // DEBUG
 			free(context_ptr->buffer);
 			delete call;
 			delete context_ptr;
@@ -449,12 +448,22 @@ int32_t stdx::forward_file_open_type(const stdx::file_open_type &open_type)
 
 int stdx::_FileIOService::create_file(const stdx::string & path, int32_t access_type, int32_t open_type, mode_t mode)
 {
-	return ::open(path.c_str(), access_type | open_type|O_DIRECT, mode);
+	int fd = ::open(path.c_str(), access_type | open_type|O_DIRECT, mode);
+	if (fd == -1)
+	{
+		_ThrowLinuxError
+	}
+	return fd;
 }
 
 int stdx::_FileIOService::create_file(const stdx::string & path, int32_t access_type, int32_t open_type)
 {
-	return ::open(path.c_str(), access_type | open_type|O_DIRECT);
+	int fd = ::open(path.c_str(), access_type | open_type|O_DIRECT);
+	if (fd == -1)
+	{
+		_ThrowLinuxError
+	}
+	return fd;
 }
 
 void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
@@ -770,6 +779,11 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 		{
 #ifdef WIN32
 			wchar_t *buf = (wchar_t*)calloc(MAX_PATH, sizeof(wchar_t));
+			if (buf == nullptr)
+			{
+				_FullpathNameFlag.unlock();
+				throw std::bad_alloc();
+			}
 			if (!GetFullPathNameW(path.c_str(), MAX_PATH, buf, nullptr))
 			{
 				_FullpathNameFlag.unlock();
@@ -782,6 +796,10 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 			return str;
 #else
 			char *buf = (char*)calloc(MAX_PATH,sizeof(char));
+			if (!buf)
+			{
+				throw std::bad_alloc();
+			}
 			if(::realpath(path.c_str(),buf) == nullptr)
 			{
 				_FullpathNameFlag.unlock();
@@ -1050,7 +1068,12 @@ stdx::file_stream stdx::file::open_stream(const stdx::file_io_service & io_servi
 }
 int stdx::file::open_native_handle(const int32_t & access_type, const int32_t & open_type) const
 {
-	return ::open(m_path->c_str(), access_type |open_type);
+	int fd = ::open(m_path->c_str(), access_type |open_type);
+	if (fd == -1)
+	{
+		_ThrowLinuxError
+	}
+	return fd;
 }
 #endif // LINUX
 

@@ -1,4 +1,4 @@
-#include <stdx/net/socket.h>
+﻿#include <stdx/net/socket.h>
 
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
@@ -51,7 +51,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 stdx::_NetworkIOService::~_NetworkIOService()
 {
 	*m_alive = false;
-	for (size_t i = 0,size = ((uint64_t)cpu_cores())*2; i < size; i++)
+	for (size_t i = 0,size = suggested_threads_number(); i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}
@@ -69,7 +69,7 @@ SOCKET stdx::_NetworkIOService::create_socket(const int &addr_family, const int 
 }
 SOCKET stdx::_NetworkIOService::create_wsasocket(const int &addr_family, const int &sock_type, const int &protocol)
 {
-	SOCKET sock = WSASocket(addr_family, sock_type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
+	SOCKET sock = WSASocketW(addr_family, sock_type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 	if (sock == INVALID_SOCKET)
 	{
 		_ThrowWSAError
@@ -128,6 +128,9 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const DWORD & 
 		}
 		catch (const std::exception&)
 		{
+#ifdef DEBUG
+			printf("[Network IO Service]IO操作投递失败\n");
+#endif // DEBUG
 			free(context_ptr->buffer.buf);
 			delete call;
 			delete context_ptr;
@@ -135,6 +138,9 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const DWORD & 
 			return;
 		}
 	}
+#ifdef DEBUG
+	printf("[Network IO Service]IO操作已投递\n");
+#endif // DEBUG
 }
 
 void stdx::_NetworkIOService::send_file(SOCKET sock, HANDLE file_with_cache,std::function<void(std::exception_ptr)> callback)
@@ -236,6 +242,9 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const DWORD &size, std::function
 		}
 		catch (const std::exception&)
 		{
+#ifdef DEBUG
+			printf("[Network IO Service]IO操作投递失败\n");
+#endif // DEBUG
 			delete call;
 			free(context_ptr->buffer.buf);
 			delete context_ptr;
@@ -243,6 +252,9 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const DWORD &size, std::function
 			return;
 		}
 	}
+#ifdef DEBUG
+	printf("[Network IO Service]IO操作已投递\n");
+#endif // DEBUG
 }
 
 void stdx::_NetworkIOService::connect(SOCKET sock, stdx::ipv4_addr &addr)
@@ -441,6 +453,9 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 		}
 		catch (const std::exception&)
 		{
+#ifdef DEBUG
+			printf("[Network IO Service]IO操作投递失败\n");
+#endif // DEBUG
 			delete call;
 			free(addr);
 			free(addr_size);
@@ -450,6 +465,9 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 			return;
 		}
 	}
+#ifdef DEBUG
+	printf("[Network IO Service]IO操作已投递\n");
+#endif // DEBUG
 }
 
 void stdx::_NetworkIOService::close(SOCKET sock)
@@ -903,6 +921,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 context->callback = call;
 	 ev.data.ptr = context;
 	 m_reactor.push(sock,ev);
+#ifdef DEBUG
+	 printf("[Network IO Service]IO操作已投递\n");
+#endif // DEBUG
  }
 
  void stdx::_NetworkIOService::send_to(int sock, const ipv4_addr &addr, const char *data,size_t size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
@@ -990,6 +1011,9 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 context->callback = call;
 	 ev.data.ptr = context;
 	 m_reactor.push(sock, ev);
+#ifdef DEBUG
+	 printf("[Network IO Service]IO操作已投递\n");
+#endif // DEBUG
  }
 
  void stdx::_NetworkIOService::close(int sock)

@@ -456,3 +456,16 @@ namespace stdx
 
 #undef _ThrowLinuxError
 #endif
+
+namespace stdx
+{
+#ifdef WIN32
+	extern std::wistream& cin();
+	extern std::wostream& cout();
+	extern std::wostream& cerr();
+#else
+	extern std::istream& cin();
+	extern std::ostream& cout();
+	extern std::ostream& cerr();
+#endif
+}

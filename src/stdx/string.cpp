@@ -1,4 +1,4 @@
-#include <stdx/string.h>
+﻿#include <stdx/string.h>
 #include <iostream>
 #include <stdx/buffer.h>
 
@@ -448,6 +448,7 @@ stdx::string stdx::string::from_buffer(const stdx::buffer &buf)
 	{
 		str.push_back(p[i]);
 	}
+	//末尾处理
 	if((size % 2) != 0)
 	{
 		int16_union u16;
