@@ -1060,7 +1060,6 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 						 {
 							 if (r < 1)
 							 {
-								free(context->buffer);
 								 _ThrowLinuxError
 							 }
 						 }
