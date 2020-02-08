@@ -464,6 +464,28 @@ stdx::string stdx::string::from_buffer(const stdx::buffer &buf)
 	return str;
 }
 
+void stdx::string::html_encode()
+{
+	this->replace(U("\""), U("&quot;"));
+	this->replace(U("&"), U("&amp;"));
+	this->replace(U(">"), U("&lt;"));
+	this->replace(U("<"), U("&gt;"));
+	this->replace(U("'"), U("&#39;"));
+}
+
+void stdx::string::html_decode()
+{
+	this->replace(U("&quot;"), U("\""));
+	this->replace(U("&#34;"), U("\""));
+	this->replace(U("&amp;"), U("&"));
+	this->replace(U("&#38;"), U("&"));
+	this->replace(U("&lt;"), U("<"));
+	this->replace(U("&#60;"), U("<"));
+	this->replace(U("&gt;"), U(">"));
+	this->replace(U("&#62;"), U(">"));
+	this->replace(U("&#39;"), U("'"));
+}
+
 #ifdef WIN32
 std::wostream& operator<<(std::wostream& out, const stdx::string& str)
 {

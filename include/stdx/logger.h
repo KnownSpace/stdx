@@ -15,10 +15,10 @@ namespace stdx
 	{
 	public:
 		virtual ~basic_logger() = default;
-		virtual void debug(cstring str)=0;
-		virtual void info(cstring str) = 0;
-		virtual void warn(cstring str) = 0;
-		virtual void error(cstring str) = 0;
+		virtual void debug(const char* str)=0;
+		virtual void info(const char* str) = 0;
+		virtual void warn(const char* str) = 0;
+		virtual void error(const char* str) = 0;
 	};
 	class _Logger:public basic_logger
 	{
@@ -36,13 +36,13 @@ namespace stdx
 #endif
 		~_Logger()=default;
 
-		void debug(cstring str) override;
+		void debug(const char* str) override;
 
-		void info(cstring str) override;
+		void info(const char* str) override;
 
-		void warn(cstring str) override;
+		void warn(const char* str) override;
 
-		void error(cstring str) override;
+		void error(const char* str) override;
 
 	private:
 #ifdef WIN32
@@ -73,19 +73,19 @@ namespace stdx
 			return *this;
 		}
 
-		void debug(cstring str)
+		void debug(const char* str)
 		{
 			m_impl->debug(str);
 		}
-		void info(cstring str)
+		void info(const char* str)
 		{
 			m_impl->info(str);
 		}
-		void warn(cstring str)
+		void warn(const char* str)
 		{
 			m_impl->warn(str);
 		}
-		void error(cstring str)
+		void error(const char* str)
 		{
 			m_impl->error(str);
 		}

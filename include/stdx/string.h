@@ -363,6 +363,7 @@ namespace stdx
 
 	struct string
 	{
+		friend class std::hash<stdx::string>;
 	public:
 #pragma region type_def
 #ifdef WIN32
@@ -503,6 +504,10 @@ namespace stdx
 
 		static stdx::string from_buffer(const stdx::buffer &buf);
 
+		void html_encode();
+
+		void html_decode();
+
 		template<typename _Container = std::vector<stdx::string>>
 		_Container split(const stdx::string &text)
 		{
@@ -545,4 +550,17 @@ namespace stdx
 	extern stdx::string to_string(long double val);
 	extern stdx::string to_string(unsigned int val);
 	extern stdx::string to_string(unsigned long long int val);
+}
+
+namespace std
+{
+	template<>
+	class hash<stdx::string>
+	{
+		size_t operator()(const stdx::string &str)
+		{
+			std::hash<typename stdx::string::string_t> hash;
+			return hash(str.m_data);
+		}
+	};
 }
