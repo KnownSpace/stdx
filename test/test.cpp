@@ -39,7 +39,9 @@ int main(int argc, char **argv)
 			str.append("\r\n");
 			str.append(body);
 			std::cout << str << std::endl;
-			auto t = c.send(str.c_str(), str.size()).then([c](stdx::task_result<stdx::network_send_event> &r) mutable
+			stdx::uint64_union u;
+			u.value = str.size();
+			auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event> &r) mutable
 			{
 				try
 				{

@@ -361,7 +361,7 @@ namespace stdx
 
 	struct string
 	{
-		friend class std::hash<stdx::string>;
+		friend struct std::hash<stdx::string>;
 	public:
 #pragma region type_def
 #ifdef WIN32
