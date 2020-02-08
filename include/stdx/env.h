@@ -3,27 +3,22 @@
 //所有的Class(除实现Class外,例如:_XxYy)都是引用类型
 //所有的Struct(除另外说明外)都是值类型
 #include <type_traits>
+
 #ifndef WIN32
 #ifndef LINUX
 
-#ifdef __WIN32
-
-#ifndef WIN32
+//WINDOWS
+#if (defined _WINDOWS_) || (defined __WIN32) || (defined _MSC_VER)
 #define WIN32
-#endif // !WIN32
+#endif 
 
-#endif // __WIN32
-
-#ifdef __linux__
-
-#ifndef LINUX
+//Linux
+#if (defined __linux__) || (defined linux) || (defined __gnu_linux__)
 #define LINUX
-#endif // !LINUX
+#endif
 
-#endif // __linux__
-
-#endif // !LINUX
-#endif // !WIN32
+#endif 
+#endif
 
 #include <stdint.h>
 

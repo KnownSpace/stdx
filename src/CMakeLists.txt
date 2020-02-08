@@ -15,6 +15,10 @@ add_library(libstdx STATIC ${src} ${async_src} ${net_src})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 set_target_properties(stdx PROPERTIES OUTPUT_NAME "stdx")
 
+if(NOT DEFINED ${CMAKE_BUILD_TYPE})
+	set(CMAKE_BUILD_TYPE "Debug")
+endif()
+
 #判断位数
 if(CMAKE_CL_64)
 	#64位
@@ -27,12 +31,12 @@ endif()
 #判断平台
 if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
 	add_definitions(-DLINUX)
-	MESSAGE(STATUS "current platform: Linux ")
+	message(STATUS "Current platform: Linux ")
 endif()
 
 if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
 	add_definitions(-DWIN32)
-	MESSAGE(STATUS "current platform: Windows ")
+	message(STATUS "Current platform: Windows ")
 endif()
 
 #类Unix需要做的额外处理
@@ -42,6 +46,7 @@ endif()
 
 #定义DEBUG符号
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+	message(STATUS "Enable debug generating.")
 	add_definitions(-DDEBUG)
 endif()
 

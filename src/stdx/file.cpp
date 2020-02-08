@@ -771,7 +771,6 @@ stdx::file_handle stdx::open_for_senfile(const stdx::string &path, const int32_t
 #endif // LINUX
 
 stdx::task_flag stdx::_FullpathNameFlag;
-
 stdx::task<stdx::string> stdx::realpath(stdx::string path)
 {
 	return _FullpathNameFlag.lock()
@@ -779,7 +778,7 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 		{
 #ifdef WIN32
 			wchar_t *buf = (wchar_t*)calloc(MAX_PATH, sizeof(wchar_t));
-			if (buf == nullptr)
+			if (buf==nullptr)
 			{
 				_FullpathNameFlag.unlock();
 				throw std::bad_alloc();
