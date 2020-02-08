@@ -26,8 +26,6 @@
 #define get_byte(x,ptr) *((char*)ptr+(x))
 #define delete_copy(type) type(const type &)=delete
 #define delete_move(type) type(type&&)=delete
-#define cstring const char*
-#define empty_cstring ""
 #define CRLF "\r\n"
 
 #ifdef WIN32
