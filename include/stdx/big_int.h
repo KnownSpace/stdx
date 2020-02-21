@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <stdx/env.h>
 #include <vector>
 #include <stdx/string.h>
@@ -10,8 +10,8 @@ namespace stdx
 	enum class big_int_symbol
 	{
 		zero,		//0
-		positive,	//ÕýÊý
-		negative	//¸ºÊý
+		positive,	//æ­£æ•°
+		negative	//è´Ÿæ•°
 	};
 	struct _BigInt
 	{
@@ -1023,6 +1023,8 @@ namespace stdx
 		}
 		
 		stdx::string to_hex_string() const;
+
+		stdx::string to_hex_string_without_0x() const;
 	private:
 		stdx::big_int_symbol m_symbol;
 		std::vector<byte_t> m_data;

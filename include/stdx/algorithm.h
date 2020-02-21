@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <vector>
-
+#include <stdx/traits/max_type.h>
 namespace stdx
 {
 	struct sort_way
@@ -86,5 +86,29 @@ namespace stdx
 		container[begin] = basic;
 		quicksort_smaller<T, TContainer>(container, begin_ps, begin);
 		quicksort_smaller<T, TContainer>(container, begin + 1, end_ps + 1);
+	}
+
+	//整型最大值
+	template<typename _T1,typename _T2>
+	stdx::max_type<_T1, _T2> max_value(const _T1& v1, const _T2& v2)
+	{
+		using ret_t = stdx::max_type<_T1, _T2>;
+		if ((ret_t)v1>(ret_t)v2)
+		{
+			return (ret_t)v1;
+		}
+		return (ret_t)v2;
+	}
+
+	//整型最小值
+	template<typename _T1, typename _T2>
+	stdx::max_type<_T1, _T2> min_value(const _T1& v1, const _T2& v2)
+	{
+		using ret_t = stdx::max_type<_T1, _T2>;
+		if ((ret_t)v1 < (ret_t)v2)
+		{
+			return (ret_t)v1;
+		}
+		return (ret_t)v2;
 	}
 }

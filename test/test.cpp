@@ -6,6 +6,7 @@
 #include <stdx/logger.h>
 #include <list>
 #include <stdx/big_int.h>
+#include <stdx/algorithm.h>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB
@@ -132,38 +133,9 @@ int main(int argc, char **argv)
 	});
 	std::cin.get();
 #endif // ENABLE_FILE
-	int a, b;
-	printf("please input two numbers:a,b\n");
-	std::cin >> a >> b;
-	/*printf("success get %d numbers\n",r);*/
-	printf("your input is %d %d\n",a,b);
-	stdx::_BigInt bi(a),_bi = b;
-	if (bi == _bi)
-	{
-		puts("bi == _bi\n");
-	}
-	if (bi > _bi)
-	{
-		puts("bi > _bi\n");
-	}
-	if (bi >= _bi)
-	{
-		puts("bi >= _bi\n");
-	}
-	if (bi < _bi)
-	{
-		puts("bi < _bi\n");
-	}
-	if (bi <= _bi)
-	{
-		puts("bi <= _bi\n");
-	}
-	bi += _bi;
-	stdx::string hex  = bi.to_hex_string();
-#ifdef WIN32
-	printf("bi + _bi =\n%ls", hex.c_str());
-#else
-	printf("bi + _bi =\n%s", hex.c_str());
-#endif
+	int16_t v1 = 5;
+	int32_t v2 = 3;
+	auto r = stdx::max_value(v1, v2);
+	printf("result is %d\ntype is %s\n",r,typeid(r).name());
 	return 0;
 }

@@ -4738,3 +4738,17 @@ stdx::string stdx::_BigInt::to_hex_string() const
 	}
 	return str;
 }
+
+stdx::string stdx::_BigInt::to_hex_string_without_0x() const
+{
+	stdx::string str;
+	for (auto begin = m_data.rbegin(), end = m_data.rend(); begin != end; begin++)
+	{
+		byte_t tmp = *begin & 0xF0;
+		tmp >>= 4;
+		str.push_back(_ByteToUChar(tmp));
+		tmp = *begin & 0x0F;
+		str.push_back(_ByteToUChar(tmp));
+	}
+	return str;
+}
