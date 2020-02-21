@@ -68,7 +68,7 @@ void stdx::_Threadpool::add_thread() noexcept
 			if (!(tasks->empty()))
 			{
 #ifdef DEBUG
-				printf("[Threadpool]当前线程池空闲线程数:%d\n", *count);
+				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 #endif // DEBUG
 				//如果任务列表不为空
 				//减去一个计数
@@ -76,7 +76,7 @@ void stdx::_Threadpool::add_thread() noexcept
 				* count = *count - 1;
 				count_lock.unlock();
 #ifdef DEBUG
-				printf("[Threadpool]当前线程池空闲线程数:%d\n", *count);
+				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 #endif // DEBUG
 				//进入自旋锁
 				if (tasks->empty())
@@ -87,7 +87,7 @@ void stdx::_Threadpool::add_thread() noexcept
 					continue;
 				}
 #ifdef DEBUG
-				printf("[Threadpool]当前线程池空闲线程数:%d\n", *count);
+				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 				printf("[Threadpool]线程池已接收被投递的任务\n");
 #endif // DEBUG
 				//获取任务
@@ -113,7 +113,7 @@ void stdx::_Threadpool::add_thread() noexcept
 				{
 				}
 #ifdef DEBUG
-				printf("[Threadpool]当前剩余未处理任务数:%lld\n",tasks->size());
+				printf("[Threadpool]当前剩余未处理任务数:%zu\n",tasks->size());
 #endif // DEBUG
 				//完成或终止后
 				//添加计数
@@ -145,6 +145,6 @@ void stdx::_Threadpool::init_threads() noexcept
 		add_thread();
 	}
 #ifdef DEBUG
-	printf("[Threadpool]初始化完成,共创建%d条线程\n",threads_number);
+	printf("[Threadpool]初始化完成,共创建%u条线程\n",threads_number);
 #endif // DEBUG
 }

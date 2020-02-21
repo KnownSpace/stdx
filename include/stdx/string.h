@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <stdx/env.h>
 #include <string>
-#include <vector>
+#include <list>
 
 namespace stdx
 {
@@ -68,32 +68,6 @@ namespace stdx
 			str.replace(pos, target.size(), val);
 			return replace_string(str, target, val);
 		}
-	}
-
-	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-	inline void html_decode(_String& str)
-	{
-		using char_t = typename _String::value_type;
-		replace_string<_String>(str, (const char_t*)"&quot;", (const char_t*)"\"");
-		replace_string<_String>(str, (const char_t*)"&#34;", (const char_t*)"\"");
-		replace_string<_String>(str, (const char_t*)"&amp;", (const char_t*)"&");
-		replace_string<_String>(str, (const char_t*)"&#38;", (const char_t*)"&");
-		replace_string<_String>(str, (const char_t*)"&lt;", (const char_t*)"<");
-		replace_string<_String>(str, (const char_t*)"&#60;", (const char_t*)"<");
-		replace_string<_String>(str, (const char_t*)"&gt;", (const char_t*)">");
-		replace_string<_String>(str, (const char_t*)"&#62;", (const char_t*)">");
-		replace_string<_String>(str, (const char_t*)"&#39;", (const char_t*)"'");
-	}
-
-	template<typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-	inline void html_encode(_String& str)
-	{
-		using char_t = typename _String::value_type;
-		replace_string<_String>(str, (const char_t*)"\"", (const char_t*)"&quot;");
-		replace_string<_String>(str, (const char_t*)"&", (const char_t*)"&amp;");
-		replace_string<_String>(str, (const char_t*)"<", (const char_t*)"&lt;");
-		replace_string<_String>(str, (const char_t*)">", (const char_t*)"&gt;");
-		replace_string<_String>(str, (const char_t*)"'", (const char_t*)"&#39;");
 	}
 
 #ifdef WIN32
@@ -220,6 +194,7 @@ namespace stdx
 #include <errno.h>
 #include <string.h>
 #include <string>
+
 #ifndef ANSI_CODE
 #define ANSI_CODE "GBK"
 #endif // !ANSI_CODE
@@ -506,8 +481,8 @@ namespace stdx
 
 		void html_decode();
 
-		template<typename _Container = std::vector<stdx::string>>
-		_Container split(const stdx::string &text)
+		template<typename _Container = std::list<stdx::string>>
+		const _Container &split(const stdx::string &text)
 		{
 			_Container cont;
 			stdx::spit_string<_Container, string_t>(m_data,text.m_data,cont);

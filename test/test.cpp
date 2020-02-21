@@ -5,9 +5,10 @@
 #include <stdx/string.h>
 #include <stdx/logger.h>
 #include <list>
+#include <stdx/big_int.h>
 int main(int argc, char **argv)
 {
-	#define ENABLE_WEB
+	//#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -19,7 +20,7 @@ int main(int argc, char **argv)
 	}
 	catch (std::exception &e)
 	{
-		std::cerr << e.what();
+		perrorf("%s\n", e.what());
 		return -1;
 	}
 	std::cout << "listen: http://0.0.0.0:8080" << std::endl;
@@ -30,6 +31,8 @@ int main(int argc, char **argv)
 		auto t = c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
 		{
 			stdx::string ip = e.addr.ip();
+			//printf("%"PRISTR"\n", U("recv"));
+			//printf("from %"PRISTR":%"PRIu16"",ip.c_str(),e.addr.port());
 			stdx::cout() << U("from: ") << ip << U(":") << e.addr.port() << std::endl;
 			std::cout << "recv:" << std::endl
 				<< e.buffer << std::endl;
@@ -129,5 +132,38 @@ int main(int argc, char **argv)
 	});
 	std::cin.get();
 #endif // ENABLE_FILE
+	int a, b;
+	printf("please input two numbers:a,b\n");
+	std::cin >> a >> b;
+	/*printf("success get %d numbers\n",r);*/
+	printf("your input is %d %d\n",a,b);
+	stdx::_BigInt bi(a),_bi = b;
+	if (bi == _bi)
+	{
+		puts("bi == _bi\n");
+	}
+	if (bi > _bi)
+	{
+		puts("bi > _bi\n");
+	}
+	if (bi >= _bi)
+	{
+		puts("bi >= _bi\n");
+	}
+	if (bi < _bi)
+	{
+		puts("bi < _bi\n");
+	}
+	if (bi <= _bi)
+	{
+		puts("bi <= _bi\n");
+	}
+	bi += _bi;
+	stdx::string hex  = bi.to_hex_string();
+#ifdef WIN32
+	printf("bi + _bi =\n%ls", hex.c_str());
+#else
+	printf("bi + _bi =\n%s", hex.c_str());
+#endif
 	return 0;
 }

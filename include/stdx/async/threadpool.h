@@ -39,7 +39,7 @@ namespace stdx
 			if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
 			{
 #ifdef DEBUG
-				printf("[Threadpool]空闲线程数(%d)不足,创建新线程\n", *m_free_count);
+				printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
 				*m_free_count = *m_free_count + 1;
 				lock.unlock();

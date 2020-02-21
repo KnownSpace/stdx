@@ -3,7 +3,6 @@
 //所有的Class(除实现Class外,例如:_XxYy)都是引用类型
 //所有的Struct(除另外说明外)都是值类型
 #include <type_traits>
-
 #ifndef WIN32
 #ifndef LINUX
 
@@ -21,6 +20,7 @@
 #endif
 
 #include <stdint.h>
+#include <inttypes.h>
 
 #define interface_class class
 #define get_byte(x,ptr) *((char*)ptr+(x))
@@ -73,8 +73,8 @@ namespace stdx
 	{
 		struct
 		{
-			 unsigned char low;
-			char height;
+			uint8_t low;
+			int8_t height;
 		};
 		int16_t value;
 	};
@@ -102,8 +102,8 @@ namespace stdx
 	{
 		struct
 		{
-			unsigned char low;
-			unsigned char height;
+			uint8_t low;
+			uint8_t height;
 		};
 		uint16_t value;
 	};
