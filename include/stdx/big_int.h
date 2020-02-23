@@ -13,37 +13,37 @@ namespace stdx
 		positive,	//正数
 		negative	//负数
 	};
-	struct _BigInt
+	struct big_int
 	{
 		using byte_t = unsigned char;
 	public:
-		_BigInt();
+		big_int();
 
-		_BigInt(uint8_t v);
+		big_int(uint8_t v);
 
-		_BigInt(int8_t v);
+		big_int(int8_t v);
 
-		_BigInt(uint16_t v);
+		big_int(uint16_t v);
 
-		_BigInt(int16_t v);
+		big_int(int16_t v);
 
-		_BigInt(uint32_t v);
+		big_int(uint32_t v);
 
-		_BigInt(int32_t v);
+		big_int(int32_t v);
 
-		_BigInt(uint64_t v);
+		big_int(uint64_t v);
 
-		_BigInt(int64_t v);
+		big_int(int64_t v);
 
-		_BigInt(byte_t* buffer, const size_t& size);
+		big_int(byte_t* buffer, const size_t& size);
 
-		_BigInt(const std::vector<byte_t>& data);
+		big_int(const std::vector<byte_t>& data);
 
-		_BigInt(const _BigInt& other);
+		big_int(const big_int& other);
 
-		_BigInt(_BigInt &&other) noexcept;
+		big_int(big_int &&other) noexcept;
 
-		~_BigInt()=default;
+		~big_int()=default;
 
 		//1 >
 		//0 ==
@@ -102,9 +102,9 @@ namespace stdx
 
 		static byte_t _UCharToByte(const typename stdx::string::char_t &ch);
 
-		static stdx::_BigInt from_hex_string(const stdx::string &hex);
+		static stdx::big_int from_hex_string(const stdx::string &hex);
 
-		static stdx::_BigInt from_hex_string(stdx::string &&hex);
+		static stdx::big_int from_hex_string(stdx::string &&hex);
 
 		template<typename _IntType>
 		static void _RemoveSymbol(_IntType& v)
@@ -131,7 +131,7 @@ namespace stdx
 
 		bool operator==(uint64_t v) const;
 
-		bool operator==(const _BigInt& other) const;
+		bool operator==(const big_int& other) const;
 
 		bool operator!=(int8_t v) const
 		{
@@ -173,30 +173,30 @@ namespace stdx
 			return !this->operator==(v);
 		}
 
-		bool operator!=(const _BigInt &other) const
+		bool operator!=(const big_int &other) const
 		{
 			return !this->operator==(other);
 		}
 
-		stdx::_BigInt& operator=(int8_t v);
+		stdx::big_int& operator=(int8_t v);
 
-		stdx::_BigInt& operator=(int16_t v);
+		stdx::big_int& operator=(int16_t v);
 
-		stdx::_BigInt& operator=(int32_t v);
+		stdx::big_int& operator=(int32_t v);
 
-		stdx::_BigInt& operator=(int64_t v);
+		stdx::big_int& operator=(int64_t v);
 
-		stdx::_BigInt& operator=(uint8_t v);
+		stdx::big_int& operator=(uint8_t v);
 
-		stdx::_BigInt& operator=(uint16_t v);
+		stdx::big_int& operator=(uint16_t v);
 
-		stdx::_BigInt& operator=(uint32_t v);
+		stdx::big_int& operator=(uint32_t v);
 
-		stdx::_BigInt& operator=(uint64_t v);
+		stdx::big_int& operator=(uint64_t v);
 
-		stdx::_BigInt& operator=(const _BigInt& other);
+		stdx::big_int& operator=(const big_int& other);
 
-		stdx::_BigInt& operator=(_BigInt &&other) noexcept;
+		stdx::big_int& operator=(big_int &&other) noexcept;
 
 		bool operator>(int8_t v) const;
 
@@ -214,7 +214,7 @@ namespace stdx
 
 		bool operator>(uint64_t v) const;
 
-		bool operator>(const _BigInt& other)const;
+		bool operator>(const big_int& other)const;
 
 		bool operator<(int8_t v) const;
 
@@ -232,7 +232,7 @@ namespace stdx
 
 		bool operator<(uint64_t v) const;
 
-		bool operator<(const _BigInt &other) const;
+		bool operator<(const big_int &other) const;
 
 		bool operator>=(int8_t v) const
 		{
@@ -274,7 +274,7 @@ namespace stdx
 			return !this->operator<(v);
 		}
 
-		bool operator>=(const _BigInt& other)const
+		bool operator>=(const big_int& other)const
 		{
 			return !this->operator<(other);
 		}
@@ -319,7 +319,7 @@ namespace stdx
 			return !this->operator>(v);
 		}
 
-		bool operator<=(const _BigInt& other) const
+		bool operator<=(const big_int& other) const
 		{
 			return !this->operator>(other);
 		}
@@ -340,7 +340,7 @@ namespace stdx
 
 		void operator+=(uint64_t v);
 
-		void operator+=(const _BigInt &other);
+		void operator+=(const big_int &other);
 
 		void operator-=(int8_t v);
 
@@ -358,130 +358,130 @@ namespace stdx
 
 		void operator-=(uint64_t v);
 
-		void operator-=(const _BigInt &other);
+		void operator-=(const big_int &other);
 
-		stdx::_BigInt operator+(int8_t v) const
+		stdx::big_int operator+(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(int16_t v) const
+		stdx::big_int operator+(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(int32_t v) const
+		stdx::big_int operator+(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(int64_t v) const
+		stdx::big_int operator+(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(uint8_t v) const
+		stdx::big_int operator+(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(uint16_t v) const
+		stdx::big_int operator+(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(uint32_t v) const
+		stdx::big_int operator+(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(uint64_t v) const
+		stdx::big_int operator+(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+(const _BigInt &other) const
+		stdx::big_int operator+(const big_int &other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp += other;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(int8_t v) const
+		stdx::big_int operator-(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(int16_t v) const
+		stdx::big_int operator-(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(int32_t v) const
+		stdx::big_int operator-(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(int64_t v) const
+		stdx::big_int operator-(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(uint8_t v) const
+		stdx::big_int operator-(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(uint16_t v) const
+		stdx::big_int operator-(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(uint32_t v) const
+		stdx::big_int operator-(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(uint64_t v) const
+		stdx::big_int operator-(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator-(const _BigInt& other) const
+		stdx::big_int operator-(const big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp -= other;
 			return tmp;
 		}
@@ -506,18 +506,18 @@ namespace stdx
 			this->operator-=(1);
 		}
 
-		stdx::_BigInt operator-() const
+		stdx::big_int operator-() const
 		{
 			if (m_symbol == stdx::big_int_symbol::zero)
 			{
 				return *this;
 			}
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp.m_symbol = (tmp.m_symbol == stdx::big_int_symbol::positive) ? stdx::big_int_symbol::negative : stdx::big_int_symbol::positive;
 			return tmp;
 		}
 
-		stdx::_BigInt operator+() const
+		stdx::big_int operator+() const
 		{
 			return *this;
 		}
@@ -538,67 +538,67 @@ namespace stdx
 
 		void operator*=(uint64_t v);
 
-		void operator*=(const _BigInt &other);
+		void operator*=(const big_int &other);
 
-		stdx::_BigInt operator*(int8_t v) const
+		stdx::big_int operator*(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(int16_t v) const
+		stdx::big_int operator*(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(int32_t v) const
+		stdx::big_int operator*(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(int64_t v) const
+		stdx::big_int operator*(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(uint8_t v) const
+		stdx::big_int operator*(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(uint16_t v) const
+		stdx::big_int operator*(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(uint32_t v) const
+		stdx::big_int operator*(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(uint64_t v) const
+		stdx::big_int operator*(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator*(const _BigInt& other) const
+		stdx::big_int operator*(const big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp *= other;
 			return tmp;
 		}
@@ -619,67 +619,67 @@ namespace stdx
 
 		void operator/=(uint64_t v);
 
-		void operator/=(const _BigInt& other);
+		void operator/=(const big_int& other);
 
-		stdx::_BigInt operator/(int8_t v) const
+		stdx::big_int operator/(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(int16_t v) const
+		stdx::big_int operator/(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(int32_t v) const
+		stdx::big_int operator/(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(int64_t v) const
+		stdx::big_int operator/(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(uint8_t v) const
+		stdx::big_int operator/(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(uint16_t v) const
+		stdx::big_int operator/(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(uint32_t v) const
+		stdx::big_int operator/(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(uint64_t v) const
+		stdx::big_int operator/(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator/(const _BigInt& other) const
+		stdx::big_int operator/(const big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp /= other;
 			return tmp;
 		}
@@ -700,85 +700,85 @@ namespace stdx
 
 		void operator%=(uint64_t v);
 
-		void operator%=(const _BigInt& other);
+		void operator%=(const big_int& other);
 
-		stdx::_BigInt operator%(int8_t v) const
+		stdx::big_int operator%(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(int16_t v) const
+		stdx::big_int operator%(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(int32_t v) const
+		stdx::big_int operator%(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(int64_t v) const
+		stdx::big_int operator%(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(uint8_t v) const
+		stdx::big_int operator%(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(uint16_t v) const
+		stdx::big_int operator%(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(uint32_t v) const
+		stdx::big_int operator%(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(uint64_t v) const
+		stdx::big_int operator%(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator%(const stdx::_BigInt& other) const
+		stdx::big_int operator%(const stdx::big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp %= other;
 			return tmp;
 		}
 
 		void operator<<=(const size_t &n);
 
-		stdx::_BigInt operator<<(const size_t& n) const
+		stdx::big_int operator<<(const size_t& n) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp <<= n;
 			return tmp;
 		}
 
 		void operator>>=(const size_t& n);
 
-		stdx::_BigInt operator>>(const size_t& n) const
+		stdx::big_int operator>>(const size_t& n) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp >>= n;
 			return tmp;
 		}
@@ -799,67 +799,67 @@ namespace stdx
 
 		void operator|=(uint64_t v);
 
-		void operator|=(const stdx::_BigInt &other);
+		void operator|=(const stdx::big_int &other);
 
-		stdx::_BigInt operator|(int8_t v) const
+		stdx::big_int operator|(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(int16_t v) const
+		stdx::big_int operator|(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(int32_t v) const
+		stdx::big_int operator|(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(int64_t v) const
+		stdx::big_int operator|(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(uint8_t v) const
+		stdx::big_int operator|(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(uint16_t v) const
+		stdx::big_int operator|(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(uint32_t v) const
+		stdx::big_int operator|(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(uint64_t v) const
+		stdx::big_int operator|(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator|(const stdx::_BigInt& other) const
+		stdx::big_int operator|(const stdx::big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp |= other;
 			return tmp;
 		}
@@ -880,67 +880,67 @@ namespace stdx
 
 		void operator^=(uint64_t v);
 
-		void operator^=(const stdx::_BigInt &other);
+		void operator^=(const stdx::big_int &other);
 
-		stdx::_BigInt operator^(int8_t v) const
+		stdx::big_int operator^(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(int16_t v) const
+		stdx::big_int operator^(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(int32_t v) const
+		stdx::big_int operator^(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(int64_t v) const
+		stdx::big_int operator^(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(uint8_t v) const
+		stdx::big_int operator^(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(uint16_t v) const
+		stdx::big_int operator^(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(uint32_t v) const
+		stdx::big_int operator^(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(uint64_t v) const
+		stdx::big_int operator^(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator^(const stdx::_BigInt& other) const
+		stdx::big_int operator^(const stdx::big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp ^= other;
 			return tmp;
 		}
@@ -961,67 +961,67 @@ namespace stdx
 
 		void operator&=(uint64_t v);
 
-		void operator&=(const stdx::_BigInt &other);
+		void operator&=(const stdx::big_int &other);
 
-		stdx::_BigInt operator&(int8_t v) const
+		stdx::big_int operator&(int8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(int16_t v) const
+		stdx::big_int operator&(int16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(int32_t v) const
+		stdx::big_int operator&(int32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(int64_t v) const
+		stdx::big_int operator&(int64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(uint8_t v) const
+		stdx::big_int operator&(uint8_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(uint16_t v) const
+		stdx::big_int operator&(uint16_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(uint32_t v) const
+		stdx::big_int operator&(uint32_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(uint64_t v) const
+		stdx::big_int operator&(uint64_t v) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= v;
 			return tmp;
 		}
 
-		stdx::_BigInt operator&(const stdx::_BigInt& other) const
+		stdx::big_int operator&(const stdx::big_int& other) const
 		{
-			stdx::_BigInt tmp(*this);
+			stdx::big_int tmp(*this);
 			tmp &= other;
 			return tmp;
 		}

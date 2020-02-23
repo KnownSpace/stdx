@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 #endif // ENABLE_FILE
 	stdx::string a, b;
 	stdx::cin() >> a >> b;
-	stdx::_BigInt bi1 = stdx::_BigInt::from_hex_string(a), bi2 = stdx::_BigInt::from_hex_string(b);
+	stdx::big_int bi1 = stdx::big_int::from_hex_string(a), bi2 = stdx::big_int::from_hex_string(b);
 	bi1 *= bi2;
 	stdx::cout() << bi1.to_hex_string()
 			<<std::endl;

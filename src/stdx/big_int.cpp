@@ -1,12 +1,12 @@
 #include <stdx/big_int.h>
 #include <stdx/string.h>
 
-stdx::_BigInt::_BigInt()
+stdx::big_int::big_int()
 	:m_symbol(stdx::big_int_symbol::zero)
 	, m_data()
 {}
 
-stdx::_BigInt::_BigInt(uint8_t v)
+stdx::big_int::big_int(uint8_t v)
 	: m_symbol(stdx::big_int_symbol::positive)
 	, m_data()
 {
@@ -20,7 +20,7 @@ stdx::_BigInt::_BigInt(uint8_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(int8_t v)
+stdx::big_int::big_int(int8_t v)
 	:m_symbol((v > 0) ? stdx::big_int_symbol::positive : stdx::big_int_symbol::negative)
 	, m_data()
 {
@@ -35,7 +35,7 @@ stdx::_BigInt::_BigInt(int8_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(uint16_t v)
+stdx::big_int::big_int(uint16_t v)
 	:m_symbol(stdx::big_int_symbol::positive)
 	, m_data()
 {
@@ -53,7 +53,7 @@ stdx::_BigInt::_BigInt(uint16_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(int16_t v)
+stdx::big_int::big_int(int16_t v)
 	:m_symbol((v > 0) ? stdx::big_int_symbol::positive : stdx::big_int_symbol::negative)
 	, m_data()
 {
@@ -72,7 +72,7 @@ stdx::_BigInt::_BigInt(int16_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(uint32_t v)
+stdx::big_int::big_int(uint32_t v)
 	:m_symbol(stdx::big_int_symbol::positive)
 	, m_data()
 {
@@ -90,7 +90,7 @@ stdx::_BigInt::_BigInt(uint32_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(int32_t v)
+stdx::big_int::big_int(int32_t v)
 	:m_symbol((v > 0) ? stdx::big_int_symbol::positive : stdx::big_int_symbol::negative)
 	, m_data()
 {
@@ -109,7 +109,7 @@ stdx::_BigInt::_BigInt(int32_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(uint64_t v)
+stdx::big_int::big_int(uint64_t v)
 	:m_symbol(stdx::big_int_symbol::positive)
 	, m_data()
 {
@@ -127,7 +127,7 @@ stdx::_BigInt::_BigInt(uint64_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(int64_t v)
+stdx::big_int::big_int(int64_t v)
 	:m_symbol((v > 0) ? stdx::big_int_symbol::positive : stdx::big_int_symbol::negative)
 	, m_data()
 {
@@ -146,7 +146,7 @@ stdx::_BigInt::_BigInt(int64_t v)
 	}
 }
 
-stdx::_BigInt::_BigInt(byte_t* buffer, const size_t& size)
+stdx::big_int::big_int(byte_t* buffer, const size_t& size)
 	:m_symbol(stdx::big_int_symbol::zero)
 	,m_data()
 {
@@ -165,7 +165,7 @@ stdx::_BigInt::_BigInt(byte_t* buffer, const size_t& size)
 	}
 }
 
-stdx::_BigInt::_BigInt(const std::vector<byte_t>& data)
+stdx::big_int::big_int(const std::vector<byte_t>& data)
 	:m_symbol(stdx::big_int_symbol::zero)
 	,m_data(data)
 {
@@ -180,17 +180,17 @@ stdx::_BigInt::_BigInt(const std::vector<byte_t>& data)
 	}
 }
 
-stdx::_BigInt::_BigInt(const _BigInt& other)
+stdx::big_int::big_int(const big_int& other)
 	:m_symbol(other.m_symbol)
 	,m_data(other.m_data)
 {}
 
-stdx::_BigInt::_BigInt(_BigInt&& other) noexcept
+stdx::big_int::big_int(big_int&& other) noexcept
 	:m_symbol(other.m_symbol)
 	,m_data(std::move(other.m_data))
 {}
 
-bool stdx::_BigInt::operator==(int8_t v) const
+bool stdx::big_int::operator==(int8_t v) const
 {
 	if ((m_symbol == stdx::big_int_symbol::zero) && (v == 0))
 	{
@@ -222,7 +222,7 @@ bool stdx::_BigInt::operator==(int8_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(int16_t v) const
+bool stdx::big_int::operator==(int16_t v) const
 {
 	if ((m_symbol == stdx::big_int_symbol::zero) && (v == 0))
 	{
@@ -245,7 +245,7 @@ bool stdx::_BigInt::operator==(int16_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(int32_t v) const
+bool stdx::big_int::operator==(int32_t v) const
 {
 	if ((m_symbol == stdx::big_int_symbol::zero) && (v == 0))
 	{
@@ -268,7 +268,7 @@ bool stdx::_BigInt::operator==(int32_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(int64_t v) const
+bool stdx::big_int::operator==(int64_t v) const
 {
 	if ((m_symbol == stdx::big_int_symbol::zero) && (v == 0))
 	{
@@ -291,7 +291,7 @@ bool stdx::_BigInt::operator==(int64_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(uint8_t v) const
+bool stdx::big_int::operator==(uint8_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -323,7 +323,7 @@ bool stdx::_BigInt::operator==(uint8_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(uint16_t v) const
+bool stdx::big_int::operator==(uint16_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -345,7 +345,7 @@ bool stdx::_BigInt::operator==(uint16_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(uint32_t v) const
+bool stdx::big_int::operator==(uint32_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -367,7 +367,7 @@ bool stdx::_BigInt::operator==(uint32_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(uint64_t v) const
+bool stdx::big_int::operator==(uint64_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -389,7 +389,7 @@ bool stdx::_BigInt::operator==(uint64_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator==(const _BigInt& other) const
+bool stdx::big_int::operator==(const big_int& other) const
 {
 	if (m_symbol != other.m_symbol)
 	{
@@ -450,7 +450,7 @@ bool stdx::_BigInt::operator==(const _BigInt& other) const
 	}
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(int8_t v)
+stdx::big_int& stdx::big_int::operator=(int8_t v)
 {
 	if (!m_data.empty())
 	{
@@ -476,7 +476,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(int8_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(int16_t v)
+stdx::big_int& stdx::big_int::operator=(int16_t v)
 {
 	if (!m_data.empty())
 	{
@@ -506,7 +506,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(int16_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(int32_t v)
+stdx::big_int& stdx::big_int::operator=(int32_t v)
 {
 	if (!m_data.empty())
 	{
@@ -536,7 +536,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(int32_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(int64_t v)
+stdx::big_int& stdx::big_int::operator=(int64_t v)
 {
 	if (!m_data.empty())
 	{
@@ -566,7 +566,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(int64_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(uint8_t v)
+stdx::big_int& stdx::big_int::operator=(uint8_t v)
 {
 	if (!m_data.empty())
 	{
@@ -584,7 +584,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(uint8_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(uint16_t v)
+stdx::big_int& stdx::big_int::operator=(uint16_t v)
 {
 	if (!m_data.empty())
 	{
@@ -610,7 +610,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(uint16_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(uint32_t v)
+stdx::big_int& stdx::big_int::operator=(uint32_t v)
 {
 	if (!m_data.empty())
 	{
@@ -632,7 +632,7 @@ stdx::_BigInt& stdx::_BigInt::operator=(uint32_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(uint64_t v)
+stdx::big_int& stdx::big_int::operator=(uint64_t v)
 {
 	if (!m_data.empty())
 	{
@@ -654,21 +654,21 @@ stdx::_BigInt& stdx::_BigInt::operator=(uint64_t v)
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(const stdx::_BigInt& other)
+stdx::big_int& stdx::big_int::operator=(const stdx::big_int& other)
 {
 	m_symbol = other.m_symbol;
 	m_data = other.m_data;
 	return *this;
 }
 
-stdx::_BigInt& stdx::_BigInt::operator=(stdx::_BigInt&& other) noexcept
+stdx::big_int& stdx::big_int::operator=(stdx::big_int&& other) noexcept
 {
 	m_symbol = other.m_symbol;
 	m_data = std::move(other.m_data);
 	return *this;
 }
 
-int stdx::_BigInt::_BitCompareWith(byte_t *buffer, const size_t& buffer_size) const
+int stdx::big_int::_BitCompareWith(byte_t *buffer, const size_t& buffer_size) const
 {
 	size_t size = m_data.size();
 
@@ -775,7 +775,7 @@ int stdx::_BigInt::_BitCompareWith(byte_t *buffer, const size_t& buffer_size) co
 	}
 }
 
-int stdx::_BigInt::_BitCompareWith(const std::vector<byte_t>& other) const
+int stdx::big_int::_BitCompareWith(const std::vector<byte_t>& other) const
 {
 	size_t size = m_data.size(),other_size = other.size();
 
@@ -882,7 +882,7 @@ int stdx::_BigInt::_BitCompareWith(const std::vector<byte_t>& other) const
 	}
 }
 
-bool stdx::_BigInt::operator>(int8_t v) const
+bool stdx::big_int::operator>(int8_t v) const
 {
 	if (v == 0)
 	{
@@ -958,7 +958,7 @@ bool stdx::_BigInt::operator>(int8_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(int16_t v) const
+bool stdx::big_int::operator>(int16_t v) const
 {
 	if (v == 0)
 	{
@@ -1015,7 +1015,7 @@ bool stdx::_BigInt::operator>(int16_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(int32_t v) const
+bool stdx::big_int::operator>(int32_t v) const
 {
 	if (v == 0)
 	{
@@ -1072,7 +1072,7 @@ bool stdx::_BigInt::operator>(int32_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(int64_t v) const
+bool stdx::big_int::operator>(int64_t v) const
 {
 	if (v == 0)
 	{
@@ -1129,7 +1129,7 @@ bool stdx::_BigInt::operator>(int64_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(uint8_t v) const
+bool stdx::big_int::operator>(uint8_t v) const
 {
 	if (v == 0)
 	{
@@ -1183,7 +1183,7 @@ bool stdx::_BigInt::operator>(uint8_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(uint16_t v) const
+bool stdx::big_int::operator>(uint16_t v) const
 {
 	if (v == 0)
 	{
@@ -1221,7 +1221,7 @@ bool stdx::_BigInt::operator>(uint16_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(uint32_t v) const
+bool stdx::big_int::operator>(uint32_t v) const
 {
 	if (v == 0)
 	{
@@ -1259,7 +1259,7 @@ bool stdx::_BigInt::operator>(uint32_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(uint64_t v) const
+bool stdx::big_int::operator>(uint64_t v) const
 {
 	if (v == 0)
 	{
@@ -1297,7 +1297,7 @@ bool stdx::_BigInt::operator>(uint64_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator>(const _BigInt& other)const
+bool stdx::big_int::operator>(const big_int& other)const
 {
 	if (m_symbol == stdx::big_int_symbol::zero)
 	{
@@ -1342,7 +1342,7 @@ bool stdx::_BigInt::operator>(const _BigInt& other)const
 	return (_BitCompareWith(other.m_data) == 1);
 }
 
-bool stdx::_BigInt::operator<(int8_t v) const
+bool stdx::big_int::operator<(int8_t v) const
 {
 	if (v > 0)
 	{
@@ -1425,7 +1425,7 @@ bool stdx::_BigInt::operator<(int8_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator<(int16_t v) const
+bool stdx::big_int::operator<(int16_t v) const
 {
 	if (v > 0)
 	{
@@ -1464,7 +1464,7 @@ bool stdx::_BigInt::operator<(int16_t v) const
 	return (_BitCompareWith(p, sizeof(int16_t)) == -1);
 }
 
-bool stdx::_BigInt::operator<(int32_t v) const
+bool stdx::big_int::operator<(int32_t v) const
 {
 	if (v>0)
 	{
@@ -1503,7 +1503,7 @@ bool stdx::_BigInt::operator<(int32_t v) const
 	return (_BitCompareWith(p, sizeof(int32_t)) == -1);
 }
 
-bool stdx::_BigInt::operator<(int64_t v) const
+bool stdx::big_int::operator<(int64_t v) const
 {
 	if (v > 0)
 	{
@@ -1542,7 +1542,7 @@ bool stdx::_BigInt::operator<(int64_t v) const
 	return (_BitCompareWith(p, sizeof(int64_t)) == -1);
 }
 
-bool stdx::_BigInt::operator<(uint8_t v) const
+bool stdx::big_int::operator<(uint8_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -1584,7 +1584,7 @@ bool stdx::_BigInt::operator<(uint8_t v) const
 	}
 }
 
-bool stdx::_BigInt::operator<(uint16_t v) const
+bool stdx::big_int::operator<(uint16_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -1613,7 +1613,7 @@ bool stdx::_BigInt::operator<(uint16_t v) const
 	return (_BitCompareWith(p, sizeof(uint16_t)) == -1);
 }
 
-bool stdx::_BigInt::operator<(uint32_t v) const
+bool stdx::big_int::operator<(uint32_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -1642,7 +1642,7 @@ bool stdx::_BigInt::operator<(uint32_t v) const
 	return (_BitCompareWith(p, sizeof(uint16_t)) == -1);
 }
 
-bool stdx::_BigInt::operator<(uint64_t v) const
+bool stdx::big_int::operator<(uint64_t v) const
 {
 	if (m_symbol == stdx::big_int_symbol::negative)
 	{
@@ -1671,7 +1671,7 @@ bool stdx::_BigInt::operator<(uint64_t v) const
 	return (_BitCompareWith(p, sizeof(uint16_t)) == -1);
 }
 
-bool stdx::_BigInt::operator<(const _BigInt& other) const
+bool stdx::big_int::operator<(const big_int& other) const
 {
 	if (m_symbol == stdx::big_int_symbol::zero)
 	{
@@ -1716,7 +1716,7 @@ bool stdx::_BigInt::operator<(const _BigInt& other) const
 	return (_BitCompareWith(other.m_data) == -1);
 }
 
-stdx::uint16_union stdx::_BigInt::_BitAdd(byte_t a, byte_t b)
+stdx::uint16_union stdx::big_int::_BitAdd(byte_t a, byte_t b)
 {
 	uint16_union tmp;
 	uint16_t t1 = a, t2 = b;
@@ -1724,7 +1724,7 @@ stdx::uint16_union stdx::_BigInt::_BitAdd(byte_t a, byte_t b)
 	return tmp;
 }
 
-void stdx::_BigInt::_BitAdd(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitAdd(byte_t* buffer, const size_t& buffer_size)
 {
 	size_t size = m_data.size();
 	if (size == buffer_size)
@@ -1825,7 +1825,7 @@ void stdx::_BigInt::_BitAdd(byte_t* buffer, const size_t& buffer_size)
 	}
 }
 
-void stdx::_BigInt::_BitAdd(const std::vector<byte_t>& other)
+void stdx::big_int::_BitAdd(const std::vector<byte_t>& other)
 {
 	size_t size = m_data.size(),other_size = other.size();
 	if (size == other_size)
@@ -1926,13 +1926,13 @@ void stdx::_BigInt::_BitAdd(const std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::_BitBack(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitBack(byte_t* buffer, const size_t& buffer_size)
 {
 	uintptr_t offset = buffer_size - 1;
 	_BitBack(buffer+offset, buffer, buffer_size - 1);
 }
 
-void stdx::_BigInt::_BitBack(byte_t* symbol, byte_t* buf, const size_t& buf_size)
+void stdx::big_int::_BitBack(byte_t* symbol, byte_t* buf, const size_t& buf_size)
 {
 	for (size_t i = 0; i < buf_size; i++)
 	{
@@ -1950,7 +1950,7 @@ void stdx::_BigInt::_BitBack(byte_t* symbol, byte_t* buf, const size_t& buf_size
 	}
 }
 
-void stdx::_BigInt::_BitBack(byte_t* symbol, std::vector<byte_t>& other)
+void stdx::big_int::_BitBack(byte_t* symbol, std::vector<byte_t>& other)
 {
 	for (size_t i = 0,size=other.size(); i < size; i++)
 	{
@@ -1968,7 +1968,7 @@ void stdx::_BigInt::_BitBack(byte_t* symbol, std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::_BitAddOne(byte_t* symbol, byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitAddOne(byte_t* symbol, byte_t* buffer, const size_t& buffer_size)
 {
 	uint16_union tmp;
 	tmp.value = 0;
@@ -1995,7 +1995,7 @@ void stdx::_BigInt::_BitAddOne(byte_t* symbol, byte_t* buffer, const size_t& buf
 	}
 }
 
-void stdx::_BigInt::_BitAddOne(byte_t* symbol, std::vector<byte_t>& other)
+void stdx::big_int::_BitAddOne(byte_t* symbol, std::vector<byte_t>& other)
 {
 	uint16_union tmp;
 	tmp.value = 0;
@@ -2022,48 +2022,48 @@ void stdx::_BigInt::_BitAddOne(byte_t* symbol, std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::_BitAddOne(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitAddOne(byte_t* buffer, const size_t& buffer_size)
 {
 	_BitAddOne(buffer + (buffer_size - 1), buffer, buffer_size - 1);
 }
 
-void stdx::_BigInt::_ToComplement(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_ToComplement(byte_t* buffer, const size_t& buffer_size)
 {
 	_BitBack(buffer, buffer_size);
 	_BitAddOne(buffer, buffer_size);
 }
 
-void stdx::_BigInt::_ToComplement(byte_t* symbol, byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_ToComplement(byte_t* symbol, byte_t* buffer, const size_t& buffer_size)
 {
 	_BitBack(symbol, buffer, buffer_size);
 	_BitAddOne(symbol, buffer, buffer_size);
 }
 
-void stdx::_BigInt::_ToComplement(byte_t* symbol, std::vector<byte_t>& other)
+void stdx::big_int::_ToComplement(byte_t* symbol, std::vector<byte_t>& other)
 {
 	_BitBack(symbol, other);
 	_BitAddOne(symbol, other);
 }
 
-void stdx::_BigInt::_ToTureForm(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_ToTureForm(byte_t* buffer, const size_t& buffer_size)
 {
 	_BitBack(buffer, buffer_size);
 	_BitAddOne(buffer, buffer_size);
 }
 
-void stdx::_BigInt::_ToTureForm(byte_t* symbol, byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_ToTureForm(byte_t* symbol, byte_t* buffer, const size_t& buffer_size)
 {
 	_BitBack(symbol, buffer, buffer_size);
 	_BitAddOne(symbol,buffer, buffer_size);
 }
 
-void stdx::_BigInt::_ToTureForm(byte_t* symbol, std::vector<byte_t>& other)
+void stdx::big_int::_ToTureForm(byte_t* symbol, std::vector<byte_t>& other)
 {
 	_BitBack(symbol, other);
 	_BitAddOne(symbol, other);
 }
 
-bool stdx::_BigInt::_BitSubstract(byte_t* buffer, const size_t& buffer_size)
+bool stdx::big_int::_BitSubstract(byte_t* buffer, const size_t& buffer_size)
 {
 	size_t size = m_data.size();
 	byte_t buffer_symbol = 0x80, symbol = 0x00;
@@ -2246,7 +2246,7 @@ bool stdx::_BigInt::_BitSubstract(byte_t* buffer, const size_t& buffer_size)
 	}
 }
 
-bool stdx::_BigInt::_BitSubstract(const std::vector<byte_t>& other)
+bool stdx::big_int::_BitSubstract(const std::vector<byte_t>& other)
 {
 	std::vector<byte_t> _other = other;
 	size_t size = m_data.size(), other_size=other.size();
@@ -2304,7 +2304,7 @@ bool stdx::_BigInt::_BitSubstract(const std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::operator+=(int8_t v)
+void stdx::big_int::operator+=(int8_t v)
 {
 	if (v == 0)
 	{
@@ -2343,7 +2343,7 @@ void stdx::_BigInt::operator+=(int8_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(int16_t v)
+void stdx::big_int::operator+=(int16_t v)
 {
 	if (v == 0)
 	{
@@ -2382,7 +2382,7 @@ void stdx::_BigInt::operator+=(int16_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(int32_t v)
+void stdx::big_int::operator+=(int32_t v)
 {
 	if (v == 0)
 	{
@@ -2421,7 +2421,7 @@ void stdx::_BigInt::operator+=(int32_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(int64_t v)
+void stdx::big_int::operator+=(int64_t v)
 {
 	if (v == 0)
 	{
@@ -2460,7 +2460,7 @@ void stdx::_BigInt::operator+=(int64_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(uint8_t v)
+void stdx::big_int::operator+=(uint8_t v)
 {
 	if (v == 0)
 	{
@@ -2497,7 +2497,7 @@ void stdx::_BigInt::operator+=(uint8_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(uint16_t v)
+void stdx::big_int::operator+=(uint16_t v)
 {
 	if (v == 0)
 	{
@@ -2534,7 +2534,7 @@ void stdx::_BigInt::operator+=(uint16_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(uint32_t v)
+void stdx::big_int::operator+=(uint32_t v)
 {
 	if (v == 0)
 	{
@@ -2571,7 +2571,7 @@ void stdx::_BigInt::operator+=(uint32_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(uint64_t v)
+void stdx::big_int::operator+=(uint64_t v)
 {
 	if (v == 0)
 	{
@@ -2608,7 +2608,7 @@ void stdx::_BigInt::operator+=(uint64_t v)
 	_BitAdd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator+=(const _BigInt& other)
+void stdx::big_int::operator+=(const big_int& other)
 {
 	if (other == 0)
 	{
@@ -2624,7 +2624,7 @@ void stdx::_BigInt::operator+=(const _BigInt& other)
 		}
 		else if(this->operator>(0))
 		{
-			stdx::_BigInt tmp(other);
+			stdx::big_int tmp(other);
 			tmp.m_symbol = stdx::big_int_symbol::positive;
 			this->operator-=(tmp);
 			return;
@@ -2641,7 +2641,7 @@ void stdx::_BigInt::operator+=(const _BigInt& other)
 		}
 		else if (this->operator<(0))
 		{
-			stdx::_BigInt tmp(other);
+			stdx::big_int tmp(other);
 			tmp.m_symbol = stdx::big_int_symbol::negative;
 			this->operator-=(tmp);
 			return;
@@ -2650,7 +2650,7 @@ void stdx::_BigInt::operator+=(const _BigInt& other)
 	_BitAdd(other.m_data);
 }
 
-void stdx::_BigInt::operator-=(int8_t v)
+void stdx::big_int::operator-=(int8_t v)
 {
 	if (v == 0)
 	{
@@ -2709,7 +2709,7 @@ void stdx::_BigInt::operator-=(int8_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(int16_t v)
+void stdx::big_int::operator-=(int16_t v)
 {
 	if (v == 0)
 	{
@@ -2768,7 +2768,7 @@ void stdx::_BigInt::operator-=(int16_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(int32_t v)
+void stdx::big_int::operator-=(int32_t v)
 {
 	if (v == 0)
 	{
@@ -2827,7 +2827,7 @@ void stdx::_BigInt::operator-=(int32_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(int64_t v)
+void stdx::big_int::operator-=(int64_t v)
 {
 	if (v == 0)
 	{
@@ -2886,7 +2886,7 @@ void stdx::_BigInt::operator-=(int64_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(uint8_t v)
+void stdx::big_int::operator-=(uint8_t v)
 {
 	if (v == 0)
 	{
@@ -2923,7 +2923,7 @@ void stdx::_BigInt::operator-=(uint8_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(uint16_t v)
+void stdx::big_int::operator-=(uint16_t v)
 {
 	if (v == 0)
 	{
@@ -2960,7 +2960,7 @@ void stdx::_BigInt::operator-=(uint16_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(uint32_t v)
+void stdx::big_int::operator-=(uint32_t v)
 {
 	if (v == 0)
 	{
@@ -2997,7 +2997,7 @@ void stdx::_BigInt::operator-=(uint32_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(uint64_t v)
+void stdx::big_int::operator-=(uint64_t v)
 {
 	if (v == 0)
 	{
@@ -3034,7 +3034,7 @@ void stdx::_BigInt::operator-=(uint64_t v)
 	}
 }
 
-void stdx::_BigInt::operator-=(const _BigInt& other)
+void stdx::big_int::operator-=(const big_int& other)
 {
 	if (other == 0)
 	{
@@ -3050,7 +3050,7 @@ void stdx::_BigInt::operator-=(const _BigInt& other)
 		}
 		else if (this->operator>(0))
 		{
-			stdx::_BigInt tmp(other);
+			stdx::big_int tmp(other);
 			tmp.m_symbol = stdx::big_int_symbol::positive;
 			this->operator+=(tmp);
 			return;
@@ -3066,7 +3066,7 @@ void stdx::_BigInt::operator-=(const _BigInt& other)
 		}
 		else if (this->operator<(0))
 		{
-			stdx::_BigInt tmp(other);
+			stdx::big_int tmp(other);
 			tmp.m_symbol = stdx::big_int_symbol::negative;
 			this->operator+=(tmp);
 			return;
@@ -3092,7 +3092,7 @@ void stdx::_BigInt::operator-=(const _BigInt& other)
 	}
 }
 
-void stdx::_BigInt::operator*=(int8_t v)
+void stdx::big_int::operator*=(int8_t v)
 {
 	if (v == 0)
 	{
@@ -3103,7 +3103,7 @@ void stdx::_BigInt::operator*=(int8_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (v<0)
 	{
 		if (m_symbol == stdx::big_int_symbol::positive)
@@ -3142,7 +3142,7 @@ void stdx::_BigInt::operator*=(int8_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(int16_t v)
+void stdx::big_int::operator*=(int16_t v)
 {
 	if (v == 0)
 	{
@@ -3153,7 +3153,7 @@ void stdx::_BigInt::operator*=(int16_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (v < 0)
 	{
 		if (m_symbol == stdx::big_int_symbol::positive)
@@ -3192,7 +3192,7 @@ void stdx::_BigInt::operator*=(int16_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(int32_t v)
+void stdx::big_int::operator*=(int32_t v)
 {
 	if (v == 0)
 	{
@@ -3203,7 +3203,7 @@ void stdx::_BigInt::operator*=(int32_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (v < 0)
 	{
 		if (m_symbol == stdx::big_int_symbol::positive)
@@ -3242,7 +3242,7 @@ void stdx::_BigInt::operator*=(int32_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(int64_t v)
+void stdx::big_int::operator*=(int64_t v)
 {
 	if (v == 0)
 	{
@@ -3253,7 +3253,7 @@ void stdx::_BigInt::operator*=(int64_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (v < 0)
 	{
 		if (m_symbol == stdx::big_int_symbol::positive)
@@ -3292,7 +3292,7 @@ void stdx::_BigInt::operator*=(int64_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(uint8_t v)
+void stdx::big_int::operator*=(uint8_t v)
 {
 	if (v == 0)
 	{
@@ -3303,7 +3303,7 @@ void stdx::_BigInt::operator*=(uint8_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (m_symbol == stdx::big_int_symbol::positive)
 	{
 		for (uint8_t i(1); i < v; ++i)
@@ -3320,7 +3320,7 @@ void stdx::_BigInt::operator*=(uint8_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(uint16_t v)
+void stdx::big_int::operator*=(uint16_t v)
 {
 	if (v == 0)
 	{
@@ -3331,7 +3331,7 @@ void stdx::_BigInt::operator*=(uint16_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (m_symbol == stdx::big_int_symbol::positive)
 	{
 		for (uint16_t i(1); i < v; ++i)
@@ -3348,7 +3348,7 @@ void stdx::_BigInt::operator*=(uint16_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(uint32_t v)
+void stdx::big_int::operator*=(uint32_t v)
 {
 	if (v == 0)
 	{
@@ -3359,7 +3359,7 @@ void stdx::_BigInt::operator*=(uint32_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (m_symbol == stdx::big_int_symbol::positive)
 	{
 		for (uint32_t i(1); i < v; ++i)
@@ -3376,7 +3376,7 @@ void stdx::_BigInt::operator*=(uint32_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(uint64_t v)
+void stdx::big_int::operator*=(uint64_t v)
 {
 	if (v == 0)
 	{
@@ -3387,7 +3387,7 @@ void stdx::_BigInt::operator*=(uint64_t v)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (m_symbol == stdx::big_int_symbol::positive)
 	{
 		for (uint64_t i(1); i < v; ++i)
@@ -3404,7 +3404,7 @@ void stdx::_BigInt::operator*=(uint64_t v)
 	}
 }
 
-void stdx::_BigInt::operator*=(const stdx::_BigInt& other)
+void stdx::big_int::operator*=(const stdx::big_int& other)
 {
 	if (other == 0)
 	{
@@ -3415,13 +3415,13 @@ void stdx::_BigInt::operator*=(const stdx::_BigInt& other)
 	{
 		return;
 	}
-	stdx::_BigInt t1(*this);
+	stdx::big_int t1(*this);
 	if (other < 0)
 	{
 		if (m_symbol == stdx::big_int_symbol::positive)
 		{
 			m_symbol = stdx::big_int_symbol::negative;
-			for (stdx::_BigInt i(other); i < -1; ++i)
+			for (stdx::big_int i(other); i < -1; ++i)
 			{
 				this->operator+=(t1);
 			}
@@ -3429,7 +3429,7 @@ void stdx::_BigInt::operator*=(const stdx::_BigInt& other)
 		else if (m_symbol == stdx::big_int_symbol::negative)
 		{
 			m_symbol = stdx::big_int_symbol::positive;
-			for (stdx::_BigInt i(other); i < -1; ++i)
+			for (stdx::big_int i(other); i < -1; ++i)
 			{
 				this->operator-=(t1);
 			}
@@ -3439,14 +3439,14 @@ void stdx::_BigInt::operator*=(const stdx::_BigInt& other)
 	{
 		if (m_symbol == stdx::big_int_symbol::positive)
 		{
-			for (stdx::_BigInt i(1); i < other; ++i)
+			for (stdx::big_int i(1); i < other; ++i)
 			{
 				this->operator+=(t1);
 			}
 		}
 		else if (m_symbol == stdx::big_int_symbol::negative)
 		{
-			for (stdx::_BigInt i(1); i < other; ++i)
+			for (stdx::big_int i(1); i < other; ++i)
 			{
 				this->operator-=(t1);
 			}
@@ -3454,7 +3454,7 @@ void stdx::_BigInt::operator*=(const stdx::_BigInt& other)
 	}
 }
 
-void stdx::_BigInt::operator/=(int8_t v)
+void stdx::big_int::operator/=(int8_t v)
 {
 	if (v == 0)
 	{
@@ -3473,7 +3473,7 @@ void stdx::_BigInt::operator/=(int8_t v)
 		m_symbol = (m_symbol == stdx::big_int_symbol::positive) ? stdx::big_int_symbol::negative : stdx::big_int_symbol::positive;
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (v<0)
 	{
@@ -3517,7 +3517,7 @@ void stdx::_BigInt::operator/=(int8_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(int16_t v)
+void stdx::big_int::operator/=(int16_t v)
 {
 	if (v == 0)
 	{
@@ -3536,7 +3536,7 @@ void stdx::_BigInt::operator/=(int16_t v)
 		m_symbol = (m_symbol == stdx::big_int_symbol::positive) ? stdx::big_int_symbol::negative : stdx::big_int_symbol::positive;
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (v < 0)
 	{
@@ -3580,7 +3580,7 @@ void stdx::_BigInt::operator/=(int16_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(int32_t v)
+void stdx::big_int::operator/=(int32_t v)
 {
 	if (v == 0)
 	{
@@ -3599,7 +3599,7 @@ void stdx::_BigInt::operator/=(int32_t v)
 		m_symbol = (m_symbol == stdx::big_int_symbol::positive) ? stdx::big_int_symbol::negative : stdx::big_int_symbol::positive;
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (v < 0)
 	{
@@ -3643,7 +3643,7 @@ void stdx::_BigInt::operator/=(int32_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(int64_t v)
+void stdx::big_int::operator/=(int64_t v)
 {
 	if (v == 0)
 	{
@@ -3662,7 +3662,7 @@ void stdx::_BigInt::operator/=(int64_t v)
 		m_symbol = (m_symbol == stdx::big_int_symbol::positive) ? stdx::big_int_symbol::negative : stdx::big_int_symbol::positive;
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (v < 0)
 	{
@@ -3706,7 +3706,7 @@ void stdx::_BigInt::operator/=(int64_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(uint8_t v)
+void stdx::big_int::operator/=(uint8_t v)
 {
 	if (v == 0)
 	{
@@ -3720,7 +3720,7 @@ void stdx::_BigInt::operator/=(uint8_t v)
 	{
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (tmp.m_symbol == stdx::big_int_symbol::positive)
 	{
@@ -3740,7 +3740,7 @@ void stdx::_BigInt::operator/=(uint8_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(uint16_t v)
+void stdx::big_int::operator/=(uint16_t v)
 {
 	if (v == 0)
 	{
@@ -3754,7 +3754,7 @@ void stdx::_BigInt::operator/=(uint16_t v)
 	{
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (tmp.m_symbol == stdx::big_int_symbol::positive)
 	{
@@ -3774,7 +3774,7 @@ void stdx::_BigInt::operator/=(uint16_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(uint32_t v)
+void stdx::big_int::operator/=(uint32_t v)
 {
 	if (v == 0)
 	{
@@ -3788,7 +3788,7 @@ void stdx::_BigInt::operator/=(uint32_t v)
 	{
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (tmp.m_symbol == stdx::big_int_symbol::positive)
 	{
@@ -3808,7 +3808,7 @@ void stdx::_BigInt::operator/=(uint32_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(uint64_t v)
+void stdx::big_int::operator/=(uint64_t v)
 {
 	if (v == 0)
 	{
@@ -3822,7 +3822,7 @@ void stdx::_BigInt::operator/=(uint64_t v)
 	{
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (tmp.m_symbol == stdx::big_int_symbol::positive)
 	{
@@ -3842,7 +3842,7 @@ void stdx::_BigInt::operator/=(uint64_t v)
 	}
 }
 
-void stdx::_BigInt::operator/=(const stdx::_BigInt& other)
+void stdx::big_int::operator/=(const stdx::big_int& other)
 {
 	if (other == 0)
 	{
@@ -3861,7 +3861,7 @@ void stdx::_BigInt::operator/=(const stdx::_BigInt& other)
 		m_symbol = (m_symbol == stdx::big_int_symbol::positive) ? stdx::big_int_symbol::negative : stdx::big_int_symbol::positive;
 		return;
 	}
-	stdx::_BigInt tmp(*this);
+	stdx::big_int tmp(*this);
 	this->operator=(0);
 	if (other < 0)
 	{
@@ -3905,7 +3905,7 @@ void stdx::_BigInt::operator/=(const stdx::_BigInt& other)
 	}
 }
 
-void stdx::_BigInt::operator%=(int8_t v)
+void stdx::big_int::operator%=(int8_t v)
 {
 	if (v == 0)
 	{
@@ -3958,7 +3958,7 @@ void stdx::_BigInt::operator%=(int8_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(int16_t v)
+void stdx::big_int::operator%=(int16_t v)
 {
 	if (v == 0)
 	{
@@ -4011,7 +4011,7 @@ void stdx::_BigInt::operator%=(int16_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(int32_t v)
+void stdx::big_int::operator%=(int32_t v)
 {
 	if (v == 0)
 	{
@@ -4064,7 +4064,7 @@ void stdx::_BigInt::operator%=(int32_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(int64_t v)
+void stdx::big_int::operator%=(int64_t v)
 {
 	if (v == 0)
 	{
@@ -4117,7 +4117,7 @@ void stdx::_BigInt::operator%=(int64_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(uint8_t v)
+void stdx::big_int::operator%=(uint8_t v)
 {
 	if (v == 0)
 	{
@@ -4148,7 +4148,7 @@ void stdx::_BigInt::operator%=(uint8_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(uint16_t v)
+void stdx::big_int::operator%=(uint16_t v)
 {
 	if (v == 0)
 	{
@@ -4179,7 +4179,7 @@ void stdx::_BigInt::operator%=(uint16_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(uint32_t v)
+void stdx::big_int::operator%=(uint32_t v)
 {
 	if (v == 0)
 	{
@@ -4210,7 +4210,7 @@ void stdx::_BigInt::operator%=(uint32_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(uint64_t v)
+void stdx::big_int::operator%=(uint64_t v)
 {
 	if (v == 0)
 	{
@@ -4241,7 +4241,7 @@ void stdx::_BigInt::operator%=(uint64_t v)
 	}
 }
 
-void stdx::_BigInt::operator%=(const stdx::_BigInt& other)
+void stdx::big_int::operator%=(const stdx::big_int& other)
 {
 	if (other == 0)
 	{
@@ -4294,7 +4294,7 @@ void stdx::_BigInt::operator%=(const stdx::_BigInt& other)
 	}
 }
 
-void stdx::_BigInt::operator<<=(const size_t& n)
+void stdx::big_int::operator<<=(const size_t& n)
 {
 	for (size_t i = 0; i < n; i++)
 	{
@@ -4302,7 +4302,7 @@ void stdx::_BigInt::operator<<=(const size_t& n)
 	}
 }
 
-void stdx::_BigInt::operator>>=(const size_t& n)
+void stdx::big_int::operator>>=(const size_t& n)
 {
 	for (size_t i = 0; i < n; i++)
 	{
@@ -4310,7 +4310,7 @@ void stdx::_BigInt::operator>>=(const size_t& n)
 	}
 }
 
-void stdx::_BigInt::_BitOr(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitOr(byte_t* buffer, const size_t& buffer_size)
 {
 	size_t size = m_data.size();
 	if (size <= buffer_size)
@@ -4335,7 +4335,7 @@ void stdx::_BigInt::_BitOr(byte_t* buffer, const size_t& buffer_size)
 	}
 }
 
-void stdx::_BigInt::_BitOr(const std::vector<byte_t>& other)
+void stdx::big_int::_BitOr(const std::vector<byte_t>& other)
 {
 	size_t size = m_data.size(),other_size = other.size();
 	if (size <= other_size)
@@ -4360,7 +4360,7 @@ void stdx::_BigInt::_BitOr(const std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::_BitXor(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitXor(byte_t* buffer, const size_t& buffer_size)
 {
 	size_t size = m_data.size();
 	if (size == buffer_size)
@@ -4389,7 +4389,7 @@ void stdx::_BigInt::_BitXor(byte_t* buffer, const size_t& buffer_size)
 	}
 }
 
-void stdx::_BigInt::_BitXor(const std::vector<byte_t>& other)
+void stdx::big_int::_BitXor(const std::vector<byte_t>& other)
 {
 	size_t size = m_data.size(),other_size = other.size();
 	if (size == other_size)
@@ -4418,7 +4418,7 @@ void stdx::_BigInt::_BitXor(const std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::_BitAnd(byte_t* buffer, const size_t& buffer_size)
+void stdx::big_int::_BitAnd(byte_t* buffer, const size_t& buffer_size)
 {
 	size_t size = m_data.size();
 	if (size <= buffer_size)
@@ -4445,7 +4445,7 @@ void stdx::_BigInt::_BitAnd(byte_t* buffer, const size_t& buffer_size)
 	}
 }
 
-void stdx::_BigInt::_BitAnd(const std::vector<byte_t>& other)
+void stdx::big_int::_BitAnd(const std::vector<byte_t>& other)
 {
 	size_t size = m_data.size(),other_size = other.size();
 	if (size <= other_size)
@@ -4472,97 +4472,97 @@ void stdx::_BigInt::_BitAnd(const std::vector<byte_t>& other)
 	}
 }
 
-void stdx::_BigInt::operator|=(int8_t v)
+void stdx::big_int::operator|=(int8_t v)
 {
 	_BitOr((byte_t*)&v,sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(int16_t v)
+void stdx::big_int::operator|=(int16_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(int32_t v)
+void stdx::big_int::operator|=(int32_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(int64_t v)
+void stdx::big_int::operator|=(int64_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(uint8_t v)
+void stdx::big_int::operator|=(uint8_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(uint16_t v)
+void stdx::big_int::operator|=(uint16_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(uint32_t v)
+void stdx::big_int::operator|=(uint32_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(uint64_t v)
+void stdx::big_int::operator|=(uint64_t v)
 {
 	_BitOr((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator|=(const stdx::_BigInt& other)
+void stdx::big_int::operator|=(const stdx::big_int& other)
 {
 	_BitOr(other.m_data);
 }
 
-void stdx::_BigInt::operator^=(int8_t v)
+void stdx::big_int::operator^=(int8_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(int16_t v)
+void stdx::big_int::operator^=(int16_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(int32_t v)
+void stdx::big_int::operator^=(int32_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(int64_t v)
+void stdx::big_int::operator^=(int64_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(uint8_t v)
+void stdx::big_int::operator^=(uint8_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(uint16_t v)
+void stdx::big_int::operator^=(uint16_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(uint32_t v)
+void stdx::big_int::operator^=(uint32_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(uint64_t v)
+void stdx::big_int::operator^=(uint64_t v)
 {
 	_BitXor((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator^=(const stdx::_BigInt& other)
+void stdx::big_int::operator^=(const stdx::big_int& other)
 {
 	_BitXor(other.m_data);
 }
 
-void stdx::_BigInt::operator&=(int8_t v)
+void stdx::big_int::operator&=(int8_t v)
 {
 	if (v==0)
 	{
@@ -4572,7 +4572,7 @@ void stdx::_BigInt::operator&=(int8_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(int16_t v)
+void stdx::big_int::operator&=(int16_t v)
 {
 	if (v == 0)
 	{
@@ -4582,7 +4582,7 @@ void stdx::_BigInt::operator&=(int16_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(int32_t v)
+void stdx::big_int::operator&=(int32_t v)
 {
 	if (v == 0)
 	{
@@ -4592,7 +4592,7 @@ void stdx::_BigInt::operator&=(int32_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(int64_t v)
+void stdx::big_int::operator&=(int64_t v)
 {
 	if (v == 0)
 	{
@@ -4602,7 +4602,7 @@ void stdx::_BigInt::operator&=(int64_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(uint8_t v)
+void stdx::big_int::operator&=(uint8_t v)
 {
 	if (v == 0)
 	{
@@ -4612,7 +4612,7 @@ void stdx::_BigInt::operator&=(uint8_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(uint16_t v)
+void stdx::big_int::operator&=(uint16_t v)
 {
 	if (v == 0)
 	{
@@ -4622,7 +4622,7 @@ void stdx::_BigInt::operator&=(uint16_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(uint32_t v)
+void stdx::big_int::operator&=(uint32_t v)
 {
 	if (v == 0)
 	{
@@ -4632,7 +4632,7 @@ void stdx::_BigInt::operator&=(uint32_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(uint64_t v)
+void stdx::big_int::operator&=(uint64_t v)
 {
 	if (v == 0)
 	{
@@ -4642,7 +4642,7 @@ void stdx::_BigInt::operator&=(uint64_t v)
 	_BitAnd((byte_t*)&v, sizeof(v));
 }
 
-void stdx::_BigInt::operator&=(const stdx::_BigInt& other)
+void stdx::big_int::operator&=(const stdx::big_int& other)
 {
 	if (other == 0)
 	{
@@ -4652,7 +4652,7 @@ void stdx::_BigInt::operator&=(const stdx::_BigInt& other)
 	_BitAnd(other.m_data);
 }
 
-typename stdx::string::char_t stdx::_BigInt::_ByteToUChar(byte_t v)
+typename stdx::string::char_t stdx::big_int::_ByteToUChar(byte_t v)
 {
 	switch (v)
 	{
@@ -4693,7 +4693,7 @@ typename stdx::string::char_t stdx::_BigInt::_ByteToUChar(byte_t v)
 	}
 }
 
-stdx::string stdx::_BigInt::to_hex_string() const
+stdx::string stdx::big_int::to_hex_string() const
 {
 	stdx::string str = U("0x");
 	for (auto begin = m_data.rbegin(),end=m_data.rend();begin!=end;begin++)
@@ -4707,7 +4707,7 @@ stdx::string stdx::_BigInt::to_hex_string() const
 	return str;
 }
 
-stdx::string stdx::_BigInt::to_hex_string_without_0x() const
+stdx::string stdx::big_int::to_hex_string_without_0x() const
 {
 	stdx::string str;
 	for (auto begin = m_data.rbegin(), end = m_data.rend(); begin != end; begin++)
@@ -4721,7 +4721,7 @@ stdx::string stdx::_BigInt::to_hex_string_without_0x() const
 	return str;
 }
 
-typename stdx::_BigInt::byte_t stdx::_BigInt::_UCharToByte(const typename stdx::string::char_t& ch)
+typename stdx::big_int::byte_t stdx::big_int::_UCharToByte(const typename stdx::string::char_t& ch)
 {
 	switch (ch)
 	{
@@ -4774,13 +4774,13 @@ typename stdx::_BigInt::byte_t stdx::_BigInt::_UCharToByte(const typename stdx::
 	}
 }
 
-stdx::_BigInt stdx::_BigInt::from_hex_string(const stdx::string& hex)
+stdx::big_int stdx::big_int::from_hex_string(const stdx::string& hex)
 {
 	stdx::string tmp(hex);
-	return stdx::_BigInt::from_hex_string(std::move(tmp));
+	return stdx::big_int::from_hex_string(std::move(tmp));
 }
 
-stdx::_BigInt stdx::_BigInt::from_hex_string(stdx::string &&hex)
+stdx::big_int stdx::big_int::from_hex_string(stdx::string &&hex)
 {
 	hex.replace(U("0x"), U("")).replace(U("0X"),U(""));
 	if (hex.empty())
@@ -4820,5 +4820,5 @@ stdx::_BigInt stdx::_BigInt::from_hex_string(stdx::string &&hex)
 			container.push_back(t1);
 		}
 	}
-	return stdx::_BigInt(container);
+	return stdx::big_int(container);
 }
