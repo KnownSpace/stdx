@@ -4637,93 +4637,46 @@ void stdx::_BigInt::operator&=(const stdx::_BigInt& other)
 	_BitAnd(other.m_data);
 }
 
-#ifdef WIN32
-
-wchar_t stdx::_BigInt::_ByteToUChar(byte_t v)
+typename stdx::string::char_t stdx::_BigInt::_ByteToUChar(byte_t v)
 {
 	switch (v)
 	{
 	case 0x00:
-		return L'0';
+		return U('0');
 	case 0x01:
-		return L'1';
+		return U('1');
 	case 0x02:
-		return L'2';
+		return U('2');
 	case 0x03:
-		return L'3';
+		return U('3');
 	case 0x04:
-		return L'4';
+		return U('4');
 	case 0x05:
-		return L'5';
+		return U('5');
 	case 0x06:
-		return L'6';
+		return U('6');
 	case 0x07:
-		return L'7';
+		return U('7');
 	case 0x08:
-		return L'8';
+		return U('8');
 	case 0x09:
-		return L'9';
+		return U('9');
 	case 0x0A:
-		return L'A';
+		return U('A');
 	case 0x0B:
-		return L'B';
+		return U('B');
 	case 0x0C:
-		return L'C';
+		return U('C');
 	case 0x0D:
-		return L'D';
+		return U('D');
 	case 0x0E:
-		return L'E';
+		return U('E');
 	case 0x0F:
-		return L'F';
+		return U('F');
 	default:
 		throw std::domain_error("out of domain! should input 0x00 to 0x0F");
 	}
 }
-
-#else
-
-char stdx::_BigInt::_ByteToUChar(byte_t v)
-{
-	switch (v)
-	{
-	case 0x00:
-		return '0';
-	case 0x01:
-		return '1';
-	case 0x02:
-		return '2';
-	case 0x03:
-		return '3';
-	case 0x04:
-		return '4';
-	case 0x05:
-		return '5';
-	case 0x06:
-		return '6';
-	case 0x07:
-		return '7';
-	case 0x08:
-		return '8';
-	case 0x09:
-		return '9';
-	case 0x0A:
-		return 'A';
-	case 0x0B:
-		return 'B';
-	case 0x0C:
-		return 'C';
-	case 0x0D:
-		return 'D';
-	case 0x0E:
-		return 'E';
-	case 0x0F:
-		return 'F';
-	default:
-		throw std::domain_error("out of domain! should input 0x00 to 0x0F");
-	}
-}
-
-#endif
 
 stdx::string stdx::_BigInt::to_hex_string() const
 {
@@ -4751,4 +4704,97 @@ stdx::string stdx::_BigInt::to_hex_string_without_0x() const
 		str.push_back(_ByteToUChar(tmp));
 	}
 	return str;
+}
+
+typename stdx::_BigInt::byte_t stdx::_BigInt::_UCharToByte(const typename stdx::string::char_t& ch)
+{
+	switch (ch)
+	{
+	case U('0'):
+		return 0x00;
+	case U('1'):
+		return 0x01;
+	case U('2'):
+		return 0x02;
+	case U('3'):
+		return 0x03;
+	case U('4'):
+		return 0x04;
+	case U('5'):
+		return 0x05;
+	case U('6'):
+		return 0x06;
+	case U('7'):
+		return 0x07;
+	case U('8'):
+		return 0x08;
+	case U('9'):
+		return 0x09;
+	case U('A'):
+		return 0x0A;
+	case U('B'):
+		return 0x0B;
+	case U('C'):
+		return 0x0C;
+	case U('D'):
+		return 0x0D;
+	case U('E'):
+		return 0x0E;
+	case U('F'):
+		return 0x0F;
+	case U('a'):
+		return 0x0A;
+	case U('b'):
+		return 0x0B;
+	case U('c'):
+		return 0x0C;
+	case U('d'):
+		return 0x0D;
+	case U('e'):
+		return 0x0E;
+	case U('f'):
+		return 0x0F;
+	default:
+		throw std::domain_error("this char cannot change into byte_t");
+	}
+}
+
+stdx::_BigInt stdx::_BigInt::from_hex_string(const stdx::string& hex)
+{
+	
+}
+
+stdx::_BigInt stdx::_BigInt::from_hex_string(stdx::string &&hex)
+{
+	hex.replace(U("0x"), U("")).replace(U("0X"),U(""));
+	if (hex.empty())
+	{
+		throw std::invalid_argument("hex string cannot be empty");
+	}
+	std::vector<byte_t> container;
+	if (hex.size() % 2)
+	{
+		for (size_t i = 0, count = hex.size()-1; i < count; i += 2)
+		{
+			byte_t t1 = _UCharToByte(hex.at(i));
+			t1 <<= 4;
+			byte_t t2 = _UCharToByte(hex.at(i + 1));
+			t1 |= t2;
+			container.push_back(t1);
+		}
+		byte_t tmp = _UCharToByte(hex.at(hex.at(hex.size() - 1)));
+		container.push_back(tmp);
+	}
+	else
+	{
+		for (size_t i = 0,count=hex.size(); i < count; i+=2)
+		{
+			byte_t t1 = _UCharToByte(hex.at(i));
+			t1 <<= 4;
+			byte_t t2 = _UCharToByte(hex.at(i+1));
+			t1 |= t2;
+			container.push_back(t1);
+		}
+	}
+	return stdx::_BigInt(container.data(), container.size());
 }

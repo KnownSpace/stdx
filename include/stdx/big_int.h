@@ -96,11 +96,13 @@ namespace stdx
 
 		void _BitAnd(const std::vector<byte_t>& other);
 
-#ifdef WIN32
-		static wchar_t _ByteToUChar(byte_t v);
-#else
-		static char _ByteToUChar(byte_t v);
-#endif
+		static typename stdx::string::char_t _ByteToUChar(byte_t v);
+
+		static byte_t _UCharToByte(const typename stdx::string::char_t &ch);
+
+		static stdx::_BigInt from_hex_string(const stdx::string &hex);
+
+		static stdx::_BigInt from_hex_string(stdx::string &&hex);
 
 		template<typename _IntType>
 		static void _RemoveSymbol(_IntType& v)

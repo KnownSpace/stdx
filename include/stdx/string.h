@@ -437,9 +437,13 @@ namespace stdx
 		bool end_with(char_t ch) const;
 		bool end_with(const stdx::string& other) const;
 
-		void replace(const stdx::string &dest,const stdx::string&text);
-		void replace(const size_type &pos,const size_type &count,const stdx::string&text);
-		void replace(iterator_t begin,iterator_t end,const stdx::string&text);
+		stdx::string &replace(const stdx::string &dest,const stdx::string&text);
+		stdx::string &replace(const size_type &pos,const size_type &count,const stdx::string&text);
+		stdx::string &replace(iterator_t begin,iterator_t end,const stdx::string&text);
+
+		stdx::string replace(const stdx::string& dest, const stdx::string& text) const;
+		stdx::string replace(const size_type& pos, const size_type& count, const stdx::string& text) const;
+		stdx::string replace(iterator_t begin, iterator_t end, const stdx::string& text) const;
 
 		stdx::string substr(size_type pos = 0,size_type count = npos) const;
 		
@@ -480,6 +484,18 @@ namespace stdx
 		void html_encode();
 
 		void html_decode();
+
+		bool is_lower() const;
+
+		stdx::string &lower();
+
+		stdx::string lower() const;
+
+		bool is_upper() const;
+
+		stdx::string &upper();
+
+		stdx::string upper() const;
 
 		template<typename _Container = std::list<stdx::string>>
 		const _Container &split(const stdx::string &text)

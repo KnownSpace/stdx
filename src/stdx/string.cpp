@@ -296,24 +296,48 @@ bool stdx::string::end_with(const string& other) const
 	return true;
 }
 
-void stdx::string::replace(const stdx::string& dest, const stdx::string& text)
+stdx::string &stdx::string::replace(const stdx::string& dest, const stdx::string& text)
 {
 	stdx::replace_string(m_data, dest.m_data, text.m_data);
+	return *this;
 }
 
-void stdx::string::replace(const size_type& pos, const size_type& count, const string& text)
+stdx::string &stdx::string::replace(const size_type& pos, const size_type& count, const string& text)
 {
 	m_data.replace(pos, count, text.m_data);
+	return *this;
 }
 
-void stdx::string::replace(iterator_t begin,iterator_t end, const string& text)
+stdx::string &stdx::string::replace(iterator_t begin,iterator_t end, const string& text)
 {
 	m_data.replace(begin, end, text.m_data);
+	return *this;
+}
+
+stdx::string stdx::string::replace(const stdx::string& dest, const stdx::string& text) const
+{
+	stdx::string tmp(*this);
+	tmp.replace(dest, text);
+	return tmp;
+}
+
+stdx::string stdx::string::replace(const size_type& pos, const size_type& count, const string& text) const
+{
+	stdx::string tmp(*this);
+	tmp.replace(pos, count, text.m_data);
+	return tmp;
+}
+
+stdx::string stdx::string::replace(iterator_t begin, iterator_t end, const string& text) const
+{
+	stdx::string tmp(*this);
+	tmp.replace(begin, end, text.m_data);
+	return tmp;
 }
 
 stdx::string stdx::string::substr(size_type pos, size_type count) const
 {
-	return string(m_data.substr(pos,count));
+	return stdx::string(m_data.substr(pos,count));
 }
 
 void stdx::string::swap(string& other)
@@ -514,7 +538,7 @@ stdx::string stdx::to_string(int val)
 	return std::to_wstring(val);
 #else
 	return std::to_string(val);
-#endif // WIN32
+#endif
 }
 
 stdx::string stdx::to_string(long long int val)
@@ -523,7 +547,7 @@ stdx::string stdx::to_string(long long int val)
 	return std::to_wstring(val);
 #else
 	return std::to_string(val);
-#endif // WIN32
+#endif
 }
 
 stdx::string stdx::to_string(double val)
@@ -532,7 +556,7 @@ stdx::string stdx::to_string(double val)
 	return std::to_wstring(val);
 #else
 	return std::to_string(val);
-#endif // WIN32
+#endif
 }
 
 stdx::string stdx::to_string(long double val)
@@ -541,7 +565,7 @@ stdx::string stdx::to_string(long double val)
 	return std::to_wstring(val);
 #else
 	return std::to_string(val);
-#endif // WIN32
+#endif
 }
 
 stdx::string stdx::to_string(unsigned int val)
@@ -550,7 +574,7 @@ stdx::string stdx::to_string(unsigned int val)
 	return std::to_wstring(val);
 #else
 	return std::to_string(val);
-#endif // WIN32
+#endif
 }
 
 stdx::string stdx::to_string(unsigned long long int val)
@@ -559,5 +583,95 @@ stdx::string stdx::to_string(unsigned long long int val)
 	return std::to_wstring(val);
 #else
 	return std::to_string(val);
-#endif // WIN32
+#endif
+}
+
+bool stdx::string::is_lower() const
+{
+	for (auto begin = m_data.begin(), end = m_data.end(); begin != end; begin++)
+	{
+#ifdef WIN32
+		if (!iswlower(*begin))
+		{
+			return false;
+		}
+#else
+		if (!islower(*begin))
+		{
+			return false;
+		}
+#endif
+	}
+	return true;
+}
+
+stdx::string &stdx::string::lower()
+{
+	for (auto begin=m_data.begin(),end=m_data.end();begin!=end;begin++)
+	{
+#ifdef WIN32
+		if (iswupper(*begin))
+		{
+			*begin = towlower(*begin);
+		}
+#else
+		if (isupper(*begin))
+		{
+			*begin = tolower(*begin);
+		}
+#endif
+	}
+	return *this;
+}
+
+stdx::string stdx::string::lower() const
+{
+	stdx::string tmp(*this);
+	tmp.lower();
+	return tmp;
+}
+
+bool stdx::string::is_upper() const
+{
+	for (auto begin = m_data.begin(),end = m_data.end();begin != end;begin++)
+	{
+#ifdef WIN32
+		if (!iswupper(*begin))
+		{
+			return false;
+		}
+#else
+		if (!isupper(*begin))
+		{
+			return false;
+		}
+#endif
+	}
+	return true;
+}
+
+stdx::string& stdx::string::upper()
+{
+	for (auto begin = m_data.begin(), end = m_data.end(); begin != end; begin++)
+	{
+#ifdef WIN32
+		if (iswlower(*begin))
+		{
+			*begin = towupper(*begin);
+		}
+#else
+		if (islower(*begin))
+		{
+			*begin = toupper(*begin);
+		}
+#endif
+	}
+	return *this;
+}
+
+stdx::string stdx::string::upper() const
+{
+	stdx::string tmp(*this);
+	tmp.upper();
+	return tmp;
 }
