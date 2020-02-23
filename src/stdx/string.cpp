@@ -175,20 +175,10 @@ typename stdx::string::iterator_t stdx::string::erase(iterator_t position)
 	return m_data.erase(position);
 }
 
-//typename stdx::string::iterator_t stdx::string::erase(const_iterator_t position)
-//{
-//	return m_data.erase(position);
-//}
-
 typename stdx::string::iterator_t stdx::string::erase(iterator_t begin, iterator_t end)
 {
 	return m_data.erase(begin,end);
 }
-
-//typename stdx::string::iterator_t stdx::string::erase(const_iterator_t begin, const_iterator_t end)
-//{
-//	return m_data.erase(begin,end);
-//}
 
 void stdx::string::push_back(const char_t& ch)
 {

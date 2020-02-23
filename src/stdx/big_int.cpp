@@ -155,7 +155,22 @@ stdx::_BigInt::_BigInt(byte_t* buffer, const size_t& size)
 		m_data.push_back(buffer[i]);
 	}
 	uint8_t tmp = 0;
-	if (_BitCompareWith((byte_t*)tmp,sizeof(tmp)) == 0)
+	if (_BitCompareWith((byte_t*)&tmp,sizeof(tmp)) == 0)
+	{
+		m_data.clear();
+	}
+	else
+	{
+		m_symbol = stdx::big_int_symbol::positive;
+	}
+}
+
+stdx::_BigInt::_BigInt(const std::vector<byte_t>& data)
+	:m_symbol(stdx::big_int_symbol::zero)
+	,m_data(data)
+{
+	uint8_t tmp = 0;
+	if (_BitCompareWith((byte_t*)&tmp, sizeof(tmp)) == 0)
 	{
 		m_data.clear();
 	}
@@ -4761,7 +4776,8 @@ typename stdx::_BigInt::byte_t stdx::_BigInt::_UCharToByte(const typename stdx::
 
 stdx::_BigInt stdx::_BigInt::from_hex_string(const stdx::string& hex)
 {
-	
+	stdx::string tmp(hex);
+	return stdx::_BigInt::from_hex_string(std::move(tmp));
 }
 
 stdx::_BigInt stdx::_BigInt::from_hex_string(stdx::string &&hex)
@@ -4774,27 +4790,35 @@ stdx::_BigInt stdx::_BigInt::from_hex_string(stdx::string &&hex)
 	std::vector<byte_t> container;
 	if (hex.size() % 2)
 	{
-		for (size_t i = 0, count = hex.size()-1; i < count; i += 2)
+		for (int64_t i = hex.size()-1;true; i-=2)
 		{
+			if (i <= 0)
+			{
+				break;
+			}
 			byte_t t1 = _UCharToByte(hex.at(i));
-			t1 <<= 4;
-			byte_t t2 = _UCharToByte(hex.at(i + 1));
+			byte_t t2 = _UCharToByte(hex.at(i - 1));
+			t2 <<= 4;
 			t1 |= t2;
 			container.push_back(t1);
 		}
-		byte_t tmp = _UCharToByte(hex.at(hex.at(hex.size() - 1)));
+		byte_t tmp = _UCharToByte(hex.at(hex.size() - 1));
 		container.push_back(tmp);
 	}
 	else
 	{
-		for (size_t i = 0,count=hex.size(); i < count; i+=2)
+		for (int64_t i = hex.size() - 1; true;i-=2)
 		{
+			if (i <= 0)
+			{
+				break;
+			}
 			byte_t t1 = _UCharToByte(hex.at(i));
-			t1 <<= 4;
-			byte_t t2 = _UCharToByte(hex.at(i+1));
+			byte_t t2 = _UCharToByte(hex.at(i-1));
+			t2 <<= 4;
 			t1 |= t2;
 			container.push_back(t1);
 		}
 	}
-	return stdx::_BigInt(container.data(), container.size());
+	return stdx::_BigInt(container);
 }

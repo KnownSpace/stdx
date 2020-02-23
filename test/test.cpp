@@ -133,9 +133,11 @@ int main(int argc, char **argv)
 	});
 	std::cin.get();
 #endif // ENABLE_FILE
-	int16_t v1 = 5;
-	int32_t v2 = 3;
-	auto r = stdx::max_value(v1, v2);
-	printf("result is %d\ntype is %s\n",r,typeid(r).name());
+	stdx::string a, b;
+	stdx::cin() >> a >> b;
+	stdx::_BigInt bi1 = stdx::_BigInt::from_hex_string(a), bi2 = stdx::_BigInt::from_hex_string(b);
+	bi1 *= bi2;
+	stdx::cout() << bi1.to_hex_string()
+			<<std::endl;
 	return 0;
 }

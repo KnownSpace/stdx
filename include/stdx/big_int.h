@@ -37,6 +37,8 @@ namespace stdx
 
 		_BigInt(byte_t* buffer, const size_t& size);
 
+		_BigInt(const std::vector<byte_t>& data);
+
 		_BigInt(const _BigInt& other);
 
 		_BigInt(_BigInt &&other) noexcept;
