@@ -4787,6 +4787,49 @@ stdx::big_int stdx::big_int::from_hex_string(stdx::string &&hex)
 	{
 		throw std::invalid_argument("hex string cannot be empty");
 	}
+	if (hex.front() == U('-'))
+	{
+		hex.erase(hex.begin());
+		std::vector<byte_t> container;
+		if (hex.size() % 2)
+		{
+			for (int64_t i = hex.size() - 1; true; i -= 2)
+			{
+				if (i <= 0)
+				{
+					break;
+				}
+				byte_t t1 = _UCharToByte(hex.at(i));
+				byte_t t2 = _UCharToByte(hex.at(i - 1));
+				t2 <<= 4;
+				t1 |= t2;
+				container.push_back(t1);
+			}
+			byte_t tmp = _UCharToByte(hex.at(hex.size() - 1));
+			container.push_back(tmp);
+		}
+		else
+		{
+			for (int64_t i = hex.size() - 1; true; i -= 2)
+			{
+				if (i <= 0)
+				{
+					break;
+				}
+				byte_t t1 = _UCharToByte(hex.at(i));
+				byte_t t2 = _UCharToByte(hex.at(i - 1));
+				t2 <<= 4;
+				t1 |= t2;
+				container.push_back(t1);
+			}
+		}
+		stdx::big_int tmp(container);
+		if (tmp != 0)
+		{
+			tmp.m_symbol = stdx::big_int_symbol::negative;
+		}
+		return tmp;
+	}
 	std::vector<byte_t> container;
 	if (hex.size() % 2)
 	{

@@ -7,6 +7,7 @@
 #include <list>
 #include <stdx/big_int.h>
 #include <stdx/algorithm.h>
+#include <stdx/factory.h>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB
@@ -133,11 +134,20 @@ int main(int argc, char **argv)
 	});
 	std::cin.get();
 #endif // ENABLE_FILE
-	stdx::string a, b;
-	stdx::cin() >> a >> b;
-	stdx::big_int bi1 = stdx::big_int::from_hex_string(a), bi2 = stdx::big_int::from_hex_string(b);
-	bi1 *= bi2;
-	stdx::cout() << bi1.to_hex_string()
-			<<std::endl;
+
+	stdx::dynamic_singleton_factory<stdx::string, int, char> factory;
+	factory.get_unit<stdx::string>().config([]() 
+	{
+			return std::make_shared<stdx::string>(U("this is a factory"));
+	});
+	factory.get_unit<int>().config([]() 
+	{
+			return std::make_shared<int>(1);
+	});
+	factory.get_unit<char>().config([]() 
+	{
+			return std::make_shared<char>('a');
+	});
+	stdx::cout() << factory.make<stdx::string>() << factory.make<int>() << factory.make<char>();
 	return 0;
 }
