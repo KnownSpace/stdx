@@ -265,14 +265,14 @@ namespace stdx
 		}
 
 		template<typename _T1>
-		_Unit<_T1>& get_unit()
+		_Unit<_T1>& unit()
 		{
 			_Unit<_T1>& unit = *this;
 			return unit;
 		}
 
 		template<typename _T1>
-		const _Unit<_T1>& get_unit() const
+		const _Unit<_T1>& unit() const
 		{
 			const _Unit<_T1>& unit = *this;
 			return unit;
@@ -292,14 +292,14 @@ namespace stdx
 		}
 
 		template<typename _T1>
-		_Unit<_T1>& get_unit()
+		_Unit<_T1>& unit()
 		{
 			_Unit<_T1>& unit = *this;
 			return unit;
 		}
 
 		template<typename _T1>
-		const _Unit<_T1>& get_unit() const
+		const _Unit<_T1>& unit() const
 		{
 			const _Unit<_T1>& unit = *this;
 			return unit;
@@ -335,15 +335,15 @@ namespace stdx
 		}
 
 		template<typename _T1, class = typename std::enable_if<stdx::type_include<_T1, tl_t>::value>::type>
-		_Unit<_T1>& get_unit()
+		_Unit<_T1>& unit()
 		{
-			return m_impl->get_unit<_T1>();
+			return m_impl->unit<_T1>();
 		}
 
 		template<typename _T1, class = typename std::enable_if<stdx::type_include<_T1, tl_t>::value>::type>
-		const _Unit<_T1>& get_unit() const
+		const _Unit<_T1>& unit() const
 		{
-			return m_impl->get_unit<_T1>();
+			return m_impl->unit<_T1>();
 		}
 
 	private:
