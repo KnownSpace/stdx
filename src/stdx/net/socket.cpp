@@ -675,6 +675,35 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 return ce.get_task();
  }
 
+ void stdx::_Socket::recv_utill(const DWORD& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call)
+ {
+	 auto x = this->recv(size).then([this, size, call](stdx::task_result<network_recv_event> r) mutable
+		 {
+			 if (!call(r))
+			 {
+				 recv_utill(size, call);
+			 }
+		 });
+ }
+
+ void stdx::_Socket::recv_utill_error(const DWORD& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
+ {
+	 return this->recv_utill(size, [call, err_handler](stdx::task_result<network_recv_event>& r) mutable
+		 {
+			 try
+			 {
+				 stdx::network_recv_event e = r.get();
+				 call(e);
+			 }
+			 catch (const std::exception&)
+			 {
+				 err_handler(std::current_exception());
+				 return false;
+			 }
+			 return true;
+		 });
+ }
+
  void stdx::_Socket::close()
  {
 	 if (m_handle != INVALID_SOCKET)
@@ -1220,6 +1249,35 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 		 ce.run_on_this_thread();
 	 });
 	 return ce.get_task();
+ }
+
+ void stdx::_Socket::recv_utill(const DWORD& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call)
+ {
+	 auto x = this->recv(size).then([this, size, call](stdx::task_result<network_recv_event> r) mutable
+		 {
+			 if (!call(r))
+			 {
+				 recv_utill(size, call);
+			 }
+		 });
+ }
+
+ void stdx::_Socket::recv_utill_error(const DWORD& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
+ {
+	 return this->recv_utill(size, [call, err_handler](stdx::task_result<network_recv_event>& r) mutable
+		 {
+			 try
+			 {
+				 stdx::network_recv_event e = r.get();
+				 call(e);
+			 }
+			 catch (const std::exception&)
+			 {
+				 err_handler(std::current_exception());
+				 return false;
+			 }
+			 return true;
+		 });
  }
 
  void stdx::_Socket::close()

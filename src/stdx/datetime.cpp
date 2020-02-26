@@ -42,7 +42,7 @@ stdx::datetime& stdx::datetime::operator=(const stdx::datetime& other)
 	return *this;
 }
 
-stdx::datetime& stdx::datetime::operator=(stdx::datetime &&other)
+stdx::datetime& stdx::datetime::operator=(stdx::datetime &&other) noexcept
 {
 	m_year = other.m_year;
 	m_month = other.m_month;
@@ -371,7 +371,7 @@ void stdx::datetime::operator-=(const time_span& span)
 {
 }
 
-stdx::time_span stdx::datetime::operator-(const stdx::datetime& other) const
-{
-	
-}
+//stdx::time_span stdx::datetime::operator-(const stdx::datetime& other) const
+//{
+//	
+//}

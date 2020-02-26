@@ -267,4 +267,7 @@ namespace stdx
 
 	template<typename _T>
 	typename std::remove_reference<_T>::type declval();
+
+	template<typename _T>
+	typename std::add_pointer<_T>::type declptr();
 }

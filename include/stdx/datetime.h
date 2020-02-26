@@ -40,7 +40,7 @@ namespace stdx
 
 		stdx::datetime& operator=(const stdx::datetime& other);
 
-		stdx::datetime& operator=(stdx::datetime&& other);
+		stdx::datetime& operator=(stdx::datetime&& other) noexcept;
 
 		bool operator==(const stdx::datetime& other) const;
 

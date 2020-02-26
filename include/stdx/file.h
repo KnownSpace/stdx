@@ -264,49 +264,10 @@ namespace stdx
 		stdx::task<file_read_event> read(const DWORD &size, const uint64_t &offset);
 
 
-		//返回true则继续
-		template<typename _Fn>
-		void read_utill(const size_t &size,uint64_t offset, _Fn call)
-		{
-			using args_t = typename stdx::function_info<_Fn>::arguments;
-			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::task_result<stdx::file_read_event>>::value, "the input function not be allowed");
-			this->read(size, offset).then([call, offset, size, this](stdx::task_result<stdx::file_read_event> r) mutable
-			{
-				if (stdx::invoke(call, r))
-				{
-					auto e = r.get();
-					read_utill(size, e.buffer.size() + offset, ex);
-				}
-			});
-		}
+		//直到call返回true停止
+		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
 
-		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size,uint64_t offset, _Fn call, _ErrHandler err_handler)
-		{
-			using args_t = typename stdx::function_info<_Fn>::arguments;
-			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::file_read_event>::value, "the input function not be allowed");
-			return read_utill(size, offset, [call](stdx::task_result<stdx::file_read_event> r) mutable
-			{
-				try
-				{
-					auto e = r.get();
-					stdx::invoke(call, e);
-					if (e.eof)
-					{
-						return false;
-					}
-					else
-					{
-						return true;
-					}
-				}
-				catch (const std::exception&)
-				{
-					stdx::invoke(err_handler, std::current_exception());
-					return false;
-				}
-			});
-		}
+		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{
@@ -389,16 +350,15 @@ namespace stdx
 			return write((char*)str.c_str(),u64.low, offset);
 		}
 
-		template<typename _Fn>
-		void read_utill(const size_t &size, const uint64_t &offset, _Fn &&call)
+		//直到call返回true停止
+		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
 		{
-			return m_impl->read_utill(size, offset, call);
+			m_impl->read_utill(size, offset, call);
 		}
 
-		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const uint64_t &offset, _Fn &&call, _ErrHandler &&err_handler)
+		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->read_utill_eof(size, offset,call,err_handler);
+			m_impl->read_utill_eof(size, offset, call, err_handler);
 		}
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
@@ -738,49 +698,10 @@ namespace stdx
 
 		stdx::task<file_read_event> read(const size_t &size, const uint64_t &offset);
 
-		//返回true则继续
-		template<typename _Fn>
-		void read_utill(const size_t &size, const uint64_t &offset, _Fn call)
-		{
-			using args_t = typename stdx::function_info<_Fn>::arguments;
-			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::task_result<stdx::file_read_event>>::value, "the input function not be allowed");
-			this->read(size, offset).then([call, offset, size, this](stdx::task_result<stdx::file_read_event> r) mutable
-			{
-				if (stdx::invoke(call, r))
-				{
-					auto e = r.get();
-					read_utill(size, e.buffer.size() + offset, call);
-				}
-			});
-		}
+		//直到call返回true停止
+		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
 
-		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const uint64_t &offset, _Fn call, _ErrHandler err_handler)
-		{
-			using args_t = typename stdx::function_info<_Fn>::arguments;
-			static_assert(std::is_same<std::remove_const<std::remove_reference<typename args_t::First>>, stdx::file_read_event>::value, "the input function not be allowed");
-			return read_utill(size, offset, [call, err_handler](stdx::task_result<stdx::file_read_event> r) mutable
-			{
-				try
-				{
-					auto e = r.get();
-					stdx::invoke(call, e);
-					if (e.eof)
-					{
-						return false;
-					}
-					else
-					{
-						return true;
-					}
-				}
-				catch (const std::exception&)
-				{
-					stdx::invoke(err_handler, std::current_exception());
-					return false;
-				}
-			});
-		}
+		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{
@@ -859,16 +780,15 @@ namespace stdx
 			return write(str.c_str(), str.size(), offset);
 		}
 
-		template<typename _Fn>
-		void read_utill(const size_t &size, const uint64_t &offset, _Fn &&call)
+		//直到call返回true停止
+		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
 		{
-			return m_impl->read_utill(size, offset,call);
+			m_impl->read_utill(size, offset, call);
 		}
 
-		template<typename _Fn, typename _ErrHandler>
-		void read_utill_eof(const size_t &size, const uint64_t &offset, _Fn &&call, _ErrHandler &&err_handler)
+		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->read_utill_eof(size, offset,call,err_handler);
+			m_impl->read_utill_eof(size, offset, call, err_handler);
 		}
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)

@@ -630,40 +630,10 @@ namespace stdx
 			return m_io_service.get_remote_addr(m_handle);
 		}
 
-		//返回true则继续
-		template<typename _Fn>
-		void recv_utill(const DWORD&size, _Fn call)
-		{
-			static_assert(is_arguments_type(_Fn, stdx::task_result<stdx::network_recv_event>) | is_arguments_type(_Fn, stdx::task_result<stdx::network_recv_event>&) | is_arguments_type(_Fn, const stdx::task_result<stdx::network_recv_event>&) | is_arguments_type(_Fn, stdx::task_result<stdx::network_recv_event> &&), "the input function not be allowed");
-			static_assert(is_result_type(_Fn, bool), "the input function not be allowed");
-			this->recv(size).then([this, size, call](stdx::task_result<network_recv_event> r) mutable
-			{
-				if (stdx::invoke(call, r))
-				{
-					recv_utill(size, call);
-				}
-			});
-		}
+		//直到call返回true停止
+		void recv_utill(const DWORD& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call);
 
-		template<typename _Fn, typename _ErrHandler>
-		void recv_utill_error(const DWORD&size, _Fn call, _ErrHandler err_handler)
-		{
-			static_assert(is_arguments_type(_Fn, stdx::network_recv_event) | is_arguments_type(_Fn, stdx::network_recv_event&) | is_arguments_type(_Fn, const stdx::network_recv_event&) | is_arguments_type(_Fn, stdx::network_recv_event&&), "the input function not be allowed");
-			return this->recv_utill(size, [call, err_handler](stdx::task_result<network_recv_event> &r) mutable
-			{
-				try
-				{
-					stdx::network_recv_event e = r.get();
-					stdx::invoke(call, std::move(e));
-				}
-				catch (const std::exception &)
-				{
-					stdx::invoke(err_handler, std::current_exception());
-					return false;
-				}
-				return true;
-			});
-		}
+		void recv_utill_error(const DWORD& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler);
 
 	private:
 		io_service_t m_io_service;
@@ -768,14 +738,13 @@ namespace stdx
 			return m_impl->recv_from(size);
 		}
 
-		template<typename _Fn>
-		void recv_utill(const DWORD &size, _Fn &&call)
+		//直到call返回true停止
+		void recv_utill(const DWORD &size,std::function<bool(stdx::task_result<stdx::network_recv_event>)>  call)
 		{
 			return m_impl->recv_utill(size,call);
 		}
 
-		template<typename _Fn, typename _ErrHandler>
-		void recv_utill_error(const DWORD &size, _Fn &&call, _ErrHandler &&err_handler)
+		void recv_utill_error(const DWORD &size, std::function<void(stdx::network_recv_event)> call,std::function<void(std::exception_ptr)> err_handler)
 		{
 			return m_impl->recv_utill_error(size,call,err_handler);
 		}
@@ -1259,40 +1228,10 @@ namespace stdx
 			return m_io_service.get_remote_addr(m_handle);
 		}
 
-		//返回true则继续
-		template<typename _Fn>
-		void recv_utill(const size_t &size, _Fn &&call)
-		{
-			static_assert(is_arguments_type(_Fn, stdx::task_result<stdx::network_recv_event>) | is_arguments_type(_Fn, stdx::task_result<stdx::network_recv_event>&) | is_arguments_type(_Fn, const stdx::task_result<stdx::network_recv_event>&) | is_arguments_type(_Fn, stdx::task_result<stdx::network_recv_event> &&), "the input function not be allowed");
-			static_assert(is_result_type(_Fn, bool), "the input function not be allowed");
-			this->recv(size).then([this, size, call](stdx::task_result<network_recv_event> r) mutable
-			{
-				if (stdx::invoke(call, r))
-				{
-					recv_utill(size, call);
-				}
-			});
-		}
+		//直到call返回true停止
+		void recv_utill(const DWORD& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call);
 
-		template<typename _Fn, typename _ErrHandler>
-		void recv_utill_error(const size_t &size, _Fn &&call, _ErrHandler &&err_handler)
-		{
-			static_assert(is_arguments_type(_Fn, stdx::network_recv_event) | is_arguments_type(_Fn, stdx::network_recv_event&) | is_arguments_type(_Fn, const stdx::network_recv_event&) | is_arguments_type(_Fn, stdx::network_recv_event&&), "the input function not be allowed");
-			return this->recv_utill(size, [call, err_handler](stdx::task_result<network_recv_event> r) mutable
-			{
-				try
-				{
-					auto e = r.get();
-					stdx::invoke(call, e);
-				}
-				catch (const std::exception&)
-				{
-					stdx::invoke(err_handler, std::current_exception());
-					return false;
-				}
-				return true;
-			});
-		}
+		void recv_utill_error(const DWORD& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler);
 	private:
 		io_service_t m_io_service;
 		int m_handle;
@@ -1402,15 +1341,15 @@ namespace stdx
 			return m_impl->recv_utill(size, std::move(call));
 		}
 
-		template<typename _Fn, typename _ErrHandler>
-		void recv_utill_error(const size_t &size, _Fn &&call, _ErrHandler &&err_handler)
+		//直到call返回true停止
+		void recv_utill(const DWORD& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)>  call)
 		{
-			return m_impl->recv_utill_error(size, std::move(call), std::move(err_handler));
+			return m_impl->recv_utill(size, call);
 		}
 
-		bool operator==(const socket &other) const
+		void recv_utill_error(const DWORD& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl == other.m_impl;
+			return m_impl->recv_utill_error(size, call, err_handler);
 		}
 
 	private:

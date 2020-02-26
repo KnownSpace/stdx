@@ -364,6 +364,43 @@ void stdx::_FileStream::close()
 	}
 }
 
+void stdx::_FileStream::read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
+{
+	auto x = this->read(size, offset).then([call, offset, size, this](stdx::task_result<stdx::file_read_event> r) mutable
+	{
+		if (!call(r))
+		{
+			auto e = r.get();
+			read_utill(size, e.buffer.size() + offset, call);
+		}
+	});
+}
+
+void stdx::_FileStream::read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
+{
+	return read_utill(size, offset, [call, err_handler](stdx::task_result<stdx::file_read_event> r) mutable
+		{
+			try
+			{
+				auto e = r.get();
+				call(e);
+				if (e.eof)
+				{
+					return false;
+				}
+				else
+				{
+					return true;
+				}
+			}
+			catch (const std::exception&)
+			{
+				err_handler(std::current_exception());
+				return false;
+			}
+		});
+}
+
 stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, const DWORD &access_type, const DWORD &open_type)
 {
 	stdx::file_stream file(io_service);
@@ -750,6 +787,43 @@ void stdx::_FileStream::close()
 		m_io_service.close_file(m_file);
 		m_file = -1;
 	}
+}
+
+void stdx::_FileStream::read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
+{
+	auto x = this->read(size, offset).then([call, offset, size, this](stdx::task_result<stdx::file_read_event> r) mutable
+	{
+		if (!call(r))
+		{
+			auto e = r.get();
+			read_utill(size, e.buffer.size() + offset, call);
+		}
+	});
+}
+
+void stdx::_FileStream::read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
+{
+	return read_utill(size, offset, [call, err_handler](stdx::task_result<stdx::file_read_event> r) mutable
+		{
+			try
+			{
+				auto e = r.get();
+				call(e);
+				if (e.eof)
+				{
+					return false;
+				}
+				else
+				{
+					return true;
+				}
+			}
+			catch (const std::exception&)
+			{
+				err_handler(std::current_exception());
+				return false;
+			}
+		});
 }
 
 stdx::file_stream stdx::open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, const int32_t &access_type, const int32_t &open_type)
