@@ -252,3 +252,19 @@ namespace stdx
 
 	using current_sys_bit = stdx::sys_bit<sizeof(void*)>;
 }
+
+namespace stdx
+{
+	//仅声明但不定义
+	template<typename _T>
+	typename std::add_lvalue_reference<_T>::type declref();
+
+	template<typename _T>
+	typename std::add_lvalue_reference<typename std::add_const<_T>::type>::type declcref();
+
+	template<typename _T>
+	typename std::add_rvalue_reference<_T>::type declrref();
+
+	template<typename _T>
+	typename std::remove_reference<_T>::type declval();
+}

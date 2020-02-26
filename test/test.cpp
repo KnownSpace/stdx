@@ -8,6 +8,7 @@
 #include <stdx/big_int.h>
 #include <stdx/algorithm.h>
 #include <stdx/factory.h>
+#include <stdx/traits/valuation.h>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB
