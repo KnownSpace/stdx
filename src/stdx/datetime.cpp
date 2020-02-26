@@ -371,7 +371,7 @@ void stdx::datetime::operator-=(const time_span& span)
 {
 }
 
-//stdx::time_span stdx::datetime::operator-(const stdx::datetime& other) const
-//{
-//	
-//}
+stdx::time_span stdx::datetime::operator-(const stdx::datetime& other) const
+{
+	
+}
