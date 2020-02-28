@@ -5,17 +5,13 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/stdx/ src)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/stdx/async async_src)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/stdx/net net_src)
 
-message(${src})
-message(${async_src})
-message(${net_src})
+message("--${src}")
+message("--${async_src}")
+message("--${net_src}")
 
 add_library(libstdx STATIC ${src} ${async_src} ${net_src})
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-
-if(NOT DEFINED ${CMAKE_BUILD_TYPE})
-	set(CMAKE_BUILD_TYPE "Debug")
-endif()
 
 #判断位数
 if(CMAKE_CL_64)
@@ -37,15 +33,19 @@ if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
 	message(STATUS "Current platform: Windows ")
 endif()
 
-#类Unix需要做的额外处理
-if(UNIX)
-	set_target_properties(libstdx PROPERTIES OUTPUT_NAME "stdx")
-endif()
-
 #定义DEBUG符号
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 	message(STATUS "Enable debug generating.")
 	add_definitions(-DDEBUG)
+	if(UNIX)
+		set_target_properties(libstdx PROPERTIES OUTPUT_NAME "stdxd")
+	else()
+		set_target_properties(libstdx PROPERTIES OUTPUT_NAME "libstdxd")
+	endif()
+else()
+	if(UNIX)
+		set_target_properties(libstdx PROPERTIES OUTPUT_NAME "stdx")
+	endif()
 endif()
 
 #类Unix使用pthread

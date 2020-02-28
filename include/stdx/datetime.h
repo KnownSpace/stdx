@@ -12,13 +12,13 @@ namespace stdx
 #else
 		using time_int_t = int;
 #endif
-		time_int_t m_year;
-		time_int_t m_month;
-		time_int_t m_day;
-		time_int_t m_hour;
-		time_int_t m_minute;
-		time_int_t m_second;
-		time_int_t m_millisecond;
+		time_int_t year = 0;
+		time_int_t month = 0;
+		time_int_t day = 0;
+		time_int_t hour = 0;
+		time_int_t minute = 0;
+		time_int_t second = 0;
+		time_int_t millisecond = 0;
 	};
 
 	struct datetime
@@ -35,6 +35,8 @@ namespace stdx
 		datetime(const datetime& other);
 
 		datetime(datetime &&other) noexcept;
+
+		datetime(const tm &t);
 
 		virtual ~datetime()=default;
 
@@ -99,9 +101,19 @@ namespace stdx
 			return tmp;
 		}
 
-		time_span operator-(const stdx::datetime& other) const;
+		/*time_span operator-(const stdx::datetime& other) const;*/
 
-		virtual stdx::string to_string() const;
+		operator tm() const;
+
+		operator time_t() const;
+
+		virtual stdx::string to_string(typename stdx::string::char_t *format) const;
+
+		static stdx::datetime now();
+
+		static stdx::datetime now_utc();
+
+		static time_int_t get_second_by_millisecond(time_int_t v);
 	private:
 		time_int_t m_year;
 		time_int_t m_month;
@@ -110,5 +122,6 @@ namespace stdx
 		time_int_t m_minute;
 		time_int_t m_second;
 		time_int_t m_millisecond;
+		void bezero();
 	};
 }

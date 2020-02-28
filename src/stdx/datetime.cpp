@@ -1,4 +1,7 @@
 #include <stdx/datetime.h>
+#ifdef LINUX
+#include <sys/timeb.h>
+#endif
 
 stdx::datetime::datetime()
 	:m_year(1970)
@@ -28,6 +31,16 @@ stdx::datetime::datetime(datetime&& other) noexcept
 	, m_minute(std::move(other.m_minute))
 	, m_second(std::move(other.m_second))
 	, m_millisecond(std::move(other.m_millisecond))
+{}
+
+stdx::datetime::datetime(const tm& t)
+	:m_year(((t.tm_year+1900) >= 1970)?(t.tm_year+1900):1970)
+	,m_month(t.tm_mon)
+	,m_day(t.tm_mday)
+	,m_hour(t.tm_hour)
+	,m_minute(t.tm_min)
+	,m_second(t.tm_sec)
+	,m_millisecond(0)
 {}
 
 stdx::datetime& stdx::datetime::operator=(const stdx::datetime& other)
@@ -364,14 +377,324 @@ typename stdx::datetime::time_int_t stdx::datetime::day_of_month(time_int_t mont
 void stdx::datetime::operator+=(const time_span& span)
 {
 	time_int_t tmp = 0;
-
+	m_millisecond += span.millisecond;
+	if (m_millisecond > 999)
+	{
+		while (m_millisecond > 999)
+		{
+			tmp += 1;
+			m_millisecond -= 1000;
+		}
+	}
+	if (tmp != 0)
+	{
+		m_second += tmp;
+		tmp = 0;
+	}
+	m_second += span.second;
+	if (m_second > 59)
+	{
+		while (m_second > 59)
+		{
+			tmp += 1;
+			m_second -= 60;
+		}
+	}
+	if (tmp!=0)
+	{
+		m_minute += tmp;
+		tmp = 0;
+	}
+	m_minute += span.minute;
+	if (m_minute > 59)
+	{
+		while (m_minute > 59)
+		{
+			tmp += 1;
+			m_minute -= 60;
+		}
+	}
+	if (tmp!=0)
+	{
+		m_hour += tmp;
+		tmp = 0;
+	}
+	m_hour += span.hour;
+	if (m_hour > 23)
+	{
+		while (m_hour > 23)
+		{
+			m_hour -= 24;
+			tmp += 1;
+		}
+	}
+	if (tmp!=0)
+	{
+		m_day += tmp;
+		tmp = 0;
+	}
+	m_day += span.day;
+	while (m_day > day_of_month(m_month,m_year))
+	{
+		m_day -= day_of_month(m_month,m_year);
+		m_month += 1;
+		if (m_month > 12)
+		{
+			m_month -= 12;
+			m_year += 1;
+		}
+	}
+	m_month += span.month;
+	if (m_month > 12)
+	{
+		while (m_month > 12)
+		{
+			m_month -= 12;
+			m_year += 1;
+		}
+	}
+	m_year += span.year;
 }
 
 void stdx::datetime::operator-=(const time_span& span)
 {
+	int32_t t1, t2;
+	t1 = (int32_t)m_year * 12 + m_month;
+	t2 = (int32_t)span.year * 12 + span.month;
+	if (t2 >t1)
+	{
+		bezero();
+		return;
+	}
+	t1 -= t2;
+	m_year = 0;
+	while (t1 > 12)
+	{
+		t1 -= 12;
+		m_year += 1;
+	}
+	if (m_year < 1970)
+	{
+		bezero();
+		return;
+	}
+	m_month = t1;
+	if (m_day < span.day)
+	{
+		t1 = m_day - span.day;
+		while (t1 < 0)
+		{
+			if (m_month > 1)
+			{
+				time_int_t day = day_of_month(m_month, m_year);
+				m_month -= 1;
+				t1 += day;
+			}
+			else
+			{
+				m_year -= 1;
+				m_month += 11;
+				t1 += 31;
+			}
+		}
+		m_day = t1;
+		if (m_year < 1970)
+		{
+			bezero();
+			return;
+		}
+	}
+	else
+	{
+		m_day -= span.day;
+	}
+	t1 = m_hour * 3600 + m_minute * 60 + m_second;
+	t2 = span.hour * 3600 + span.minute * 60 + span.second;
+	if (t1 < t2)
+	{
+		t1 -= t2;
+		while (t1 < 0)
+		{
+			if (m_day > 1)
+			{
+				t1 += 24 * 3600;
+				m_day -= 1;
+			}
+			else
+			{
+				if (m_month > 1)
+				{
+					time_int_t day = day_of_month(m_month, m_year);
+					m_month -= 1;
+					m_day += day - 1;
+					t1 += 24 * 3600;
+				}
+				else
+				{
+					m_year -= 1;
+					m_month += 11;
+					m_day += 30;
+					t1 += 24 * 3600;
+				}
+			}
+		}
+		if (m_year < 1970)
+		{
+			bezero();
+			return;
+		}
+	}
+	else
+	{
+		t1 -= t2;
+	}
+	t1 *= 1000;
+	m_hour = 0;
+	m_minute = 0;
+	m_second = 0;
+	t2 = m_millisecond - span.millisecond;
+	t1 += t2;
+	t2 = 0;
+	while (t1 > 999)
+	{
+		t1 -= 1000;
+		t2 += 1;
+	}
+	m_millisecond = t1;
+	t1 = 0;
+	while (t2 > 59)
+	{
+		t1 += 1;
+		t2 -= 60;
+	}
+	m_second = t2;
+	t2 = 0;
+	while (t1 > 59)
+	{
+		t2 += 1;
+		t1 -= 60;
+	}
+	m_minute = t1;
+	m_hour = t2;
 }
 
-stdx::time_span stdx::datetime::operator-(const stdx::datetime& other) const
+//stdx::time_span stdx::datetime::operator-(const stdx::datetime& other) const
+//{
+//	stdx::time_span span;
+//
+//	if (this->operator>(other))
+//	{
+//		time_t t1 = (time_t)*this,t2=(time_t)other;
+//	}
+//	else if(this->operator<(other))
+//	{
+//		stdx::datetime tm(other);
+//		stdx::time_span tmp;
+//		tmp.year = m_year;
+//		tmp.month = m_month;
+//		tmp.day = m_day;
+//		tmp.hour = m_hour;
+//		tmp.minute = m_minute;
+//		tmp.second = m_second;
+//		tmp.millisecond = m_millisecond;
+//		tm -= tmp;
+//		span = tmp;
+//	}
+//	return span;
+//}
+
+stdx::datetime::operator tm() const
 {
-	
+	tm tmp;
+	tmp.tm_year = m_year - 1900;
+	tmp.tm_mon = m_month;
+	tmp.tm_mday = m_day;
+	tmp.tm_hour = m_hour;
+	tmp.tm_min = m_minute;
+	tmp.tm_sec = m_second;
+	return tmp;
+}
+
+stdx::datetime::operator time_t() const
+{
+	tm t = (tm)*this;
+	time_t tmp = mktime(&t);
+	return tmp;
+}
+
+void stdx::datetime::bezero()
+{
+	m_year = 1970;
+	m_month = 1;
+	m_day = 1;
+	m_hour = 0;
+	m_minute = 0;
+	m_second = 0;
+	m_millisecond = 0;
+}
+
+stdx::string stdx::datetime::to_string(typename stdx::string::char_t* format) const
+{
+	stdx::string str = format;
+	str.replace(U("%year"), stdx::to_string(m_year));
+	str.replace(U("%mon"),stdx::to_string(m_month));
+	str.replace(U("%day"), stdx::to_string(m_day));
+	str.replace(U("%hour"),stdx::to_string(m_hour));
+	str.replace(U("%min"), stdx::to_string(m_minute));
+	str.replace(U("%sec"), stdx::to_string(m_second));
+	str.replace(U("%msec"),stdx::to_string(m_millisecond));
+	return str;
+}
+
+stdx::datetime stdx::datetime::now()
+{
+#ifdef WIN32
+	SYSTEMTIME time;
+	GetLocalTime(&time);
+	stdx::datetime tmp;
+	tmp.m_year = time.wYear;
+	tmp.m_month = time.wMonth;
+	tmp.m_day = time.wDay;
+	tmp.m_hour = time.wHour;
+	tmp.m_minute = time.wMinute;
+	tmp.m_second = time.wSecond;
+	tmp.m_millisecond = time.wMilliseconds;
+	return tmp;
+#else
+	struct timeb tp;
+	ftime(&tp);
+	tm t;
+	localtime_r(&(tp.time),&t);
+	stdx::datatime tmp(tm);
+	tmp.m_millisecond = tp.millitm;
+	return tmp;
+#endif
+}
+
+stdx::datetime stdx::datetime::now_utc()
+{
+#ifdef WIN32
+	SYSTEMTIME time;
+	GetSystemTime(&time);
+	stdx::datetime tmp;
+	tmp.m_year = time.wYear;
+	tmp.m_month = time.wMonth;
+	tmp.m_day = time.wDay;
+	tmp.m_hour = time.wHour;
+	tmp.m_minute = time.wMinute;
+	tmp.m_second = time.wSecond;
+	tmp.m_millisecond = time.wMilliseconds;
+	return tmp;
+#else
+	struct timeb tp;
+	ftime(&tp);
+	tm t;
+	localtime_r(&(tp.time), &t);
+	stdx::datatime tmp(tm);
+	tmp.m_millisecond = tp.millitm;
+	stdx::time_span span;
+	span.minute = tp.imezonel;
+	tmp += span;
+	return tmp;
+#endif
 }
