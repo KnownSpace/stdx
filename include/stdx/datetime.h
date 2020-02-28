@@ -112,8 +112,6 @@ namespace stdx
 		static stdx::datetime now();
 
 		static stdx::datetime now_utc();
-
-		static time_int_t get_second_by_millisecond(time_int_t v);
 	private:
 		time_int_t m_year;
 		time_int_t m_month;
