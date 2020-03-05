@@ -1,6 +1,7 @@
 #pragma once
 #include <stdx/env.h>
 #include <stdx/string.h>
+#include <stdx/datetime.h>
 #include <unordered_map>
 
 namespace stdx
@@ -25,25 +26,13 @@ namespace stdx
 		http_2_0	//http 2.0
 	};
 
-	enum class http_head_type
-	{
-		request,	//请求头部
-		response	//响应头部
-	};
-
 	enum class http_cache_control_type
 	{
-		/*default*/
-		none,
-
 		/*response or request*/
 		no_cache,
-		no_soore,
-		max_age,
+		no_store,
 
 		/*request only*/
-		max_stale,
-		min_fresh,
 		only_if_cache,
 
 		/*response only*/
@@ -53,218 +42,109 @@ namespace stdx
 		must_revalidate,
 		proxy_revalidate
 	};
-	
+	using http_max_age_t = uint64_t;
+	struct http_cookie
+	{
+	public:
+		using max_age_t = http_max_age_t;
+	protected:
+		stdx::string m_name;
+		stdx::string m_value;
+		bool m_enable_max_age;
+		max_age_t m_max_age;
+		stdx::string m_path;
+		bool m_secure;
+		bool m_http_only;
+		stdx::string m_domain;
+	public:
+		http_cookie();
+
+		http_cookie(const stdx::string& name, const stdx::string& value);
+
+		http_cookie(const stdx::http_cookie& other);
+
+		http_cookie(stdx::http_cookie&& other);
+
+		~http_cookie()=default;
+
+		stdx::http_cookie& operator=(const stdx::http_cookie& other);
+
+		stdx::http_cookie& operator=(stdx::http_cookie &&other);
+
+		stdx::string to_cookie_string() const;
+		stdx::string to_cookie_string_without_header() const;
+		stdx::string to_set_cookie_string() const;
+		stdx::string to_set_cookie_string_without_header() const;
+
+		stdx::string &name();
+		const stdx::string& name() const;
+
+		stdx::string& value();
+		const stdx::string &value() const;
+
+		bool enable_max_age() const;
+		stdx::http_cookie::max_age_t &max_age();
+		const stdx::http_cookie::max_age_t &max_age() const;
+
+		stdx::string& path();
+		const stdx::string& path()const;
+
+		stdx::http_cookie &set_secure(bool secure);
+		bool secure() const;
+
+		stdx::http_cookie &set_http_only(bool http_only);
+		bool http_only() const;
+
+		stdx::string &domain();
+		const stdx::string &domain() const;
+	};
+
 	struct http_cache_control
 	{
-		http_cache_control_type type;
-		stdx::string value;
+	public:
+		using max_age_t = http_max_age_t;
+		using max_stale_t = max_age_t;
+		using min_fresh_t = max_age_t;
+	private:
+		max_age_t m_max_age;
+		max_stale_t m_max_stale;
+		min_fresh_t m_min_fresh;
+		max_age_t m_s_max_age;
+		stdx::http_cache_control_type m_type;
+	public:
+		http_cache_control();
 
-		http_cache_control()
-			:type(stdx::http_cache_control_type::none)
-			,value()
-		{}
-		http_cache_control(const http_cache_control &other)
-			:type(other.type)
-			,value(other.value)
-		{}
+		http_cache_control(const stdx::http_cache_control &other);
+
+		http_cache_control(stdx::http_cache_control&& other);
+
+		stdx::http_cache_control& operator=(const stdx::http_cache_control& other);
+
+		stdx::http_cache_control& operator=(stdx::http_cache_control&& other);
+
 		~http_cache_control() = default;
 
-		stdx::http_cache_control& operator=(const stdx::http_cache_control& other)
-		{
-			type = other.type;
-			value = other.value;
-			return *this;
-		}
-	};
+		static stdx::string type_to_string(stdx::http_cache_control_type type);
+		stdx::string to_string() const;
+		stdx::string to_string_without_header() const;
 
-	enum class http_connection_type
-	{
-		close,
-		keep_alive
-	};
+		bool enable_max_age() const;
+		max_age_t &max_age();
+		const max_age_t max_age() const;
 
-	class _HttpHead
-	{
-	public:
-		_HttpHead(stdx::http_head_type type)
-			:m_type(type)
-			,m_version(stdx::http_version::http_1_1)
-			,m_cache_control()
-		{}
+		bool enable_max_stale() const;
+		max_stale_t &max_stale();
+		const max_stale_t &max_stale() const;
 
-		_HttpHead(stdx::http_head_type type, stdx::http_version version)
-			:m_type(type)
-			, m_version(version)
-			, m_cache_control()
-		{}
+		bool enable_min_fresh() const;
+		min_fresh_t& min_fresh();
+		const min_fresh_t& min_fresh() const;
 
-		virtual	~_HttpHead() = default;
-		
-		virtual stdx::string to_string() const = 0;
+		bool enable_s_max_age() const;
+		max_age_t& s_max_age();
+		const max_age_t &s_max_age() const;
 
-		stdx::http_version version() const;
-		
-		bool have_cache_control() const;
-		stdx::http_cache_control &cache_control();
-		const stdx::http_cache_control &cache_control() const;
-	private:
-		stdx::http_head_type m_type;
-	protected:
-		stdx::http_version m_version;
-		stdx::http_cache_control m_cache_control;
-	};
-
-	struct http_authorization
-	{
-		stdx::string type;
-		stdx::string value;
-
-		http_authorization()
-			:type()
-			,value()
-		{}
-		http_authorization(const stdx::string &_type,const stdx::string &val)
-			:type(_type)
-			,value(val)
-		{}
-		http_authorization(const http_authorization &other)
-			:type(other.type)
-			,value(other.value)
-		{}
-		~http_authorization() = default;
-		http_authorization& operator=(const http_authorization& other)
-		{
-			type = other.type;
-			value = other.value;
-			return *this;
-		}
-		bool vaild() const
-		{
-			return (!type.empty());
-		}
-	};
-
-	struct http_cookie 
-	{
-		stdx::string name;
-		stdx::string value;
-		bool http_only;
-		stdx::string domain;
-		stdx::string expires;
-		stdx::string path;
-		bool secure;
-
-		http_cookie()
-			:name()
-			,value()
-			,http_only(false)
-			,domain()
-			,expires()
-			,path()
-			,secure(false)
-		{}
-
-		http_cookie(const stdx::string& n, const stdx::string &val)
-			:name(n)
-			,value(val)
-			,http_only(false)
-			,domain()
-			,expires()
-			,path()
-			,secure(false)
-		{}
-
-		http_cookie(const http_cookie &other)
-			:name(other.name)
-			,value(other.value)
-			,http_only(other.http_only)
-			,domain(other.domain)
-			,expires(other.expires)
-			,path(other.path)
-			,secure(other.secure)
-		{}
-
-		~http_cookie() = default;
-
-		http_cookie& operator=(const http_cookie& other)
-		{
-			name = other.name;
-			value = other.value;
-			http_only = other.http_only;
-			domain = other.domain;
-			expires = other.expires;
-			path = other.path;
-			secure = other.secure;
-			return *this;
-		}
-	};
-
-	class _HttpRequestHead:public _HttpHead
-	{
-	public:
-		_HttpRequestHead();
-		_HttpRequestHead(stdx::http_version version);
-		_HttpRequestHead(stdx::http_method method);
-		_HttpRequestHead(stdx::http_version version,stdx::http_method method);
-		virtual ~_HttpRequestHead()=default;
-
-		stdx::string to_string() const override;
-
-		stdx::http_method method() const;
-		void method(stdx::http_method method);
-
-		const stdx::string &url() const;
-		void url(const stdx::string &url);
-
-		bool have_accept() const;
-		std::list<stdx::string> &accept();
-		const std::list<stdx::string> &accept() const;
-
-		bool hava_accept_charset() const;
-		std::list<stdx::string> &accept_charset();
-		const std::list<stdx::string> &accept_charset() const;
-
-		bool hava_accept_language() const;
-		std::list<stdx::string> &accept_language();
-		const std::list<stdx::string> &accept_language() const;
-
-		bool enable_connection_type() const;
-		stdx::http_connection_type connection_type() const;
-
-		bool using_content_length() const;
-		uint64_t content_length() const;
-		void content_length(const uint64_t &length);
-
-		bool have_cookie() const;
-		std::list<stdx::http_cookie> &cookies();
-		const std::list<stdx::http_cookie> &cookies() const;
-
-		bool have_host() const;
-		const stdx::string &host() const;
-		void host(const stdx::string &host);
-
-		bool have_user_agent() const;
-		std::list<stdx::string> &user_agent();
-		const std::list<stdx::string> &user_agent() const;
-
-		bool have_authorization() const;
-		stdx::http_authorization &authorization();
-		const stdx::http_authorization &authorization() const;
-
-		std::unordered_map<stdx::string, stdx::string> &other_head();
-		const std::unordered_map<stdx::string, stdx::string> &other_head() const;
-	private:
-		stdx::http_method m_method;
-		stdx::string m_url;
-		std::list<stdx::string> m_accept;
-		std::list<stdx::string> m_accept_charset;
-		std::list<stdx::string> m_accept_lanuage;
-		stdx::http_connection_type m_connection;
-		uint64_t m_content_length;
-		std::list<stdx::http_cookie> m_cookies;
-		stdx::string m_host;
-		std::list<stdx::string> m_user_agent;
-		stdx::http_authorization m_authorization;
-		std::unordered_map<stdx::string,stdx::string> m_other_head;
+		stdx::http_cache_control_type cache_type() const;
+		void set_cache_type(stdx::http_cache_control_type type);
 	};
 }

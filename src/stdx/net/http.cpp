@@ -1,250 +1,476 @@
 #include <stdx/net/http.h>
 
-stdx::http_version stdx::_HttpHead::version() const
-{
-	return m_version;
-}
-
-bool stdx::_HttpHead::have_cache_control() const
-{
-	return (m_cache_control.type == stdx::http_cache_control_type::none);
-}
-
-stdx::http_cache_control &stdx::_HttpHead::cache_control()
-{
-	return m_cache_control;
-}
-
-const stdx::http_cache_control &stdx::_HttpHead::cache_control() const
-{
-	return m_cache_control;
-}
-
-stdx::_HttpRequestHead::_HttpRequestHead()
-	:stdx::_HttpHead(stdx::http_head_type::request)
-	, m_method(stdx::http_method::get)
-	, m_url()
-	, m_accept()
-	, m_accept_charset()
-	, m_accept_lanuage()
-	, m_connection(stdx::http_connection_type::keep_alive)
-	, m_content_length(0)
-	, m_cookies()
-	, m_host()
-	, m_user_agent()
-	, m_authorization()
-	, m_other_head()
+stdx::http_cookie::http_cookie()
+	:m_name()
+	,m_value()
+	,m_enable_max_age(false)
+	,m_max_age(0)
+	,m_path()
+	,m_secure()
+	,m_http_only()
+	,m_domain()
 {}
 
-stdx::_HttpRequestHead::_HttpRequestHead(stdx::http_version version)
-	:stdx::_HttpHead(stdx::http_head_type::request,version)
-	, m_method(stdx::http_method::get)
-	, m_url()
-	, m_accept()
-	, m_accept_charset()
-	, m_accept_lanuage()
-	, m_connection(stdx::http_connection_type::keep_alive)
-	, m_content_length(0)
-	, m_cookies()
-	, m_host()
-	, m_user_agent()
-	, m_authorization()
-	, m_other_head()
+stdx::http_cookie::http_cookie(const stdx::string& name, const stdx::string& value)
+	:m_name(name)
+	,m_value(value)
+	,m_enable_max_age(false)
+	,m_max_age(0)
+	,m_path()
+	,m_secure(false)
+	,m_http_only(false)
+	,m_domain()
+{
+	if (m_name.begin_with(U("__Secure-")))
+	{
+		m_secure = true;
+	}
+	else if (m_name.begin_with(U("__Host-")))
+	{
+		m_path = U("/");
+	}
+}
+
+stdx::http_cookie::http_cookie(const stdx::http_cookie& other)
+	:m_name(other.m_name)
+	,m_value(other.m_value)
+	,m_enable_max_age(other.m_enable_max_age)
+	,m_max_age(other.m_max_age)
+	,m_path(other.m_path)
+	,m_secure(other.m_secure)
+	,m_http_only(other.m_http_only)
+	,m_domain(other.m_domain)
 {}
 
-stdx::_HttpRequestHead::_HttpRequestHead(stdx::http_method method)
-	:stdx::_HttpHead(stdx::http_head_type::request)
-	, m_method(method)
-	, m_url()
-	, m_accept()
-	, m_accept_charset()
-	, m_accept_lanuage()
-	, m_connection(stdx::http_connection_type::keep_alive)
-	, m_content_length(0)
-	, m_cookies()
-	, m_host()
-	, m_user_agent()
-	, m_authorization()
-	, m_other_head()
+stdx::http_cookie::http_cookie(stdx::http_cookie&& other)
+	:m_name(other.m_name)
+	,m_value(other.m_value)
+	,m_enable_max_age(other.m_enable_max_age)
+	,m_max_age(other.m_max_age)
+	,m_path(other.m_path)
+	,m_secure(other.m_secure)
+	,m_http_only(other.m_http_only)
+	,m_domain(other.m_domain)
 {}
 
-stdx::_HttpRequestHead::_HttpRequestHead(stdx::http_version version, stdx::http_method method)
-	:stdx::_HttpHead(stdx::http_head_type::request,version)
-	, m_method(method)
-	, m_url()
-	, m_accept()
-	, m_accept_charset()
-	, m_accept_lanuage()
-	, m_connection(stdx::http_connection_type::keep_alive)
-	, m_content_length(0)
-	, m_cookies()
-	, m_host()
-	, m_user_agent()
-	, m_authorization()
-	, m_other_head()
+stdx::http_cookie& stdx::http_cookie::operator=(const stdx::http_cookie& other)
+{
+	m_name = other.name;
+	m_value = other.value;
+	m_enable_max_age = other.m_enable_max_age;
+	m_max_age = other.m_max_age;
+	m_path = other.m_path;
+	m_secure = other.m_secure;
+	m_http_only = other.m_http_only;
+	m_domain = other.m_domain;
+	return *this;
+}
+
+stdx::http_cookie& stdx::http_cookie::operator=(stdx::http_cookie&& other)
+{
+	m_name = other.name;
+	m_value = other.value;
+	m_path = other.m_path;
+	m_secure = other.m_secure;
+	m_http_only = other.m_http_only;
+	m_domain = other.m_domain;
+	return *this;
+}
+
+stdx::string stdx::http_cookie::to_cookie_string() const
+{
+	if (m_name.empty())
+	{
+		throw std::logic_error("you should set coookie name first");
+	}
+	stdx::string str(U("Cookie: "));
+	str.append(m_name);
+	if (!m_value.empty())
+	{
+		str.push_back(U('='));
+		str.append(m_value);
+	}
+	return str;
+}
+
+stdx::string stdx::http_cookie::to_cookie_string_without_header() const
+{
+	if (m_name.empty())
+	{
+		throw std::logic_error("you should set coookie name first");
+	}
+	stdx::string str;
+	str.append(m_name);
+	if (!m_value.empty())
+	{
+		str.push_back(U('='));
+		str.append(m_value);
+	}
+	return str;
+}
+
+stdx::string stdx::http_cookie::to_set_cookie_string() const
+{
+	if (m_name.empty())
+	{
+		throw std::logic_error("you should set coookie namefirst");
+	}
+	stdx::string str(U("Set-Cookie: "));
+	str.append(m_name);
+	if (!m_value.empty())
+	{
+		str.push_back(U('='));
+		str.append(m_value);
+	}
+	if (m_enable_max_age)
+	{
+		str.append(U("; "));
+		str.append(U("Max-Age="));
+		str.append(stdx::to_string(m_max_age));
+	}
+	if (!m_path.empty())
+	{
+		str.append(U("; "));
+		str.append(U("Path="));
+		str.append(m_path);
+	}
+	if (!m_domain.empty())
+	{
+		str.append(U("; "));
+		str.append(U("Domain="));
+		str.append(m_domain);
+	}
+	if (m_secure)
+	{
+		str.append(U("; "));
+		str.append(U("Secure"));
+	}
+	if (m_http_only)
+	{
+		str.append(U("; "));
+		str.append(U("HttpOnly"));
+	}
+	return str;
+}
+
+stdx::string stdx::http_cookie::to_set_cookie_string_without_header() const
+{
+	if (m_name.empty())
+	{
+		throw std::logic_error("you should set coookie name first");
+	}
+	stdx::string str;
+	str.append(m_name);
+	if (!m_value.empty())
+	{
+		str.push_back(U('='));
+		str.append(m_value);
+	}
+	if (m_enable_max_age)
+	{
+		str.append(U("; "));
+		str.append(U("Max-Age="));
+		str.append(stdx::to_string(m_max_age));
+	}
+	if (!m_path.empty())
+	{
+		str.append(U("; "));
+		str.append(U("Path="));
+		str.append(m_path);
+	}
+	if (!m_domain.empty())
+	{
+		str.append(U("; "));
+		str.append(U("Domain="));
+		str.append(m_domain);
+	}
+	if (m_secure)
+	{
+		str.append(U("; "));
+		str.append(U("Secure"));
+	}
+	if (m_http_only)
+	{
+		str.append(U("; "));
+		str.append(U("HttpOnly"));
+	}
+	return str;
+}
+
+stdx::string& stdx::http_cookie::name()
+{
+	return m_name;
+}
+
+const stdx::string& stdx::http_cookie::name() const
+{
+	return m_name;
+}
+
+stdx::string& stdx::http_cookie::value()
+{
+	return m_value;
+}
+
+const stdx::string& stdx::http_cookie::value() const
+{
+	return m_value;
+}
+
+bool stdx::http_cookie::enable_max_age() const
+{
+	return m_enable_max_age;
+}
+
+typename stdx::http_cookie::max_age_t& stdx::http_cookie::max_age()
+{
+	return m_max_age;
+}
+
+const typename stdx::http_cookie::max_age_t& stdx::http_cookie::max_age() const
+{
+	return m_max_age;
+}
+
+stdx::string& stdx::http_cookie::path()
+{
+	return m_path;
+}
+
+const stdx::string& stdx::http_cookie::path() const
+{
+	return m_path;
+}
+
+stdx::http_cookie& stdx::http_cookie::set_secure(bool secure)
+{
+	m_secure = secure;
+	return *this;
+}
+
+bool stdx::http_cookie::secure() const
+{
+	return m_secure;
+}
+
+stdx::http_cookie& stdx::http_cookie::set_http_only(bool http_only)
+{
+	m_http_only = http_only;
+	return *this;
+}
+
+bool stdx::http_cookie::http_only() const
+{
+	return m_http_only;
+}
+
+stdx::string& stdx::http_cookie::domain()
+{
+	return m_domain;
+}
+
+const stdx::string& stdx::http_cookie::domain() const
+{
+	return m_domain;
+}
+
+stdx::http_cache_control::http_cache_control()
+	:m_max_age(0)
+	,m_max_stale(0)
+	,m_min_fresh(0)
+	,m_s_max_age(0)
+	,m_type(stdx::http_cache_control_type::no_store)
 {}
 
-stdx::string stdx::_HttpRequestHead::to_string() const
+stdx::http_cache_control::http_cache_control(const stdx::http_cache_control& other)
+	:m_max_age(other.m_max_age)
+	,m_max_stale(other.m_max_stale)
+	,m_min_fresh(other.m_min_fresh)
+	,m_s_max_age(other.m_s_max_age)
+	,m_type(other.m_type)
+{}
+
+stdx::http_cache_control::http_cache_control(stdx::http_cache_control&& other)
+	:m_max_age(other.m_max_age)
+	,m_max_stale(other.m_max_stale)
+	,m_min_fresh(other.m_min_fresh)
+	,m_s_max_age(other.m_s_max_age)
+	,m_type(other.m_type)
+{}
+
+stdx::http_cache_control& stdx::http_cache_control::operator=(const stdx::http_cache_control& other)
 {
-	return stdx::string();
+	m_max_age = other.m_max_age;
+	m_max_stale = other.m_max_stale;
+	m_min_fresh = other.m_min_fresh;
+	m_s_max_age = other.m_s_max_age;
+	m_type = other.m_type;
+	return *this;
 }
 
-stdx::http_method stdx::_HttpRequestHead::method() const
+stdx::http_cache_control& stdx::http_cache_control::operator=(stdx::http_cache_control&& other)
 {
-	return m_method;
+	m_max_age = other.m_max_age;
+	m_max_stale = other.m_max_stale;
+	m_min_fresh = other.m_min_fresh;
+	m_s_max_age = other.m_s_max_age;
+	m_type = other.m_type;
+	return *this;
 }
 
-void stdx::_HttpRequestHead::method(stdx::http_method method)
+stdx::string stdx::http_cache_control::to_string() const
 {
-	m_method = method;
+	stdx::string str(U("Cache-control: "));
+	str.append(type_to_string(m_type));
+	if (m_max_age != 0)
+	{
+		str.append(U(", "));
+		str.append(U("max-age="));
+		str.append(stdx::to_string(m_max_age));
+	}
+	if (m_max_stale != 0)
+	{
+		str.append(U(", "));
+		str.append(U("max-stale="));
+		str.append(stdx::to_string(m_max_stale));
+	}
+	if (m_min_fresh != 0)
+	{
+		str.append(U(", "));
+		str.append(U("min-fresh="));
+		str.append(stdx::to_string(m_min_fresh));
+	}
+	if (m_s_max_age != 0)
+	{
+		str.append(U(", "));
+		str.append(U("s-maxage="));
+		str.append(stdx::to_string(m_s_max_age));
+	}
+	return str;
 }
 
-const stdx::string &stdx::_HttpRequestHead::url() const
+stdx::string stdx::http_cache_control::to_string_without_header() const
 {
-	return m_url;
+	stdx::string str;
+	str.append(type_to_string(m_type));
+	if (m_max_age != 0)
+	{
+		str.append(U(", "));
+		str.append(U("max-age="));
+		str.append(stdx::to_string(m_max_age));
+	}
+	if (m_max_stale != 0)
+	{
+		str.append(U(", "));
+		str.append(U("max-stale="));
+		str.append(stdx::to_string(m_max_stale));
+	}
+	if (m_min_fresh != 0)
+	{
+		str.append(U(", "));
+		str.append(U("min-fresh="));
+		str.append(stdx::to_string(m_min_fresh));
+	}
+	if (m_s_max_age != 0)
+	{
+		str.append(U(", "));
+		str.append(U("s-maxage="));
+		str.append(stdx::to_string(m_s_max_age));
+	}
+	return str;
 }
 
-void stdx::_HttpRequestHead::url(const stdx::string& url)
+stdx::string stdx::http_cache_control::type_to_string(stdx::http_cache_control_type type)
 {
-	m_url = url;
+	switch (type)
+	{
+	case stdx::http_cache_control_type::no_cache:
+		return U("no-cache");
+	case stdx::http_cache_control_type::no_store:
+		return U("no-store");
+	case stdx::http_cache_control_type::only_if_cache:
+		return U("only-if-cache");
+	case stdx::http_cache_control_type::_public:
+		return U("public");
+	case stdx::http_cache_control_type::_private:
+		return U("private");
+	case stdx::http_cache_control_type::no_transform:
+		return U("no-transform");
+	case stdx::http_cache_control_type::must_revalidate:
+		return U("must-revalidate");
+	case stdx::http_cache_control_type::proxy_revalidate:
+		return U("proxy-revalidate");
+	default:
+		throw std::invalid_argument("unkonw cache type");
+	}
 }
 
-bool stdx::_HttpRequestHead::have_accept() const
+bool stdx::http_cache_control::enable_max_age() const
 {
-	return (!m_accept.empty());
+	return (m_max_age == 0) && (!enable_s_max_age());
 }
 
-std::list<stdx::string>& stdx::_HttpRequestHead::accept()
+typename stdx::http_cache_control::max_age_t& stdx::http_cache_control::max_age()
 {
-	return m_accept;
+	return m_max_age;
 }
 
-const std::list<stdx::string>& stdx::_HttpRequestHead::accept() const
+const typename stdx::http_cache_control::max_age_t stdx::http_cache_control::max_age() const
 {
-	return m_accept;
+	return m_max_age;
 }
 
-bool stdx::_HttpRequestHead::hava_accept_charset() const
+bool stdx::http_cache_control::enable_max_stale() const
 {
-	return (!m_accept.empty());
+	return m_max_stale == 0;
 }
 
-std::list<stdx::string>& stdx::_HttpRequestHead::accept_charset()
+typename stdx::http_cache_control::max_stale_t& stdx::http_cache_control::max_stale()
 {
-	return m_accept_charset;
+	return m_max_stale;
 }
 
-const std::list<stdx::string>& stdx::_HttpRequestHead::accept_charset() const
+const typename stdx::http_cache_control::max_stale_t& stdx::http_cache_control::max_stale() const
 {
-	return m_accept_charset;
+	return m_max_stale;
 }
 
-bool stdx::_HttpRequestHead::hava_accept_language() const
+bool stdx::http_cache_control::enable_min_fresh() const
 {
-	return (!m_accept_lanuage.empty());
+	return m_min_fresh == 0;
 }
 
-std::list<stdx::string>& stdx::_HttpRequestHead::accept_language()
+typename stdx::http_cache_control::min_fresh_t& stdx::http_cache_control::min_fresh()
 {
-	return m_accept_lanuage;
+	return m_min_fresh;
 }
 
-const std::list<stdx::string>& stdx::_HttpRequestHead::accept_language() const
+const typename stdx::http_cache_control::min_fresh_t& stdx::http_cache_control::min_fresh() const
 {
-	return m_accept_lanuage;
+	return m_min_fresh;
 }
 
-bool stdx::_HttpRequestHead::enable_connection_type() const
+bool stdx::http_cache_control::enable_s_max_age() const
 {
-	return (m_version == stdx::http_version::http_1_1)||(m_version == stdx::http_version::http_2_0);
+	return m_s_max_age == 0;
 }
 
-stdx::http_connection_type stdx::_HttpRequestHead::connection_type() const
+typename stdx::http_cache_control::max_age_t& stdx::http_cache_control::s_max_age()
 {
-	return m_connection;
+	return m_s_max_age;
 }
 
-bool stdx::_HttpRequestHead::using_content_length() const
+const typename stdx::http_cache_control::max_age_t& stdx::http_cache_control::s_max_age() const
 {
-	return (m_content_length != 0);
+	return m_s_max_age;
 }
 
-uint64_t stdx::_HttpRequestHead::content_length() const
+stdx::http_cache_control_type stdx::http_cache_control::cache_type() const
 {
-	return m_content_length;
+	return m_type;
 }
 
-void stdx::_HttpRequestHead::content_length(const uint64_t& length)
+void stdx::http_cache_control::set_cache_type(stdx::http_cache_control_type type)
 {
-	m_content_length = length;
-}
-
-bool stdx::_HttpRequestHead::have_cookie() const
-{
-	return (!m_cookies.empty());
-}
-
-std::list<stdx::http_cookie>& stdx::_HttpRequestHead::cookies()
-{
-	return m_cookies;
-}
-
-const std::list<stdx::http_cookie>& stdx::_HttpRequestHead::cookies() const
-{
-	return m_cookies;
-}
-
-bool stdx::_HttpRequestHead::have_host() const
-{
-	return (!m_host.empty());
-}
-
-const stdx::string &stdx::_HttpRequestHead::host() const
-{
-	return m_host;
-}
-
-void stdx::_HttpRequestHead::host(const stdx::string& host)
-{
-	m_host = host;
-}
-
-bool stdx::_HttpRequestHead::have_user_agent() const
-{
-	return (!m_user_agent.empty());
-}
-
-std::list<stdx::string>& stdx::_HttpRequestHead::user_agent()
-{
-	return m_user_agent;
-}
-
-const std::list<stdx::string>& stdx::_HttpRequestHead::user_agent() const
-{
-	return m_user_agent;
-}
-
-bool stdx::_HttpRequestHead::have_authorization() const
-{
-	return false;
-}
-
-stdx::http_authorization& stdx::_HttpRequestHead::authorization()
-{
-	return m_authorization;
-}
-
-const stdx::http_authorization &stdx::_HttpRequestHead::authorization() const
-{
-	return m_authorization;
-}
-
-std::unordered_map<stdx::string, stdx::string>& stdx::_HttpRequestHead::other_head()
-{
-	return m_other_head;
-}
-
-const std::unordered_map<stdx::string, stdx::string>& stdx::_HttpRequestHead::other_head() const
-{
-	return m_other_head;
+	m_type = type;
 }
