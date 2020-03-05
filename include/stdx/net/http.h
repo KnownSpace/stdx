@@ -63,13 +63,13 @@ namespace stdx
 
 		http_cookie(const stdx::http_cookie& other);
 
-		http_cookie(stdx::http_cookie&& other);
+		http_cookie(stdx::http_cookie&& other) noexcept;
 
 		~http_cookie()=default;
 
 		stdx::http_cookie& operator=(const stdx::http_cookie& other);
 
-		stdx::http_cookie& operator=(stdx::http_cookie &&other);
+		stdx::http_cookie& operator=(stdx::http_cookie &&other) noexcept;
 
 		stdx::string to_cookie_string() const;
 		stdx::string to_cookie_string_without_header() const;
@@ -116,11 +116,11 @@ namespace stdx
 
 		http_cache_control(const stdx::http_cache_control &other);
 
-		http_cache_control(stdx::http_cache_control&& other);
+		http_cache_control(stdx::http_cache_control&& other) noexcept;
 
 		stdx::http_cache_control& operator=(const stdx::http_cache_control& other);
 
-		stdx::http_cache_control& operator=(stdx::http_cache_control&& other);
+		stdx::http_cache_control& operator=(stdx::http_cache_control&& other) noexcept;
 
 		~http_cache_control() = default;
 

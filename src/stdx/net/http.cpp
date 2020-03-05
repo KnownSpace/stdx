@@ -42,7 +42,7 @@ stdx::http_cookie::http_cookie(const stdx::http_cookie& other)
 	,m_domain(other.m_domain)
 {}
 
-stdx::http_cookie::http_cookie(stdx::http_cookie&& other)
+stdx::http_cookie::http_cookie(stdx::http_cookie&& other) noexcept
 	:m_name(other.m_name)
 	,m_value(other.m_value)
 	,m_enable_max_age(other.m_enable_max_age)
@@ -55,8 +55,8 @@ stdx::http_cookie::http_cookie(stdx::http_cookie&& other)
 
 stdx::http_cookie& stdx::http_cookie::operator=(const stdx::http_cookie& other)
 {
-	m_name = other.name;
-	m_value = other.value;
+	m_name = other.m_name;
+	m_value = other.m_value;
 	m_enable_max_age = other.m_enable_max_age;
 	m_max_age = other.m_max_age;
 	m_path = other.m_path;
@@ -66,10 +66,10 @@ stdx::http_cookie& stdx::http_cookie::operator=(const stdx::http_cookie& other)
 	return *this;
 }
 
-stdx::http_cookie& stdx::http_cookie::operator=(stdx::http_cookie&& other)
+stdx::http_cookie& stdx::http_cookie::operator=(stdx::http_cookie&& other) noexcept
 {
-	m_name = other.name;
-	m_value = other.value;
+	m_name = other.m_name;
+	m_value = other.m_value;
 	m_path = other.m_path;
 	m_secure = other.m_secure;
 	m_http_only = other.m_http_only;
@@ -290,7 +290,7 @@ stdx::http_cache_control::http_cache_control(const stdx::http_cache_control& oth
 	,m_type(other.m_type)
 {}
 
-stdx::http_cache_control::http_cache_control(stdx::http_cache_control&& other)
+stdx::http_cache_control::http_cache_control(stdx::http_cache_control&& other) noexcept
 	:m_max_age(other.m_max_age)
 	,m_max_stale(other.m_max_stale)
 	,m_min_fresh(other.m_min_fresh)
@@ -308,7 +308,7 @@ stdx::http_cache_control& stdx::http_cache_control::operator=(const stdx::http_c
 	return *this;
 }
 
-stdx::http_cache_control& stdx::http_cache_control::operator=(stdx::http_cache_control&& other)
+stdx::http_cache_control& stdx::http_cache_control::operator=(stdx::http_cache_control&& other) noexcept
 {
 	m_max_age = other.m_max_age;
 	m_max_stale = other.m_max_stale;

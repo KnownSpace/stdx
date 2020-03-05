@@ -9,6 +9,7 @@
 #include <stdx/algorithm.h>
 #include <stdx/factory.h>
 #include <stdx/traits/valuation.h>
+#include <stdx/datetime.h>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB
@@ -63,6 +64,8 @@ int main(int argc, char **argv)
 	}
 	std::cin.get();
 #pragma endregion
-#endif 
+#endif
+	stdx::datetime time = stdx::datetime::now_utc();
+	auto wd = time.week_day();
 	return 0;
 }

@@ -698,3 +698,57 @@ stdx::datetime stdx::datetime::now_utc()
 	return tmp;
 #endif
 }
+
+stdx::week_day stdx::datetime::week_day() const
+{
+	uint32_t day = m_day;
+	for (size_t i = m_month; i != 1; i--)
+	{
+		day += day_of_month(m_month, m_year);
+	}
+	if (m_year < 1972)
+	{
+		day += 365;
+	}
+	else
+	{
+		day += 365;
+		uint32_t tmp = m_year-1971;
+		if (tmp!=0)
+		{
+			if (tmp % 4)
+			{
+				uint32_t t = tmp / 4;
+				day += t * (365 * 3 + 366);
+				tmp %= 4;
+				day += t * 365;
+			}
+			else
+			{
+				tmp /= 4;
+				day += tmp * (365 * 3 + 366);
+			}
+		}
+	}
+	day %= 7;
+	day += 4;
+	switch (day)
+	{
+	case 0:
+		return stdx::week_day::sun;
+	case 1:
+		return stdx::week_day::mon;
+	case 2:
+		return stdx::week_day::tues;
+	case 3:
+		return stdx::week_day::wed;
+	case 4:
+		return stdx::week_day::thur;
+	case 5:
+		return stdx::week_day::fri;
+	case 6:
+		return stdx::week_day::sat;
+	default:
+		throw std::logic_error("unkonw week day");
+	}
+}

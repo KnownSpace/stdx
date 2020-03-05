@@ -21,6 +21,17 @@ namespace stdx
 		time_int_t millisecond = 0;
 	};
 
+	enum class week_day
+	{
+		sun,
+		mon,
+		tues,
+		wed,
+		thur,
+		fri,
+		sat
+	};
+
 	struct datetime
 	{
 	protected:
@@ -112,6 +123,8 @@ namespace stdx
 		static stdx::datetime now();
 
 		static stdx::datetime now_utc();
+
+		stdx::week_day week_day() const;
 	private:
 		time_int_t m_year;
 		time_int_t m_month;
