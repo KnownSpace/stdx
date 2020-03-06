@@ -665,3 +665,188 @@ stdx::string stdx::string::upper() const
 	tmp.upper();
 	return tmp;
 }
+
+std::string stdx::string::to_base64_string() const
+{
+	std::string str(to_native_string());
+	return stdx::to_base64_string(str);
+}
+
+char stdx::switch_to_base64_char(unsigned char byte)
+{
+	if (byte == 62)
+	{
+		return '+';
+	}
+	else if(byte == 63)
+	{
+		return '-';
+	}
+	//A~Z
+	if (byte <26)
+	{
+		return byte + 65;
+	}
+	//a~z
+	if (byte>25 && byte <52)
+	{
+		return byte + 71;
+	}
+	//0~9
+	if (byte > 51 && byte <64)
+	{
+		return byte - 4;
+	}
+	throw std::invalid_argument("unknow base64 index");
+}
+
+char stdx::base64_char_to_char(char ch)
+{
+	if (ch == '+')
+	{
+		return 62;
+	}
+	else if (ch == '-')
+	{
+		return 63;
+	}
+	if (ch >64  && ch < 91)
+	{
+		return ch - 65;
+	}
+	if (ch > 96 && ch<123)
+	{
+		return ch - 71;
+	}
+	if (ch >47 && ch < 58)
+	{
+		return ch+4;
+	}
+	throw std::invalid_argument("unknow base64 char");
+}
+
+stdx::string stdx::string::from_base64_string(const std::string& base64_str)
+{
+	return stdx::string::from_native_string(stdx::from_base64_string(base64_str));
+}
+
+std::string stdx::to_base64_string(const std::string& data)
+{
+	size_t size = data.size();
+	size_t i = 0;
+	std::string str;
+	size_t end = size;
+	size_t tmp = size % 3;
+	if (tmp)
+	{
+		while (i != (end - tmp))
+		{
+			char t1 = data[i], t2 = data[i+1], t3 = data[i+2];
+			str.push_back(stdx::switch_to_base64_char(t1 >> 2));
+			t1 = (t1 & 0x03) << 4;
+			str.push_back(stdx::switch_to_base64_char(t1 | (t2 >> 4)));
+			t2 = (t2 & 0x0F) << 2;
+			str.push_back(stdx::switch_to_base64_char((t2 | (t3 >> 6))));
+			str.push_back(stdx::switch_to_base64_char(t3 & 0x3F));
+			i += 3;
+		}
+		if (tmp == 1)
+		{
+			char t1 = data[i], t2 = (t1 & 0x03) << 4;
+			t1 >>= 2;
+			str.push_back(stdx::switch_to_base64_char(t1));
+			str.push_back(stdx::switch_to_base64_char(t2));
+			str.push_back('=');
+			str.push_back('=');
+		}
+		else
+		{
+			char t1 = data[i], t2 = data[i+1], t3 = 0x00;
+			str.push_back(stdx::switch_to_base64_char(t1 >> 2));
+			t1 = (t1 & 0x03) << 4;
+			str.push_back(stdx::switch_to_base64_char(t1 | (t2 >> 4)));
+			t2 = (t2 & 0x0F) << 2;
+			str.push_back(stdx::switch_to_base64_char((t2 | (t3 >> 6))));
+			str.push_back('=');
+		}
+	}
+	else
+	{
+		while (i != end)
+		{
+			char t1 = data[i], t2 = data[i+1], t3 = data[i+2];
+			str.push_back(stdx::switch_to_base64_char(t1 >> 2));
+			t1 = (t1 & 0x03) << 4;
+			str.push_back(stdx::switch_to_base64_char(t1 | (t2 >> 4)));
+			t2 = (t2 & 0x0F) << 2;
+			str.push_back(stdx::switch_to_base64_char((t2 | (t3 >> 6))));
+			str.push_back(stdx::switch_to_base64_char(t3 & 0x3F));
+			i += 3;
+		}
+	}
+	return str;
+}
+
+std::string stdx::from_base64_string(const std::string& base64_str)
+{
+	size_t size = base64_str.size();
+	if (size % 4)
+	{
+		throw std::invalid_argument("invalid base64 string");
+	}
+	size_t i = 0;
+	std::string str;
+	while (i != size)
+	{
+		char t1 = base64_str[i];
+		char t2 = base64_str[i + 1];
+		char t3 = base64_str[i + 2];
+		char t4 = base64_str[i + 3];
+		if (t1 != '=')
+		{
+			t1 = stdx::base64_char_to_char(t1);
+		}
+		else
+		{
+			return str;
+		}
+		if (t2 != '=')
+		{
+			t2 = stdx::base64_char_to_char(t2);
+			t1 <<= 2;
+			t1 |= (t2 >> 4);
+			str.push_back(t1);
+		}
+		else
+		{
+			str.push_back(t1 << 2);
+			return str;
+		}
+		if (t3 != '=')
+		{
+			t3 = stdx::base64_char_to_char(t3);
+			t2 <<= 4;
+			t2 |= (t3 >> 2);
+			str.push_back(t2);
+		}
+		else
+		{
+			str.push_back(t2 << 4);
+			return str;
+		}
+		if (t4 != '=')
+		{
+			t4 = stdx::base64_char_to_char(t4);
+			t3 <<= 6;
+			t3 |= t4;
+			str.push_back(t3);
+		}
+		else
+		{
+			str.push_back(t3 << 6);
+			return str;
+		}
+		i += 4;
+	}
+	return str;
+}

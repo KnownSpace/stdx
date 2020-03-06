@@ -1,15 +1,6 @@
 ﻿#include <iostream>
 #include <stdx/file.h>
-#include <stdx/net/socket.h>
-#include <sstream>
 #include <stdx/string.h>
-#include <stdx/logger.h>
-#include <list>
-#include <stdx/big_int.h>
-#include <stdx/algorithm.h>
-#include <stdx/factory.h>
-#include <stdx/traits/valuation.h>
-#include <stdx/datetime.h>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB
@@ -65,7 +56,12 @@ int main(int argc, char **argv)
 	std::cin.get();
 #pragma endregion
 #endif
-	stdx::datetime time = stdx::datetime::now_utc();
-	auto wd = time.week_day();
+	if (argc != 2)
+	{
+		return -1;
+	}
+	std::string str = argv[1];
+	str = stdx::from_base64_string(str);
+	std::cout  << "Raw:"<< std::endl<< str <<std::endl;
 	return 0;
 }

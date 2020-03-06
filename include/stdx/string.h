@@ -318,6 +318,14 @@ namespace stdx
 #undef _ThrowLinuxError
 #endif
 
+	extern char switch_to_base64_char(unsigned char byte);
+
+	extern char base64_char_to_char(char ch);
+
+	extern std::string to_base64_string(const std::string& data);
+
+	extern std::string from_base64_string(const std::string& base64_str);
+
 	struct string;
 
 }
@@ -475,11 +483,15 @@ namespace stdx
 
 		std::string to_native_string() const;
 
+		std::string to_base64_string() const;
+
 		static stdx::string from_native_string(const std::string &str);
 
 		static stdx::string from_u8_string(const std::string &str);
 
 		static stdx::string from_buffer(const stdx::buffer &buf);
+
+		static stdx::string from_base64_string(const std::string &base64_str);
 
 		void html_encode();
 
