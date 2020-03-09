@@ -468,4 +468,19 @@ namespace stdx
 	extern std::ostream& cout();
 	extern std::ostream& cerr();
 #endif
+
+	void _Printf(stdx::string&& format, std::initializer_list<stdx::string>&& list);
+
+	template<typename ..._Args>
+	void printf(const stdx::string& format, const _Args&...args)
+	{
+		stdx::string _format(format);
+		_Printf(std::move(format),std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+	}
+
+	template<typename ..._Args>
+	void printf(stdx::string &&format, const _Args&...args)
+	{
+		_Printf(std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+	}
 }

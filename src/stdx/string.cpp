@@ -741,7 +741,7 @@ std::string stdx::to_base64_string(const std::string& data)
 	{
 		while (i != (end - tmp))
 		{
-			char t1 = data[i], t2 = data[i+1], t3 = data[i+2];
+			unsigned char t1 = data[i], t2 = data[i+1], t3 = data[i+2];
 			str.push_back(stdx::switch_to_base64_char(t1 >> 2));
 			t1 = (t1 & 0x03) << 4;
 			str.push_back(stdx::switch_to_base64_char(t1 | (t2 >> 4)));
@@ -752,7 +752,7 @@ std::string stdx::to_base64_string(const std::string& data)
 		}
 		if (tmp == 1)
 		{
-			char t1 = data[i], t2 = (t1 & 0x03) << 4;
+			unsigned char t1 = data[i], t2 = (t1 & 0x03) << 4;
 			t1 >>= 2;
 			str.push_back(stdx::switch_to_base64_char(t1));
 			str.push_back(stdx::switch_to_base64_char(t2));
@@ -761,7 +761,7 @@ std::string stdx::to_base64_string(const std::string& data)
 		}
 		else
 		{
-			char t1 = data[i], t2 = data[i+1], t3 = 0x00;
+			unsigned char t1 = data[i], t2 = data[i+1], t3 = 0x00;
 			str.push_back(stdx::switch_to_base64_char(t1 >> 2));
 			t1 = (t1 & 0x03) << 4;
 			str.push_back(stdx::switch_to_base64_char(t1 | (t2 >> 4)));
@@ -774,7 +774,7 @@ std::string stdx::to_base64_string(const std::string& data)
 	{
 		while (i != end)
 		{
-			char t1 = data[i], t2 = data[i+1], t3 = data[i+2];
+			unsigned char t1 = data[i], t2 = data[i+1], t3 = data[i+2];
 			str.push_back(stdx::switch_to_base64_char(t1 >> 2));
 			t1 = (t1 & 0x03) << 4;
 			str.push_back(stdx::switch_to_base64_char(t1 | (t2 >> 4)));
@@ -798,10 +798,7 @@ std::string stdx::from_base64_string(const std::string& base64_str)
 	std::string str;
 	while (i != size)
 	{
-		char t1 = base64_str[i];
-		char t2 = base64_str[i + 1];
-		char t3 = base64_str[i + 2];
-		char t4 = base64_str[i + 3];
+		unsigned char t1 = base64_str[i],t2 = base64_str[i + 1],t3 = base64_str[i + 2],t4 = base64_str[i + 3];
 		if (t1 != '=')
 		{
 			t1 = stdx::base64_char_to_char(t1);
@@ -849,4 +846,24 @@ std::string stdx::from_base64_string(const std::string& base64_str)
 		i += 4;
 	}
 	return str;
+}
+
+stdx::string stdx::to_string(const typename stdx::string::char_t* str)
+{
+	return stdx::string(str);
+}
+
+const stdx::string& stdx::to_string(const stdx::string& val)
+{
+	return val;
+}
+
+stdx::string stdx::to_string(const std::string& val)
+{
+	return stdx::string::from_native_string(val);
+}
+
+stdx::string stdx::to_string(const std::wstring& val)
+{
+	return stdx::string(val);
 }

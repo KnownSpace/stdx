@@ -551,6 +551,13 @@ namespace stdx
 	extern stdx::string to_string(long double val);
 	extern stdx::string to_string(unsigned int val);
 	extern stdx::string to_string(unsigned long long int val);
+	extern stdx::string to_string(const typename stdx::string::char_t *str);
+	extern const stdx::string &to_string(const stdx::string &val);
+	extern stdx::string to_string(const std::string& val);
+#ifdef WIN32
+	extern stdx::string to_string(const std::wstring &val);
+#endif
+
 }
 
 namespace std
