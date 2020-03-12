@@ -147,4 +147,38 @@ namespace stdx
 		stdx::http_cache_control_type cache_type() const;
 		void set_cache_type(stdx::http_cache_control_type type);
 	};
+
+	struct http_header
+	{
+	public:
+		http_header() = default;
+
+		http_header(const stdx::http_header& other);
+
+		http_header(stdx::http_header&& other) noexcept;
+
+		virtual ~http_header() = default;
+
+		stdx::http_header& operator=(const stdx::http_header& other);
+
+		stdx::http_header& operator=(stdx::http_header&& other);
+
+		virtual stdx::string to_string() const;
+
+		stdx::http_header& add_header(const stdx::string& name, const stdx::string& value);
+
+		stdx::http_header& add_header(stdx::string&& name, const stdx::string& value);
+
+		stdx::http_header& remove_header(const stdx::string &name);
+
+		stdx::http_header& remove_header(stdx::string&& name);
+
+		stdx::http_header& add_header(const stdx::string& raw_string);
+
+		stdx::string& operator[](const stdx::string& name);
+		const stdx::string& operator[](const stdx::string& name) const;
+
+	private:
+		std::unordered_map<stdx::string, stdx::string> m_headers;
+	};
 }

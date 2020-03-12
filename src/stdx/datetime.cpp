@@ -637,11 +637,47 @@ stdx::string stdx::datetime::to_string(typename stdx::string::char_t* format) co
 {
 	stdx::string str = format;
 	str.replace(U("%year"), stdx::to_string(m_year));
-	str.replace(U("%mon"),stdx::to_string(m_month));
-	str.replace(U("%day"), stdx::to_string(m_day));
-	str.replace(U("%hour"),stdx::to_string(m_hour));
-	str.replace(U("%min"), stdx::to_string(m_minute));
-	str.replace(U("%sec"), stdx::to_string(m_second));
+	str.replace(U("%mon"), stdx::to_string(m_month));
+	if (m_day < 10)
+	{
+		stdx::string tmp(U("0"));
+		tmp.append(stdx::to_string(m_day));
+		str.replace(U("%day"),tmp);
+	}
+	else
+	{
+		str.replace(U("%day"), stdx::to_string(m_day));
+	}
+	if (m_hour < 10)
+	{
+		stdx::string tmp(U("0"));
+		tmp.append(stdx::to_string(m_hour));
+		str.replace(U("%hour"), tmp);
+	}
+	else
+	{
+		str.replace(U("%hour"), stdx::to_string(m_hour));
+	}
+	if (m_minute < 10)
+	{
+		stdx::string tmp(U("0"));
+		tmp.append(stdx::to_string(m_minute));
+		str.replace(U("%min"), tmp);
+	}
+	else
+	{
+		str.replace(U("%min"), stdx::to_string(m_minute));
+	}
+	if (m_second < 10)
+	{
+		stdx::string tmp(U("0"));
+		tmp.append(stdx::to_string(m_second));
+		str.replace(U("sec"), tmp);
+	}
+	else
+	{
+		str.replace(U("%sec"), stdx::to_string(m_second));
+	}
 	str.replace(U("%msec"),stdx::to_string(m_millisecond));
 	return str;
 }
@@ -751,4 +787,123 @@ stdx::week_day stdx::datetime::week_day() const
 	default:
 		throw std::logic_error("unkonw week day");
 	}
+}
+
+stdx::string stdx::to_day_name(stdx::week_day day)
+{
+	switch (day)
+	{
+	case stdx::week_day::sun:
+		return U("Sun");
+	case stdx::week_day::mon:
+		return U("Mon");
+	case stdx::week_day::tues:
+		return U("Tue");
+	case stdx::week_day::wed:
+		return U("Wed");
+	case stdx::week_day::thur:
+		return U("Thu");
+	case stdx::week_day::fri:
+		return U("Fri");
+	case stdx::week_day::sat:
+		return U("Sat");
+	default:
+		throw std::logic_error("Unkonw week day");
+	}
+}
+
+stdx::string stdx::to_month_name(uint16_t month)
+{
+	switch (month)
+	{
+	case 1:
+		return U("Jan");
+	case 2:
+		return U("Feb");
+	case 3:
+		return U("Mar");
+	case 4:
+		return U("Apr");
+	case 5:
+		return U("May");
+	case 6:
+		return U("Jun");
+	case 7:
+		return U("Jul");
+	case 8:
+		return U("Aug");
+	case 9:
+		return U("Sep");
+	case 10:
+		return U("Oct");
+	case 11:
+		return U("Nov");
+	case 12:
+		return U("Dec");
+	default:
+		throw std::logic_error("Unkonw month");
+	}
+}
+
+uint16_t stdx::month_name_to_time_int(stdx::string&& name)
+{
+	name.lower();
+	if (name == U("jan"))
+	{
+		return 1;
+	}
+	else if (name == U("feb"))
+	{
+		return 2;
+	}
+	else if(name == U("mar"))
+	{
+		return 3;
+	}
+	else if (name == U("apr"))
+	{
+		return 4;
+	}
+	else if(name == U("may"))
+	{
+		return 5;
+	}
+	else if(name == U("jun"))
+	{
+		return 6;
+	}
+	else if (name == U("jul"))
+	{
+		return 7;
+	}
+	else if(name == U("aug"))
+	{
+		return 8;
+	}
+	else if(name == U("sep"))
+	{
+		return 9;
+	}
+	else if(name == U("oct"))
+	{
+		return 10;
+	}
+	else if (name == U("nov"))
+	{
+		return 11;
+	}
+	else if(name == U("dec"))
+	{
+		return 12;
+	}
+	else
+	{
+		throw std::invalid_argument("unkonw month name");
+	}
+}
+
+uint16_t stdx::month_name_to_time_int(const stdx::string& name)
+{
+	stdx::string tmp(name);
+	return month_name_to_time_int(std::move(tmp));
 }

@@ -867,3 +867,37 @@ stdx::string stdx::to_string(const std::wstring& val)
 {
 	return stdx::string(val);
 }
+
+void stdx::string::erase(const stdx::string& target)
+{
+	for (size_t pos(m_data.find(target.m_data)); pos != npos; pos = m_data.find(target.m_data))
+	{
+		m_data.erase(pos, target.size());
+	}
+}
+
+void stdx::string::earse(typename stdx::string::char_t ch)
+{
+	for (size_t pos(m_data.find(ch)); pos != npos; pos = m_data.find(ch))
+	{
+		m_data.erase(pos);
+	}
+}
+
+void stdx::string::earse_once(const stdx::string& target)
+{
+	size_t pos(m_data.find(target.m_data));
+	if (pos != npos)
+	{
+		m_data.erase(pos, target.size());
+	}
+}
+
+void stdx::string::earse_once(typename stdx::string::char_t ch)
+{
+	size_t pos(m_data.find(ch));
+	if (pos != npos)
+	{
+		m_data.erase(pos);
+	}
+}

@@ -135,4 +135,11 @@ namespace stdx
 		time_int_t m_millisecond;
 		void bezero();
 	};
+
+	extern stdx::string to_day_name(stdx::week_day day);
+
+	extern stdx::string to_month_name(uint16_t month);
+
+	extern uint16_t month_name_to_time_int(stdx::string&& name);
+	extern uint16_t month_name_to_time_int(const stdx::string &name);
 }

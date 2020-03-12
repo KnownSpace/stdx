@@ -419,12 +419,14 @@ namespace stdx
 		void insert(const size_type &index,const char_t *str);
 		void insert(const size_type& index, const char_t* str,const size_type &count);
 
-		void erase(size_type index = 0);
-		void erase(size_type index = 0, size_type count = npos);
+		void erase(size_type index);
+		void erase(size_type index, size_type count);
 		iterator_t erase(iterator_t position);
-		//iterator_t erase(const_iterator_t position);
 		iterator_t erase(iterator_t begin, iterator_t end);
-		//iterator_t erase(const_iterator_t begin,const_iterator_t end);
+		void erase(const stdx::string& target);
+		void earse(typename stdx::string::char_t ch);
+		void earse_once(const stdx::string& target);
+		void earse_once(typename stdx::string::char_t ch);
 		
 		void push_back(const char_t &ch);
 

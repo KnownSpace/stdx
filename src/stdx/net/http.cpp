@@ -474,3 +474,102 @@ void stdx::http_cache_control::set_cache_type(stdx::http_cache_control_type type
 {
 	m_type = type;
 }
+
+stdx::http_header::http_header(const stdx::http_header& other)
+	:m_headers(other.m_headers)
+{}
+
+stdx::http_header::http_header(stdx::http_header&& other) noexcept
+	:m_headers(other.m_headers)
+{}
+
+stdx::http_header& stdx::http_header::operator=(const stdx::http_header& other)
+{
+	m_headers = other.m_headers;
+	return *this;
+}
+
+stdx::http_header& stdx::http_header::operator=(stdx::http_header&& other)
+{
+	m_headers = other.m_headers;
+	return *this;
+}
+
+stdx::string stdx::http_header::to_string() const
+{
+	stdx::string str;
+	for (auto begin = m_headers.begin(),end = m_headers.end();begin != end;begin++)
+	{
+		str.append(begin->first);
+		str.append(U(" :"));
+		str.append(begin->second);
+		str.append(U("\r\n"));
+	}
+	return str;
+}
+
+stdx::http_header& stdx::http_header::add_header(stdx::string&& name, const stdx::string& value)
+{
+	if (name.empty())
+	{
+		throw std::invalid_argument("name could not be empty");
+	}
+	if (value.empty())
+	{
+		throw std::invalid_argument("value could not be empty");
+	}
+	if (name.back() == U(' '))
+	{
+		name.erase(name.size()-1);
+	}
+	m_headers[name] = value;
+	return *this;
+}
+
+stdx::http_header& stdx::http_header::add_header(const stdx::string& name, const stdx::string& value)
+{
+	if (name.empty())
+	{
+		throw std::invalid_argument("name could not be empty");
+	}
+	if (value.empty())
+	{
+		throw std::invalid_argument("value could not be empty");
+	}
+	if (name.back() == U(' '))
+	{
+		stdx::string tmp(name);
+		return add_header(std::move(tmp), value);
+	}
+	m_headers[name] = value;
+	return *this;
+}
+
+stdx::http_header& stdx::http_header::remove_header(stdx::string&& name)
+{
+	if (name.empty())
+	{
+		throw std::invalid_argument("name could not be empty");
+	}
+	if (name.back() == U(' '))
+	{
+		name.earse(name.size() - 1);
+	}
+	m_headers.erase(name);
+	return *this;
+}
+
+stdx::http_header& stdx::http_header::remove_header(const stdx::string& name)
+{
+	if (name.empty())
+	{
+		throw std::invalid_argument("name could not be empty");
+	}
+	if (name.back() == U(' '))
+	{
+		stdx::string tmp(name);
+		return remove_header(std::move(tmp));
+	}
+	m_headers.erase(name);
+	return *this;
+}
