@@ -772,4 +772,5 @@ stdx::string stdx::http_request_header::to_string() const
 		str.append(begin->to_cookie_string_without_header());
 		str.append(U("; "));
 	}
+	return str;
 }

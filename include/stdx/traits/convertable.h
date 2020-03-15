@@ -9,10 +9,10 @@ namespace stdx
 	private:
 		class ture_t;
 		class false_t;
-		static ture_t test(_To& v);
+		static ture_t test(_To&& v);
 		static false_t test(...);
 	public:
-		constexpr static bool value = std::is_same<decltype(test(stdx::declref<_From>())), ture_t>::value;
+		constexpr static bool value = std::is_same<decltype(test(stdx::declrref<_From>())), ture_t>::value;
 	};
 
 	template<typename _From>
