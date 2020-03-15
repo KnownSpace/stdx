@@ -803,7 +803,7 @@ std::list<stdx::http_cookie> stdx::make_cookies_by_cookie_header(const stdx::str
 		throw std::invalid_argument("invalid cookie string");
 	}
 	std::list<stdx::http_cookie> list;
-	stdx::string&& cookies_string = header.substr(pos, header.size() - pos);
+	stdx::string&& cookies_string = header.substr(pos+1, header.size() - pos-1);
 	std::list<stdx::string>&& cookie_list = cookies_string.split(U(";"));
 	for (auto begin = cookie_list.begin(), end = cookie_list.end(); begin != end; begin++)
 	{
@@ -818,7 +818,7 @@ std::list<stdx::http_cookie> stdx::make_cookies_by_cookie_header(const stdx::str
 		}
 		else
 		{
-			list.push_back(stdx::http_cookie(begin->substr(0,pos),begin->substr(pos,begin->size()-pos)));
+			list.push_back(stdx::http_cookie(begin->substr(0,pos),begin->substr(pos+1,begin->size()-pos-1)));
 		}
 	}
 	return list;
@@ -983,7 +983,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 		begin++;
 		header.version() = stdx::make_http_version_by_string(*begin);
 	}
-	//其他头部
+	//其他头部和Cookie
 	if (list.size() > 1)
 	{
 		auto begin = list.begin(), end = list.end();
