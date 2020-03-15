@@ -863,10 +863,20 @@ stdx::string stdx::to_string(const std::string& val)
 	return stdx::string::from_native_string(val);
 }
 
+#ifdef WIN32
+
 stdx::string stdx::to_string(const std::wstring& val)
 {
 	return stdx::string(val);
 }
+
+stdx::string stdx::to_string(const char* str)
+{
+	std::string tmp(str);
+	return stdx::string::from_native_string(tmp);
+}
+
+#endif
 
 void stdx::string::erase(const stdx::string& target)
 {

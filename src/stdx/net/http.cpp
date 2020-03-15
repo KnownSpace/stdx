@@ -609,7 +609,7 @@ stdx::http_header& stdx::http_header::add_header(const stdx::string& raw_string)
 		throw std::invalid_argument("raw string could not be empty");
 	}
 	std::list<stdx::string> &&list = raw_string.split(U(":"));
-	if (list.size() != 2)
+	if (list.size() < 2)
 	{
 		throw std::invalid_argument("invalid raw string");
 	}
@@ -674,26 +674,6 @@ bool stdx::http_header::exist(stdx::string&& name) const
 	return m_headers.find(name) != m_headers.end();
 }
 
-stdx::string stdx::http_response_header::to_string() const
-{
-	//状态行
-	stdx::string str(stdx::http_version_string(version()));
-	str.push_back(U(' '));
-	str.append(stdx::to_string(m_status_code));
-	str.push_back(U(' '));
-	str.append(stdx::http_status_message(m_status_code));
-	str.append(U("\r\n"));
-	//其他头部
-	str.append(http_header::to_string());
-	//Set-Cookie
-	for (auto begin=m_set_cookies.begin(),end=m_set_cookies.end();begin!=end;begin++)
-	{
-		str.append(begin->to_set_cookie_string());
-		str.append(U("\r\n"));
-	}
-	return str;
-}
-
 void stdx::http_header::clear()
 {
 	m_headers.clear();
@@ -719,10 +699,29 @@ stdx::string stdx::http_version_string(stdx::http_version version)
 	}
 }
 
-stdx::string stdx::http_status_message(stdx::http_status_code code)
+stdx::http_version stdx::make_http_version_by_string(const stdx::string& str)
+{
+	if (str == U("HTTP/1.0"))
+	{
+		return stdx::http_version::http_1_0;
+	}
+	if (str == U("HTTP/1.1"))
+	{
+		return stdx::http_version::http_1_1;
+	}
+	if (str == U("HTTP/2.0"))
+	{
+		return stdx::http_version::http_2_0;
+	}
+	throw std::invalid_argument("invaild http version string");
+}
+
+stdx::string stdx::http_status_message(stdx::http_status_code_t code)
 {
 	switch (code)
 	{
+	case 200:
+		return U("OK");
 	default:
 		return U("Unkown Header Message");
 	}
@@ -755,6 +754,185 @@ stdx::string stdx::http_method_string(stdx::http_method method)
 	}
 }
 
+stdx::http_method stdx::make_http_method_by_string(const stdx::string& str)
+{
+	if (str == U("GET"))
+	{
+		return stdx::http_method::get;
+	}
+	if (str == U("POST"))
+	{
+		return stdx::http_method::post;
+	}
+	if (str == U("PUT"))
+	{
+		return stdx::http_method::put;
+	}
+	if (str == U("DELETE"))
+	{
+		return stdx::http_method::del;
+	}
+	if (str == U("OPTIONS"))
+	{
+		return stdx::http_method::options;
+	}
+	if (str == U("HEAD"))
+	{
+		return stdx::http_method::head;
+	}
+	if (str == U("TRACE"))
+	{
+		return stdx::http_method::trace;
+	}
+	if (str == U("CONNECT"))
+	{
+		return stdx::http_method::connect;
+	}
+	if (str == U("PATCH"))
+	{
+		return stdx::http_method::patch;
+	}
+	throw std::invalid_argument("invalid http method string");
+}
+
+std::list<stdx::http_cookie> stdx::make_cookies_by_cookie_header(const stdx::string& header)
+{
+	size_t pos = header.find(U(':'));
+	if (pos == stdx::string::npos)
+	{
+		throw std::invalid_argument("invalid cookie string");
+	}
+	std::list<stdx::http_cookie> list;
+	stdx::string&& cookies_string = header.substr(pos, header.size() - pos);
+	std::list<stdx::string>&& cookie_list = cookies_string.split(U(";"));
+	for (auto begin = cookie_list.begin(), end = cookie_list.end(); begin != end; begin++)
+	{
+		if (begin->front() == U(' '))
+		{
+			begin->erase_front();
+		}
+		pos = begin->find(U('='));
+		if (pos == stdx::string::npos)
+		{
+			list.push_back(stdx::http_cookie(*begin,U("")));
+		}
+		else
+		{
+			list.push_back(stdx::http_cookie(begin->substr(0,pos),begin->substr(pos,begin->size()-pos)));
+		}
+	}
+	return list;
+}
+
+//stdx::http_cookie stdx::make_cookie_by_set_cookie_header(const stdx::string& header)
+//{
+//	return stdx::http_cookie();
+//}
+
+stdx::http_request_header::http_request_header()
+	:stdx::http_header()
+	,m_method(stdx::http_method::get)
+	,m_request_url(U("/"))
+	,m_cookies()
+{}
+
+stdx::http_request_header::http_request_header(stdx::http_version version)
+	:stdx::http_header(version)
+	,m_method(stdx::http_method::get)
+	,m_request_url(U("/"))
+	,m_cookies()
+{}
+
+stdx::http_request_header::http_request_header(stdx::http_method method)
+	:stdx::http_header()
+	, m_method(method)
+	, m_request_url(U("/"))
+	, m_cookies()
+{}
+
+stdx::http_request_header::http_request_header(stdx::http_version version, stdx::http_method method)
+	:stdx::http_header(version)
+	, m_method(method)
+	, m_request_url(U("/"))
+	, m_cookies()
+{}
+
+stdx::http_request_header::http_request_header(stdx::http_method method, const stdx::string& request_url)
+	:stdx::http_header()
+	, m_method(method)
+	, m_request_url(request_url)
+	, m_cookies()
+{}
+
+stdx::http_request_header::http_request_header(stdx::http_version version, stdx::http_method method, const stdx::string& request_url)
+	:stdx::http_header(version)
+	, m_method(method)
+	, m_request_url(request_url)
+	, m_cookies()
+{}
+
+stdx::http_request_header::http_request_header(const stdx::http_request_header& other)
+	:stdx::http_header(other)
+	,m_method(other.m_method)
+	,m_request_url(other.m_request_url)
+	,m_cookies(other.m_cookies)
+{}
+
+stdx::http_request_header::http_request_header(stdx::http_request_header&& other) noexcept
+	:stdx::http_header(other)
+	, m_method(other.m_method)
+	, m_request_url(other.m_request_url)
+	, m_cookies(other.m_cookies)
+{}
+
+stdx::http_request_header& stdx::http_request_header::operator=(const stdx::http_request_header& other)
+{
+	http_header::operator=(other);
+	m_method = other.m_method;
+	m_request_url = other.m_request_url;
+	m_cookies = other.m_cookies;
+	return *this;
+}
+
+stdx::http_request_header& stdx::http_request_header::operator=(stdx::http_request_header&& other) noexcept
+{
+	http_header::operator=(other);
+	m_method = other.m_method;
+	m_request_url = other.m_request_url;
+	m_cookies = other.m_cookies;
+	return *this;
+}
+
+stdx::http_method& stdx::http_request_header::method()
+{
+	return m_method;
+}
+
+const stdx::http_method& stdx::http_request_header::method() const
+{
+	return m_method;
+}
+
+stdx::string& stdx::http_request_header::request_url()
+{
+	return m_request_url;
+}
+
+const stdx::string& stdx::http_request_header::request_url() const
+{
+	return m_request_url;
+}
+
+std::list<stdx::http_cookie>& stdx::http_request_header::cookies()
+{
+	return m_cookies;
+}
+
+const std::list<stdx::http_cookie>& stdx::http_request_header::cookies() const
+{
+	return m_cookies;
+}
+
 stdx::string stdx::http_request_header::to_string() const
 {
 	//请求行
@@ -766,11 +944,162 @@ stdx::string stdx::http_request_header::to_string() const
 	//其他头部
 	str.append(http_header::to_string());
 	//Cookie
-	str.append(U("Cookie: "));
-	for (auto begin = m_cookies.begin(),end=m_cookies.end();begin!=end;begin++)
+	if (!m_cookies.empty())
 	{
-		str.append(begin->to_cookie_string_without_header());
-		str.append(U("; "));
+		str.append(U("Cookie: "));
+		for (auto begin = m_cookies.begin(), end = m_cookies.end(); begin != end; begin++)
+		{
+			str.append(begin->to_cookie_string_without_header());
+			str.append(U("; "));
+		}
 	}
 	return str;
 }
+
+stdx::http_request_header stdx::http_request_header::from_string(const stdx::string& str)
+{
+	if (str.empty())
+	{
+		throw std::invalid_argument("input string is empty");
+	}
+	stdx::http_request_header header;
+	std::list<stdx::string> &&list = str.split(U("\r\n"));
+	if (list.empty())
+	{
+		throw std::invalid_argument("can not split string by CRLF");
+	}
+	//请求行
+	stdx::string& first_line = list.front();
+	std::list<stdx::string>&& request_info = first_line.split(U(" "));
+	if (request_info.size() < 3)
+	{
+		throw std::invalid_argument("invalid request header string");
+	}
+	{
+		auto begin = request_info.begin();
+		header.method() = stdx::make_http_method_by_string(*begin);
+		begin++;
+		header.request_url() = *begin;
+		begin++;
+		header.version() = stdx::make_http_version_by_string(*begin);
+	}
+	//其他头部
+	if (list.size() > 1)
+	{
+		auto begin = list.begin(), end = list.end();
+		begin++;
+		while (begin != end)
+		{
+			if (!begin->empty())
+			{
+				if (begin->begin_with(U("Cookie")))
+				{
+					header.cookies() = std::move(stdx::make_cookies_by_cookie_header(*begin));
+				}
+				else
+				{
+					header.add_header(*begin);
+				}
+			}
+			begin++;
+		}
+	}
+	return header;
+}
+
+stdx::http_response_header::http_response_header()
+	:stdx::http_header()
+	,m_status_code(200)
+	,m_set_cookies()
+{}
+
+stdx::http_response_header::http_response_header(stdx::http_version version)
+	:stdx::http_header(version)
+	,m_status_code(200)
+	,m_set_cookies()
+{}
+
+stdx::http_response_header::http_response_header(stdx::http_status_code_t code)
+	:stdx::http_header()
+	,m_status_code(code)
+	,m_set_cookies()
+{}
+
+stdx::http_response_header::http_response_header(stdx::http_version version, stdx::http_status_code_t code)
+	:stdx::http_header(version)
+	,m_status_code(code)
+	,m_set_cookies()
+{}
+
+stdx::http_response_header::http_response_header(const stdx::http_response_header& other)
+	:stdx::http_header(other)
+	,m_status_code(other.m_status_code)
+	,m_set_cookies(other.m_set_cookies)
+{}
+
+stdx::http_response_header::http_response_header(stdx::http_response_header&& other) noexcept
+	:stdx::http_header(other)
+	, m_status_code(other.m_status_code)
+	, m_set_cookies(other.m_set_cookies)
+{}
+
+stdx::http_response_header& stdx::http_response_header::operator=(const stdx::http_response_header& other)
+{
+	http_header::operator=(other);
+	m_status_code = other.m_status_code;
+	m_set_cookies = other.m_set_cookies;
+	return *this;
+}
+
+stdx::http_response_header& stdx::http_response_header::operator=(stdx::http_response_header&& other) noexcept
+{
+	http_header::operator=(other);
+	m_status_code = other.m_status_code;
+	m_set_cookies = other.m_set_cookies;
+	return *this;
+}
+
+stdx::http_status_code_t& stdx::http_response_header::status_code()
+{
+	return m_status_code;
+}
+
+const stdx::http_status_code_t& stdx::http_response_header::status_code() const
+{
+	return m_status_code;
+}
+
+std::list<stdx::http_cookie>& stdx::http_response_header::cookies()
+{
+	return m_set_cookies;
+}
+
+const std::list<stdx::http_cookie>& stdx::http_response_header::cookies() const
+{
+	return m_set_cookies;
+}
+
+stdx::string stdx::http_response_header::to_string() const
+{
+	//状态行
+	stdx::string str(stdx::http_version_string(version()));
+	str.push_back(U(' '));
+	str.append(stdx::to_string(m_status_code));
+	str.push_back(U(' '));
+	str.append(stdx::http_status_message(m_status_code));
+	str.append(U("\r\n"));
+	//其他头部
+	str.append(http_header::to_string());
+	//Set-Cookie
+	for (auto begin = m_set_cookies.begin(), end = m_set_cookies.end(); begin != end; begin++)
+	{
+		str.append(begin->to_set_cookie_string());
+		str.append(U("\r\n"));
+	}
+	return str;
+}
+
+//stdx::http_response_header stdx::http_response_header::from_string(const stdx::string& str)
+//{
+//	return stdx::http_response_header();
+//}

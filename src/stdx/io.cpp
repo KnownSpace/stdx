@@ -210,7 +210,7 @@ std::ostream &stdx::cerr()
 }
 #endif
 
-void stdx::_Printf(stdx::string&& format, std::initializer_list<stdx::string>&& list)
+void stdx::_Fprintf(FILE *stream,stdx::string&& format, std::initializer_list<stdx::string>&& list)
 {
 	auto begin = list.begin();
 	stdx::string str(U("{0}"));
@@ -223,8 +223,8 @@ void stdx::_Printf(stdx::string&& format, std::initializer_list<stdx::string>&& 
 		format.replace(str,*(begin+i));
 	}
 #ifdef WIN32
-	fputws(format.c_str(),stdout);
+	fputws(format.c_str(),stream);
 #else
-	puts(format.c_str());
+	fputs(format.c_str(),stream);
 #endif
 }

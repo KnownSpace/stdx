@@ -469,18 +469,31 @@ namespace stdx
 	extern std::ostream& cerr();
 #endif
 
-	void _Printf(stdx::string&& format, std::initializer_list<stdx::string>&& list);
+	void _Fprintf(FILE *stream,stdx::string&& format, std::initializer_list<stdx::string>&& list);
 
 	template<typename ..._Args>
 	void printf(const stdx::string& format, const _Args&...args)
 	{
 		stdx::string _format(format);
-		_Printf(std::move(format),std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+		_Fprintf(stdout,std::move(_format),std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 
 	template<typename ..._Args>
 	void printf(stdx::string &&format, const _Args&...args)
 	{
-		_Printf(std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+		_Fprintf(stdout,std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+	}
+
+	template<typename ..._Args>
+	void perrorf(const stdx::string& format, const _Args&...args)
+	{
+		stdx::string _format(format);
+		_Fprintf(stderr, std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+	}
+
+	template<typename ..._Args>
+	void perrorf(stdx::string&& format, const _Args&...args)
+	{
+		_Fprintf(stderr, std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 }

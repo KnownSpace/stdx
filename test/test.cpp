@@ -3,9 +3,10 @@
 #include <stdx/string.h>
 #include <stdx/net/http.h>
 #include <stdx/traits/convertable.h>
+#include <stdx/net/socket.h>
 int main(int argc, char **argv)
 {
-	//#define ENABLE_WEB
+//#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -17,7 +18,7 @@ int main(int argc, char **argv)
 	}
 	catch (std::exception &e)
 	{
-		perrorf("%s\n", e.what());
+		stdx::perrorf(U("{0}\n"), e.what());
 		return -1;
 	}
 	std::cout << "listen: http://0.0.0.0:8080" << std::endl;
@@ -25,20 +26,26 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		auto t = c.recv_from(1024).then([c](stdx::network_recv_event &e) mutable
+		auto t = c.recv(1024).then([c](stdx::network_recv_event &e) mutable
 		{
-			stdx::string ip = e.addr.ip();
-			//printf("%"PRISTR"\n", U("recv"));
-			//printf("from %"PRISTR":%"PRIu16"",ip.c_str(),e.addr.port());
-			stdx::cout() << U("from: ") << ip << U(":") << e.addr.port() << std::endl;
-			std::cout << "recv:" << std::endl
-				<< e.buffer << std::endl;
-			std::string str = "HTTP/1.1 200 OK\r\nContent-Type:text/html";
+			std::string request(e.buffer,e.size);
+			stdx::printf(U("Receive Data:\n{0}\n"),request);
+			try
+			{
+				stdx::http_request_header rq_header = stdx::http_request_header::from_string(stdx::string::from_u8_string(request));
+				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}"), stdx::http_version_string(rq_header.version()), rq_header.request_url(), stdx::http_method_string(rq_header.method()));
+			}
+			catch (const std::exception&err)
+			{
+				stdx::perrorf(U("{0}\n"), err.what());
+			}
+			stdx::http_response_header header(200);
+			header.cookies().push_back(stdx::http_cookie(U("test"), U("test")));
+			header.add_header(U("Content-Type"), U("text/html"));
+			std::string str = header.to_string().to_u8_string();
 			std::string body = "<html><body><h1>Hello World</h1></body></html>";
 			str.append("\r\n");
-			str.append("\r\n");
 			str.append(body);
-			std::cout << str << std::endl;
 			stdx::uint64_union u;
 			u.value = str.size();
 			auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event> &r) mutable
@@ -55,7 +62,6 @@ int main(int argc, char **argv)
 			});
 		});
 	}
-	std::cin.get();
 #pragma endregion
 #endif
 	return 0;

@@ -27,13 +27,18 @@
 #define get_byte(x,ptr) *((char*)ptr+(x))
 #define delete_copy(type) type(const type &)=delete
 #define delete_move(type) type(type&&)=delete
+
+#ifdef WIN32
+#define CRLF L"\r\n"
+#else
 #define CRLF "\r\n"
+#endif
+
+
 
 #ifdef WIN32
 #define next_line CRLF
-#endif
-
-#ifdef LINUX
+#else
 #define next_line "\n"
 #endif
 

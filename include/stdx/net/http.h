@@ -28,7 +28,11 @@ namespace stdx
 
 	extern stdx::string http_version_string(stdx::http_version version);
 
+	extern stdx::http_version make_http_version_by_string(const stdx::string &str);
+
 	extern stdx::string http_method_string(stdx::http_method method);
+
+	extern stdx::http_method make_http_method_by_string(const stdx::string& str);
 
 	enum class http_cache_control_type
 	{
@@ -47,9 +51,9 @@ namespace stdx
 		proxy_revalidate
 	};
 
-	using http_status_code = uint16_t;
+	using http_status_code_t = uint16_t;
 
-	extern stdx::string http_status_message(stdx::http_status_code code);
+	extern stdx::string http_status_message(stdx::http_status_code_t code);
 
 	using http_max_age_t = uint64_t;
 
@@ -108,6 +112,10 @@ namespace stdx
 		stdx::string &domain();
 		const stdx::string &domain() const;
 	};
+
+	extern std::list<stdx::http_cookie> make_cookies_by_cookie_header(const stdx::string &header);
+
+	extern stdx::http_cookie make_cookie_by_set_cookie_header(const stdx::string &header);
 
 	struct http_cache_control
 	{
@@ -210,8 +218,40 @@ namespace stdx
 	struct http_request_header:public stdx::http_header
 	{
 	public:
+		http_request_header();
+
+		http_request_header(stdx::http_version version);
+
+		http_request_header(stdx::http_method method);
+
+		http_request_header(stdx::http_version version, stdx::http_method method);
+
+		http_request_header(stdx::http_method method, const stdx::string& request_url);
+
+		http_request_header(stdx::http_version version, stdx::http_method method, const stdx::string& request_url);
+
+		http_request_header(const stdx::http_request_header& other);
+
+		http_request_header(stdx::http_request_header&& other) noexcept;
+
+		virtual ~http_request_header() = default;
+
+		stdx::http_request_header& operator=(const stdx::http_request_header& other);
+
+		stdx::http_request_header& operator=(stdx::http_request_header&& other) noexcept;
 
 		virtual stdx::string to_string() const override;
+
+		stdx::http_method& method();
+		const stdx::http_method& method() const;
+
+		stdx::string& request_url();
+		const stdx::string& request_url() const;
+
+		std::list<stdx::http_cookie>& cookies();
+		const std::list<stdx::http_cookie>& cookies()const;
+
+		static stdx::http_request_header from_string(const stdx::string& str);
 	private:
 		stdx::http_method m_method;
 		stdx::string m_request_url;
@@ -221,10 +261,35 @@ namespace stdx
 	struct http_response_header:public stdx::http_header
 	{
 	public:
+		http_response_header();
+
+		http_response_header(stdx::http_version version);
+
+		http_response_header(stdx::http_status_code_t code);
+
+		http_response_header(stdx::http_version version, stdx::http_status_code_t code);
+
+		http_response_header(const stdx::http_response_header& other);
+
+		http_response_header(stdx::http_response_header&& other) noexcept;
+
+		virtual ~http_response_header() = default;
+
+		stdx::http_response_header& operator=(const stdx::http_response_header& other);
+
+		stdx::http_response_header& operator=(stdx::http_response_header&& other) noexcept;
 
 		virtual stdx::string to_string() const override;
+
+		stdx::http_status_code_t& status_code();
+		const stdx::http_status_code_t& status_code() const;
+
+		std::list<stdx::http_cookie>& cookies();
+		const std::list<stdx::http_cookie>& cookies() const;
+
+		static stdx::http_response_header from_string(const stdx::string &str);
 	private:
-		stdx::http_status_code m_status_code;
+		stdx::http_status_code_t m_status_code;
 		std::list<stdx::http_cookie> m_set_cookies;
 	};
 }
