@@ -8,23 +8,17 @@ namespace stdx
 	template<typename _T>
 	struct is_basic_string
 	{
-		enum
-		{
-			value = 0
-		};
+		constexpr static bool value = false;
 	};
 
 	template<typename _TChar>
 	struct is_basic_string<std::basic_string<_TChar>>
 	{
-		enum
-		{
-			value = 1
-		};
+		constexpr static bool value = true;
 	};
 
 	template<typename _String, typename _Container, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-	inline void _SpitStr(_String& str, const _String& chars, _Container& container)
+	inline void _SpitStr(const _String& str, const _String& chars, _Container& container)
 	{
 		if (chars.empty())
 		{
@@ -50,7 +44,7 @@ namespace stdx
 	}
 
 	template<typename _Container, typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-	inline void spit_string(_String& str, const _String& chars, _Container& container)
+	inline void spit_string(const _String& str, const _String& chars, _Container& container)
 	{
 		return _SpitStr(str, chars, container);
 	}
@@ -424,10 +418,12 @@ namespace stdx
 		iterator_t erase(iterator_t position);
 		iterator_t erase(iterator_t begin, iterator_t end);
 		void erase(const stdx::string& target);
-		void earse(typename stdx::string::char_t ch);
-		void earse_once(const stdx::string& target);
-		void earse_once(typename stdx::string::char_t ch);
-		
+		void erase(typename stdx::string::char_t ch);
+		void erase_once(const stdx::string& target);
+		void erase_once(typename stdx::string::char_t ch);
+		void erase_front();
+		void erase_back();
+
 		void push_back(const char_t &ch);
 
 		void append(const char_t *str);
@@ -512,7 +508,7 @@ namespace stdx
 		stdx::string upper() const;
 
 		template<typename _Container = std::list<stdx::string>>
-		const _Container &split(const stdx::string &text)
+		_Container split(const stdx::string &text) const
 		{
 			_Container cont;
 			stdx::spit_string<_Container, string_t>(m_data,text.m_data,cont);
@@ -529,9 +525,15 @@ namespace stdx
 			m_data.append(other.m_data);
 			return *this;
 		}
+
 		stdx::string operator+(const stdx::string &other)
 		{
 			return stdx::string(m_data + other.m_data);
+		}
+
+		char_t operator[](size_t index) const
+		{
+			return m_data[index];
 		}
 	private:
 		string_t m_data;
@@ -556,6 +558,7 @@ namespace stdx
 	extern stdx::string to_string(const typename stdx::string::char_t *str);
 	extern const stdx::string &to_string(const stdx::string &val);
 	extern stdx::string to_string(const std::string& val);
+	extern stdx::string to_string(const typename stdx::string::char_t ch);
 #ifdef WIN32
 	extern stdx::string to_string(const std::wstring &val);
 #endif
@@ -567,7 +570,8 @@ namespace std
 	template<>
 	class hash<stdx::string>
 	{
-		size_t operator()(const stdx::string &str)
+	public:
+		size_t operator()(const stdx::string &str) const
 		{
 			std::hash<typename stdx::string::string_t> hash;
 			return hash(str.m_data);

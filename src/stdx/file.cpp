@@ -138,7 +138,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 		catch (const std::exception&)
 		{
 #ifdef DEBUG
-			printf("[File IO Service]IO操作投递失败\n");
+			::printf("[File IO Service]IO操作投递失败\n");
 #endif // DEBUG
 			free(context->buffer);
 			delete call;
@@ -148,7 +148,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 		}
 	}
 #ifdef DEBUG
-	printf("[File IO Service]IO操作已投递\n");
+	::printf("[File IO Service]IO操作已投递\n");
 #endif // DEBUG
 	return;
 }
@@ -206,7 +206,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 		catch (const std::exception&)
 		{
 #ifdef DEBUG
-			printf("[File IO Service]IO操作投递失败\n");
+			::printf("[File IO Service]IO操作投递失败\n");
 #endif // DEBUG
 			free(context_ptr->buffer);
 			delete call;
@@ -216,7 +216,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 		}
 	}
 #ifdef DEBUG
-	printf("[File IO Service]IO操作已投递\n");
+	::printf("[File IO Service]IO操作已投递\n");
 #endif // DEBUG
 	return;
 }
@@ -231,7 +231,7 @@ uint64_t stdx::_FileIOService::get_file_size(HANDLE file) const
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
 #ifdef DEBUG
-	printf("[File IO Service]正在初始化IO服务\n");
+	::printf("[File IO Service]正在初始化IO服务\n");
 #endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
@@ -278,7 +278,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 					error = std::current_exception();
 				}
 #ifdef DEBUG
-				printf("[IOCP]IO操作完成\n");
+				::printf("[IOCP]IO操作完成\n");
 #endif
 				auto *call = context_ptr->callback;
 				try
@@ -314,7 +314,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const DWORD &size, con
 	{
 		throw std::logic_error("this io service has been free");
 	}
-	stdx::task_complete_event<stdx::file_read_event> ce;
+	stdx::task_completion_event<stdx::file_read_event> ce;
 	m_io_service.read_file(m_file, size,
  offset,
 
@@ -339,7 +339,7 @@ stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, 
 	{
 		throw std::logic_error("this io service has been free");
 	}
-	stdx::task_complete_event<stdx::file_write_event> ce;
+	stdx::task_completion_event<stdx::file_write_event> ce;
 	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
 	{
 		if (error)
@@ -563,7 +563,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offs
 	{
 		stdx::aio_read(context, file, buffer, r_size, offset, invalid_eventfd, ptr);
 #ifdef DEBUG
-		printf("[File IO Service]IO操作已投递\n");
+		::printf("[File IO Service]IO操作已投递\n");
 #endif // DEBUG
 	}
 	catch (const std::exception&)
@@ -639,7 +639,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	{
 		stdx::aio_write(context,file,buf,r_size,offset,invalid_eventfd,ptr);
 #ifdef DEBUG
-		printf("[File IO Service]IO操作已投递\n");
+		::printf("[File IO Service]IO操作已投递\n");
 #endif // DEBUG
 	}
 	catch (const std::exception&)
@@ -670,7 +670,7 @@ void stdx::_FileIOService::close_file(int file)
 void stdx::_FileIOService::init_thread()
 {
 #ifdef DEBUG
-	printf("[File IO Service]正在初始化IO服务\n");
+	::printf("[File IO Service]正在初始化IO服务\n");
 #endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
@@ -682,7 +682,7 @@ void stdx::_FileIOService::init_thread()
 				int64_t res = 0;
 				auto *context_ptr = aiocp.get(res);
 #ifdef DEBUG
-				printf("[Native AIO]IO操作完成\n");
+				::printf("[Native AIO]IO操作完成\n");
 #endif // DEBUG
 				if (context_ptr == nullptr)
 				{
@@ -741,7 +741,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, c
 	{
 		throw std::logic_error("this io service has been free");
 	}
-	stdx::task_complete_event<stdx::file_read_event> ce;
+	stdx::task_completion_event<stdx::file_read_event> ce;
 	m_io_service.read_file(m_file, size, offset, [ce](file_read_event context, std::exception_ptr error) mutable
 	{
 		if (error)
@@ -764,7 +764,7 @@ stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, 
 	{
 		throw std::logic_error("this io service has been free");
 	}
-	stdx::task_complete_event<stdx::file_write_event> ce;
+	stdx::task_completion_event<stdx::file_write_event> ce;
 	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
 	{
 		if (error)

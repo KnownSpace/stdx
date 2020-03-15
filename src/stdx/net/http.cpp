@@ -475,22 +475,36 @@ void stdx::http_cache_control::set_cache_type(stdx::http_cache_control_type type
 	m_type = type;
 }
 
+stdx::http_header::http_header()
+	:m_version(stdx::http_version::http_1_1)
+	,m_headers()
+{}
+
+stdx::http_header::http_header(stdx::http_version version)
+	: m_version(version)
+	, m_headers()
+{}
+
 stdx::http_header::http_header(const stdx::http_header& other)
-	:m_headers(other.m_headers)
+	:m_version(other.m_version)
+	,m_headers(other.m_headers)
 {}
 
 stdx::http_header::http_header(stdx::http_header&& other) noexcept
-	:m_headers(other.m_headers)
+	:m_version(other.m_version)
+	,m_headers(other.m_headers)
 {}
 
 stdx::http_header& stdx::http_header::operator=(const stdx::http_header& other)
 {
+	m_version = other.m_version;
 	m_headers = other.m_headers;
 	return *this;
 }
 
-stdx::http_header& stdx::http_header::operator=(stdx::http_header&& other)
+stdx::http_header& stdx::http_header::operator=(stdx::http_header&& other) noexcept
 {
+	m_version = other.m_version;
 	m_headers = other.m_headers;
 	return *this;
 }
@@ -508,7 +522,17 @@ stdx::string stdx::http_header::to_string() const
 	return str;
 }
 
-stdx::http_header& stdx::http_header::add_header(stdx::string&& name, const stdx::string& value)
+const stdx::http_version& stdx::http_header::version() const
+{
+	return m_version;
+}
+
+stdx::http_version& stdx::http_header::version()
+{
+	return m_version;
+}
+
+stdx::http_header& stdx::http_header::add_header(stdx::string&& name,stdx::string&& value)
 {
 	if (name.empty())
 	{
@@ -520,9 +544,13 @@ stdx::http_header& stdx::http_header::add_header(stdx::string&& name, const stdx
 	}
 	if (name.back() == U(' '))
 	{
-		name.erase(name.size()-1);
+		name.erase_back();
 	}
-	m_headers[name] = value;
+	if (value.front() == U(' '))
+	{
+		value.erase_front();
+	}
+	m_headers.emplace(name,value);
 	return *this;
 }
 
@@ -536,12 +564,12 @@ stdx::http_header& stdx::http_header::add_header(const stdx::string& name, const
 	{
 		throw std::invalid_argument("value could not be empty");
 	}
-	if (name.back() == U(' '))
+	if (name.back() == U(' ') || value.front() == U(' '))
 	{
-		stdx::string tmp(name);
-		return add_header(std::move(tmp), value);
+		stdx::string t1(name),t2(value);
+		return add_header(std::move(t1),std::move(t2));
 	}
-	m_headers[name] = value;
+	m_headers.emplace(name, value);
 	return *this;
 }
 
@@ -553,7 +581,7 @@ stdx::http_header& stdx::http_header::remove_header(stdx::string&& name)
 	}
 	if (name.back() == U(' '))
 	{
-		name.earse(name.size() - 1);
+		name.erase_back();
 	}
 	m_headers.erase(name);
 	return *this;
@@ -572,4 +600,176 @@ stdx::http_header& stdx::http_header::remove_header(const stdx::string& name)
 	}
 	m_headers.erase(name);
 	return *this;
+}
+
+stdx::http_header& stdx::http_header::add_header(const stdx::string& raw_string)
+{
+	if (raw_string.empty())
+	{
+		throw std::invalid_argument("raw string could not be empty");
+	}
+	std::list<stdx::string> &&list = raw_string.split(U(":"));
+	if (list.size() != 2)
+	{
+		throw std::invalid_argument("invalid raw string");
+	}
+	add_header(list.front(), list.back());
+	return *this;
+}
+
+const stdx::string& stdx::http_header::operator[](const stdx::string& name) const
+{
+	if (name.back() == U(' '))
+	{
+		stdx::string tmp(name);
+		return this->operator[](std::move(tmp));
+	}
+	return m_headers.at(name);
+}
+
+stdx::string& stdx::http_header::operator[](const stdx::string& name)
+{
+	if (name.back() == U(' '))
+	{
+		stdx::string tmp(name);
+		return this->operator[](std::move(tmp));
+	}
+	return m_headers.at(name);
+}
+
+const stdx::string& stdx::http_header::operator[](stdx::string&& name) const
+{
+	if (name.back() == U(' '))
+	{
+		name.erase_back();
+	}
+	return m_headers.at(name);
+}
+
+stdx::string& stdx::http_header::operator[](stdx::string&& name)
+{
+	if (name.back() == U(' '))
+	{
+		name.erase_back();
+	}
+	return m_headers.at(name);
+}
+
+bool stdx::http_header::exist(const stdx::string& name) const
+{
+	if (name.back() == U(' '))
+	{
+		stdx::string tmp(name);
+		return exist(std::move(tmp));
+	}
+	return m_headers.find(name) != m_headers.end();
+}
+
+bool stdx::http_header::exist(stdx::string&& name) const
+{
+	if (name.back() == U(' '))
+	{
+		name.erase_back();
+	}
+	return m_headers.find(name) != m_headers.end();
+}
+
+stdx::string stdx::http_response_header::to_string() const
+{
+	//状态行
+	stdx::string str(stdx::http_version_string(version()));
+	str.push_back(U(' '));
+	str.append(stdx::to_string(m_status_code));
+	str.push_back(U(' '));
+	str.append(stdx::http_status_message(m_status_code));
+	str.append(U("\r\n"));
+	//其他头部
+	str.append(http_header::to_string());
+	//Set-Cookie
+	for (auto begin=m_set_cookies.begin(),end=m_set_cookies.end();begin!=end;begin++)
+	{
+		str.append(begin->to_set_cookie_string());
+		str.append(U("\r\n"));
+	}
+	return str;
+}
+
+void stdx::http_header::clear()
+{
+	m_headers.clear();
+}
+
+size_t stdx::http_header::size() const
+{
+	return m_headers.size();
+}
+
+stdx::string stdx::http_version_string(stdx::http_version version)
+{
+	switch (version)
+	{
+	case stdx::http_version::http_1_0:
+		return U("HTTP/1.0");
+	case stdx::http_version::http_1_1:
+		return U("HTTP/1.1");
+	case stdx::http_version::http_2_0:
+		return U("HTTP/2.0");
+	default:
+		return U("HTTP/1.1");
+	}
+}
+
+stdx::string stdx::http_status_message(stdx::http_status_code code)
+{
+	switch (code)
+	{
+	default:
+		return U("Unkown Header Message");
+	}
+}
+
+stdx::string stdx::http_method_string(stdx::http_method method)
+{
+	switch (method)
+	{
+	case stdx::http_method::get:
+		return U("GET");
+	case stdx::http_method::post:
+		return U("POST");
+	case stdx::http_method::put:
+		return U("PUT");
+	case stdx::http_method::del:
+		return U("DELETE");
+	case stdx::http_method::options:
+		return U("OPTIONS");
+	case stdx::http_method::head:
+		return U("HEAD");
+	case stdx::http_method::trace:
+		return U("TRACE");
+	case stdx::http_method::connect:
+		return U("CONNECT");
+	case stdx::http_method::patch:
+		return U("PATCH");
+	default:
+		return U("GET");
+	}
+}
+
+stdx::string stdx::http_request_header::to_string() const
+{
+	//请求行
+	stdx::string str(stdx::http_method_string(m_method));
+	str.push_back(U(' '));
+	str.append(m_request_url);
+	str.push_back(U(' '));
+	str.append(stdx::http_version_string(version()));
+	//其他头部
+	str.append(http_header::to_string());
+	//Cookie
+	str.append(U("Cookie: "));
+	for (auto begin = m_cookies.begin(),end=m_cookies.end();begin!=end;begin++)
+	{
+		str.append(begin->to_cookie_string_without_header());
+		str.append(U("; "));
+	}
 }

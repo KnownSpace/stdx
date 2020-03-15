@@ -876,7 +876,7 @@ void stdx::string::erase(const stdx::string& target)
 	}
 }
 
-void stdx::string::earse(typename stdx::string::char_t ch)
+void stdx::string::erase(typename stdx::string::char_t ch)
 {
 	for (size_t pos(m_data.find(ch)); pos != npos; pos = m_data.find(ch))
 	{
@@ -884,7 +884,7 @@ void stdx::string::earse(typename stdx::string::char_t ch)
 	}
 }
 
-void stdx::string::earse_once(const stdx::string& target)
+void stdx::string::erase_once(const stdx::string& target)
 {
 	size_t pos(m_data.find(target.m_data));
 	if (pos != npos)
@@ -893,11 +893,28 @@ void stdx::string::earse_once(const stdx::string& target)
 	}
 }
 
-void stdx::string::earse_once(typename stdx::string::char_t ch)
+void stdx::string::erase_once(typename stdx::string::char_t ch)
 {
 	size_t pos(m_data.find(ch));
 	if (pos != npos)
 	{
 		m_data.erase(pos);
 	}
+}
+
+void stdx::string::erase_front()
+{
+	erase(begin());
+}
+
+void stdx::string::erase_back()
+{
+	erase(end()-1);
+}
+
+stdx::string stdx::to_string(const typename stdx::string::char_t ch)
+{
+	stdx::string str;
+	str.push_back(ch);
+	return str;
 }

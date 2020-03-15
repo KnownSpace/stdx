@@ -24,7 +24,7 @@ stdx::_TaskFlag::~_TaskFlag()
 
 stdx::task<void> stdx::_TaskFlag::lock()
 {
-	stdx::task_complete_event<void> ce;
+	stdx::task_completion_event<void> ce;
 	std::unique_lock<stdx::spin_lock> lock(m_lock);
 	if (m_locked)
 	{

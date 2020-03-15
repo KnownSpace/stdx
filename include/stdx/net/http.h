@@ -26,6 +26,10 @@ namespace stdx
 		http_2_0	//http 2.0
 	};
 
+	extern stdx::string http_version_string(stdx::http_version version);
+
+	extern stdx::string http_method_string(stdx::http_method method);
+
 	enum class http_cache_control_type
 	{
 		/*response or request*/
@@ -42,7 +46,13 @@ namespace stdx
 		must_revalidate,
 		proxy_revalidate
 	};
+
+	using http_status_code = uint16_t;
+
+	extern stdx::string http_status_message(stdx::http_status_code code);
+
 	using http_max_age_t = uint64_t;
+
 	struct http_cookie
 	{
 	public:
@@ -151,7 +161,9 @@ namespace stdx
 	struct http_header
 	{
 	public:
-		http_header() = default;
+		http_header();
+
+		http_header(stdx::http_version version);
 
 		http_header(const stdx::http_header& other);
 
@@ -161,13 +173,17 @@ namespace stdx
 
 		stdx::http_header& operator=(const stdx::http_header& other);
 
-		stdx::http_header& operator=(stdx::http_header&& other);
+		stdx::http_header& operator=(stdx::http_header&& other) noexcept;
 
 		virtual stdx::string to_string() const;
 
+		const stdx::http_version &version() const;
+
+		stdx::http_version& version();
+
 		stdx::http_header& add_header(const stdx::string& name, const stdx::string& value);
 
-		stdx::http_header& add_header(stdx::string&& name, const stdx::string& value);
+		stdx::http_header& add_header(stdx::string&& name, stdx::string&& value);
 
 		stdx::http_header& remove_header(const stdx::string &name);
 
@@ -177,8 +193,38 @@ namespace stdx
 
 		stdx::string& operator[](const stdx::string& name);
 		const stdx::string& operator[](const stdx::string& name) const;
+		stdx::string& operator[](stdx::string&& name);
+		const stdx::string& operator[](stdx::string&& name) const;
 
+		bool exist(const stdx::string& name) const;
+		bool exist(stdx::string &&name) const;
+
+		void clear();
+
+		size_t size() const;
 	private:
+		stdx::http_version m_version;
 		std::unordered_map<stdx::string, stdx::string> m_headers;
+	};
+
+	struct http_request_header:public stdx::http_header
+	{
+	public:
+
+		virtual stdx::string to_string() const override;
+	private:
+		stdx::http_method m_method;
+		stdx::string m_request_url;
+		std::list<stdx::http_cookie> m_cookies;
+	};
+
+	struct http_response_header:public stdx::http_header
+	{
+	public:
+
+		virtual stdx::string to_string() const override;
+	private:
+		stdx::http_status_code m_status_code;
+		std::list<stdx::http_cookie> m_set_cookies;
 	};
 }

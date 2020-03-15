@@ -1,6 +1,8 @@
 ﻿#include <iostream>
 #include <stdx/file.h>
 #include <stdx/string.h>
+#include <stdx/net/http.h>
+#include <stdx/traits/base_on.h>
 int main(int argc, char **argv)
 {
 	//#define ENABLE_WEB

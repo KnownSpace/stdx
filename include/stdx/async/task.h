@@ -958,24 +958,24 @@ namespace stdx
 	};
 
 	template<typename _R>
-	class task_complete_event
+	class task_completion_event
 	{
 		using impl_t = std::shared_ptr<_TaskCompleteEvent<_R>>;
 	public:
-		task_complete_event()
+		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<_R>>())
 		{}
-		task_complete_event(const task_complete_event<_R> &other)
+		task_completion_event(const task_completion_event<_R> &other)
 			:m_impl(other.m_impl)
 		{}
-		~task_complete_event() = default;
-		task_complete_event<_R> &operator=(const task_complete_event<_R> &other)
+		~task_completion_event() = default;
+		task_completion_event<_R> &operator=(const task_completion_event<_R> &other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
 
-		bool operator==(const task_complete_event<_R> &other) const
+		bool operator==(const task_completion_event<_R> &other) const
 		{
 			return other.m_impl == m_impl;
 		}
@@ -1011,23 +1011,23 @@ namespace stdx
 	};
 
 	template<>
-	class task_complete_event<void>
+	class task_completion_event<void>
 	{
 		using impl_t = std::shared_ptr<_TaskCompleteEvent<void>>;
 	public:
-		task_complete_event()
+		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<void>>())
 		{}
-		task_complete_event(const task_complete_event<void> &other)
+		task_completion_event(const task_completion_event<void> &other)
 			:m_impl(other.m_impl)
 		{}
-		~task_complete_event() = default;
-		task_complete_event<void> &operator=(const task_complete_event<void> &other)
+		~task_completion_event() = default;
+		task_completion_event<void> &operator=(const task_completion_event<void> &other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
-		bool operator==(const task_complete_event<void> &other) const
+		bool operator==(const task_completion_event<void> &other) const
 		{
 			return other.m_impl == m_impl;
 		}
@@ -1067,7 +1067,7 @@ namespace stdx
 	private:
 		stdx::spin_lock m_lock;
 		bool m_locked;
-		std::queue<stdx::task_complete_event<void>> m_wait_queue;
+		std::queue<stdx::task_completion_event<void>> m_wait_queue;
 	};
 
 	class task_flag

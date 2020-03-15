@@ -135,47 +135,32 @@ namespace stdx
 	template<typename _T>
 	struct type_include<_T,stdx::type_list<>>
 	{
-		enum 
-		{
-			value = false
-		};
+		constexpr static bool value = false;
 	};
 
 	template<typename _T,typename _First>
 	struct type_include<_T,stdx::type_list<_First>>
 	{
-		enum 
-		{
-			value = is_same(_T, _First)
-		};
+		constexpr static bool value = is_same(_T, _First);
 	};
 
 	template<typename _T, typename _First,typename _Second>
 	struct type_include<_T,stdx::type_list<_First, _Second>>
 	{
-		enum 
-		{
-			value = is_same(_T, _First) || is_same(_T, _Second)
-		};
+		constexpr static bool value = is_same(_T, _First) || is_same(_T, _Second);
 	};
 
 	template<typename _T, typename _First, typename _Second,typename ..._More>
 	struct type_include<_T,stdx::type_list<_First, _Second, _More...>>
 	{
-		enum 
-		{
-			value = is_same(_T, _First) || is_same(_T, _Second) || stdx::type_include<_T,stdx::type_list<_More...>>::value
-		};
+		constexpr static bool value = is_same(_T, _First) || is_same(_T, _Second) || stdx::type_include<_T, stdx::type_list<_More...>>::value;
 	};
 
 	template<typename _First>
 	struct type_list<_First>
 	{
 		using First = _First;
-		enum
-		{
-			size = 1
-		};
+		constexpr static size_t size = 1;
 	};
 
 	template<typename _First,typename _Second>
@@ -183,11 +168,7 @@ namespace stdx
 	{
 		using First = _First;
 		using Second = _Second;
-
-		enum
-		{
-			size = 2
-		};
+		constexpr static size_t size = 2;
 	};
 
 	template<typename _First,typename _Second,typename ..._More>
@@ -197,9 +178,6 @@ namespace stdx
 		using Second = _Second;
 		using More = type_list<_More...>;
 
-		enum
-		{
-			size = 2+More::size
-		};
+		constexpr static size_t size = sizeof...(_More) + 2;
 	};
 }

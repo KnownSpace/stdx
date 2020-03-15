@@ -129,7 +129,7 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const DWORD & 
 		catch (const std::exception&)
 		{
 #ifdef DEBUG
-			printf("[Network IO Service]IO操作投递失败\n");
+			::printf("[Network IO Service]IO操作投递失败\n");
 #endif // DEBUG
 			free(context_ptr->buffer.buf);
 			delete call;
@@ -139,7 +139,7 @@ void stdx::_NetworkIOService::send(SOCKET sock, const char* data, const DWORD & 
 		}
 	}
 #ifdef DEBUG
-	printf("[Network IO Service]IO操作已投递\n");
+	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
 }
 
@@ -243,7 +243,7 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const DWORD &size, std::function
 		catch (const std::exception&)
 		{
 #ifdef DEBUG
-			printf("[Network IO Service]IO操作投递失败\n");
+			::printf("[Network IO Service]IO操作投递失败\n");
 #endif // DEBUG
 			delete call;
 			free(context_ptr->buffer.buf);
@@ -253,7 +253,7 @@ void stdx::_NetworkIOService::recv(SOCKET sock, const DWORD &size, std::function
 		}
 	}
 #ifdef DEBUG
-	printf("[Network IO Service]IO操作已投递\n");
+	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
 }
 
@@ -454,7 +454,7 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 		catch (const std::exception&)
 		{
 #ifdef DEBUG
-			printf("[Network IO Service]IO操作投递失败\n");
+			::printf("[Network IO Service]IO操作投递失败\n");
 #endif // DEBUG
 			delete call;
 			free(addr);
@@ -466,7 +466,7 @@ void stdx::_NetworkIOService::recv_from(SOCKET sock, const DWORD &size, std::fun
 		}
 	}
 #ifdef DEBUG
-	printf("[Network IO Service]IO操作已投递\n");
+	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
 }
 
@@ -506,7 +506,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
 #ifdef DEBUG
-	 printf("[Network IO Service]正在初始化IO服务\n");
+	 ::printf("[Network IO Service]正在初始化IO服务\n");
 #endif // DEBUG
 	 for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
@@ -516,7 +516,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 			 {
 				 auto *context_ptr = iocp.get();
 #ifdef DEBUG
-				 printf("[IOCP]IO操作完成\n");
+				 ::printf("[IOCP]IO操作完成\n");
 #endif // DEBUG
 				 if (context_ptr == nullptr)
 				 {
@@ -571,7 +571,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_send_event> ce;
+	 stdx::task_completion_event<stdx::network_send_event> ce;
 	 m_io_service.send(m_handle, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -593,7 +593,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<void> ce;
+	 stdx::task_completion_event<void> ce;
 	 m_io_service.send_file(m_handle, file_handle, [ce](std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -615,7 +615,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_send_event> ce;
+	 stdx::task_completion_event<stdx::network_send_event> ce;
 	 m_io_service.send_to(m_handle, addr, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -637,7 +637,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_recv_event> ce;
+	 stdx::task_completion_event<stdx::network_recv_event> ce;
 	 m_io_service.recv(m_handle, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -659,7 +659,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_recv_event> ce;
+	 stdx::task_completion_event<stdx::network_recv_event> ce;
 	 m_io_service.recv_from(m_handle, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -951,7 +951,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 ev.data.ptr = context;
 	 m_reactor.push(sock,ev);
 #ifdef DEBUG
-	 printf("[Network IO Service]IO操作已投递\n");
+	 ::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
  }
 
@@ -1041,7 +1041,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 ev.data.ptr = context;
 	 m_reactor.push(sock, ev);
 #ifdef DEBUG
-	 printf("[Network IO Service]IO操作已投递\n");
+	 ::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
  }
 
@@ -1055,7 +1055,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
  void stdx::_NetworkIOService::init_threadpoll() noexcept
  {
 #ifdef DEBUG
-	 printf("[Network IO Service]正在初始化IO服务\n");
+	 ::printf("[Network IO Service]正在初始化IO服务\n");
 #endif // DEBUG
 	 for (size_t i = 0,cores = stdx::suggested_threads_number(); i < cores; i++)
 	 {
@@ -1068,7 +1068,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 					 reactor.get<stdx::network_io_context_finder>([](epoll_event *ev_ptr)
 					 {
 #ifdef DEBUG
-						 printf("[Epoll]检测到IO请求\n");
+						 ::printf("[Epoll]检测到IO请求\n");
 #endif // DEBUG
 						 stdx::network_io_context *context = (stdx::network_io_context *)ev_ptr->data.ptr;
 						 ssize_t r = 0;
@@ -1147,7 +1147,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_send_event> ce;
+	 stdx::task_completion_event<stdx::network_send_event> ce;
 	 m_io_service.send(m_handle, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -1169,7 +1169,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<void> ce;
+	 stdx::task_completion_event<void> ce;
 	 m_io_service.send_file(m_handle,file_handle,[ce](std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -1191,7 +1191,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_send_event> ce;
+	 stdx::task_completion_event<stdx::network_send_event> ce;
 	 m_io_service.send_to(m_handle, addr, data, size, [ce](stdx::network_send_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -1213,7 +1213,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_recv_event> ce;
+	 stdx::task_completion_event<stdx::network_recv_event> ce;
 	 m_io_service.recv(m_handle, size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)
@@ -1235,7 +1235,7 @@ void stdx::_NetworkIOService::close(SOCKET sock)
 	 {
 		 throw std::logic_error("this io service has been free");
 	 }
-	 stdx::task_complete_event<stdx::network_recv_event> ce;
+	 stdx::task_completion_event<stdx::network_recv_event> ce;
 	 m_io_service.recv_from(m_handle,size, [ce](stdx::network_recv_event context, std::exception_ptr error) mutable
 	 {
 		 if (error)

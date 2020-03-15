@@ -83,10 +83,7 @@ namespace stdx
 	public:
 		template<typename U>  static auto test(int)->decltype(&U::operator());
 		template<typename U> static false_t test(...);
-		enum
-		{
-			value = !std::is_same<decltype(test<T>(0)), false_t>::value
-		};
+		constexpr static bool value = !std::is_same<decltype(test<T>(0)), false_t>::value;
 	};
 
 	template<typename _Fn, bool>
@@ -95,19 +92,13 @@ namespace stdx
 	template<typename _Fn>
 	struct _FunctionInfoChecker<_Fn, false>
 	{
-		enum
-		{
-			is_callable = 0
-		};
+		constexpr static bool is_callable = false;
 	};
 
 	template<typename _Fn>
 	struct _FunctionInfoChecker<_Fn, true> :public _FunctionInfo<_Fn>
 	{
-		enum
-		{
-			is_callable = 1
-		};
+		constexpr static bool is_callable = true;
 	};
 
 	template<typename _Fn>
@@ -120,10 +111,7 @@ namespace stdx
 		using info = stdx::function_info<_Fn>;
 		using arguments = typename info::arguments;
 	public:
-		enum
-		{
-			value = is_same(arguments, stdx::type_list<_Args...>)
-		};
+		constexpr static bool value = is_same(arguments, stdx::type_list<_Args...>);
 	};
 
 
@@ -142,10 +130,7 @@ namespace stdx
 		using info = stdx::function_info<_Fn>;
 		using result = typename info::result;
 	public:
-		enum
-		{
-			value = is_same(result, _Result)
-		};
+		constexpr static bool value = is_same(result, _Result);
 	};
 #define is_result_type(_Fn,_Result) stdx::_IsResult<_Fn,_Result>::value
 
