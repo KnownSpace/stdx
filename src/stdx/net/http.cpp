@@ -1273,6 +1273,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 		auto begin = request_info.begin();
 		header.method() = stdx::make_http_method_by_string(*begin);
 		begin++;
+		begin->url_decode();
 		header.request_url() = *begin;
 		begin++;
 		header.version() = stdx::make_http_version_by_string(*begin);

@@ -496,6 +496,8 @@ namespace stdx
 
 		void html_decode();
 
+		void url_decode();
+
 		bool is_lower() const;
 
 		stdx::string &lower();
@@ -547,6 +549,11 @@ namespace stdx
 			return stdx::string(m_data + other.m_data);
 		}
 
+		char_t &operator[](size_t index)
+		{
+			return m_data[index];
+		}
+
 		char_t operator[](size_t index) const
 		{
 			return m_data[index];
@@ -596,6 +603,11 @@ namespace stdx
 	}
 
 	extern void _FormatString(stdx::string &format_string,std::initializer_list<stdx::string> &&args);
+
+	//将两个HEX映射为字符
+	extern char _MapByte(const std::pair<char, char>& pair);
+
+	extern wchar_t _MapByte(const std::pair<wchar_t, wchar_t>& pair);
 }
 
 namespace std

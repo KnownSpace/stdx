@@ -977,3 +977,186 @@ void stdx::_FormatString(stdx::string& format_string, std::initializer_list<stdx
 		format_string.replace(str, *(begin + i));
 	}
 }
+
+char stdx::_MapByte(const std::pair<char, char>& pair)
+{
+	//创建临时字符串
+	std::string str;
+	//将两个字符push_back
+	str.push_back(pair.first);
+	str.push_back(pair.second);
+	//调用C标准库函数
+	int i = std::stoi(str, nullptr, 16);
+	//强制类型转换
+	return (char)i;
+}
+
+wchar_t stdx::_MapByte(const std::pair<wchar_t, wchar_t>& pair)
+{
+	//创建临时字符串
+	std::wstring str;
+	//将两个字符push_back
+	str.push_back(pair.first);
+	str.push_back(pair.second);
+	//调用C标准库函数
+	int i = std::stoi(str, nullptr, 16);
+	//强制类型转换
+	return (wchar_t)i;
+}
+
+void stdx::string::url_decode()
+{
+	for (auto begin = m_data.begin();begin!=m_data.end();begin++)
+	{
+		if (*begin == U('%'))
+		{
+			begin++;
+			if (begin == m_data.end())
+			{
+				return;
+			}
+			begin++;
+			if (begin == m_data.end())
+			{
+				return;
+			}
+			begin--;
+			std::pair<char_t, char_t> pair;
+			pair.first = 0;
+			pair.second = 0;
+#ifdef WIN32
+			if (iswdigit(*begin))
+			{
+				pair.first = *begin;
+			}
+			else if (iswalpha(*begin))
+			{
+				if (iswupper(*begin))
+				{
+					*begin = towlower(*begin);
+				}
+				switch (*begin)
+				{
+				case U('a'):
+				case U('b'):
+				case U('c'):
+				case U('d'):
+				case U('e'):
+				case U('f'):
+					pair.first = *begin;
+				default:
+					continue;
+				}
+			}
+			else
+			{
+				continue;
+			}
+			begin++;
+			if (iswdigit(*begin))
+			{
+				pair.second = *begin;
+			}
+			else if (iswalpha(*begin))
+			{
+				if (iswupper(*begin))
+				{
+					*begin = towlower(*begin);
+				}
+				switch (*begin)
+				{
+				case U('a'):
+				case U('b'):
+				case U('c'):
+				case U('d'):
+				case U('e'):
+				case U('f'):
+					pair.second = *begin;
+				default:
+					pair.first = 0;
+					continue;
+				}
+			}
+			else
+			{
+				continue;
+			}
+			if (pair.first !=0 && pair.second != 0)
+			{
+				auto bound = begin+1;
+				begin--;
+				begin--;
+				char_t ch = stdx::_MapByte(pair);
+				begin = m_data.erase(begin, bound);
+				begin = m_data.insert(begin, ch);
+			}
+#else
+			if (isdigit(*begin))
+			{
+
+			}
+			else if (isalpha(*begin))
+			{
+				if (isupper(*begin))
+				{
+					*begin = tolower(*begin);
+				}
+				switch (*begin)
+				{
+				case U('a'):
+				case U('b'):
+				case U('c'):
+				case U('d'):
+				case U('e'):
+				case U('f'):
+					pair.first = *begin;
+				default:
+					continue;
+				}
+			}
+			else
+			{
+				continue;
+			}
+			begin++;
+			if (isdigit(*begin))
+			{
+				pair.second = *begin;
+			}
+			else if (isalpha(*begin))
+			{
+				if (isupper(*begin))
+				{
+					*begin = tolower(*begin);
+				}
+				switch (*begin)
+				{
+				case U('a'):
+				case U('b'):
+				case U('c'):
+				case U('d'):
+				case U('e'):
+				case U('f'):
+					pair.second = *begin;
+				default:
+					pair.first = 0;
+					continue;
+				}
+			}
+			else
+			{
+				continue;
+			}
+			if (pair.first != 0 && pair.second != 0)
+			{
+				auto bound = begin+1;
+				begin--;
+				begin--;
+				char_t ch = stdx::_MapByte(pair);
+				begin = m_data.erase(begin, bound);
+				begin = m_data.insert(begin, ch);
+			}
+#endif
+		}
+	}
+}
