@@ -212,16 +212,7 @@ std::ostream &stdx::cerr()
 
 void stdx::_Fprintf(FILE *stream,stdx::string&& format, std::initializer_list<stdx::string>&& list)
 {
-	auto begin = list.begin();
-	stdx::string str(U("{0}"));
-	for (size_t i = 0,size = list.size(); i < size; i++)
-	{
-		if (i != 0)
-		{
-			str.replace(str.begin() + 1, str.end() - 1, stdx::to_string(i));
-		}
-		format.replace(str,*(begin+i));
-	}
+	stdx::_FormatString(format, std::move(list));
 #ifdef WIN32
 	fputws(format.c_str(),stream);
 #else

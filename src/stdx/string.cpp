@@ -928,3 +928,47 @@ stdx::string stdx::to_string(const typename stdx::string::char_t ch)
 	str.push_back(ch);
 	return str;
 }
+
+int32_t stdx::string::to_int32() const
+{
+	return std::stoi(m_data);
+}
+
+int64_t stdx::string::to_int64() const
+{
+	return std::stoll(m_data);
+}
+
+uint32_t stdx::string::to_uint32() const
+{
+	return std::stoul(m_data);
+}
+
+uint64_t stdx::string::to_uint64() const
+{
+	return std::stoull(m_data);
+}
+
+double stdx::string::to_double() const
+{
+	return std::stod(m_data);
+}
+
+long double stdx::string::to_ldouble() const
+{
+	return std::stold(m_data);
+}
+
+void stdx::_FormatString(stdx::string& format_string, std::initializer_list<stdx::string>&& args)
+{
+	auto begin = args.begin();
+	stdx::string str(U("{0}"));
+	for (size_t i = 0, size = args.size(); i < size; i++)
+	{
+		if (i != 0)
+		{
+			str.replace(str.begin() + 1, str.end() - 1, stdx::to_string(i));
+		}
+		format_string.replace(str, *(begin + i));
+	}
+}

@@ -6,7 +6,7 @@
 #include <stdx/net/socket.h>
 int main(int argc, char **argv)
 {
-//#define ENABLE_WEB
+#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::network_io_service service;
@@ -29,37 +29,44 @@ int main(int argc, char **argv)
 		auto t = c.recv(1024).then([c](stdx::network_recv_event &e) mutable
 		{
 			std::string request(e.buffer,e.size);
-			stdx::printf(U("Receive Data:\n{0}\n"),request);
 			try
 			{
 				stdx::http_request_header rq_header = stdx::http_request_header::from_string(stdx::string::from_u8_string(request));
-				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}"), stdx::http_version_string(rq_header.version()), rq_header.request_url(), stdx::http_method_string(rq_header.method()));
+				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(rq_header.version()),rq_header.request_url(),stdx::http_method_string(rq_header.method()));
+				for (auto begin = rq_header.begin(),end=rq_header.end();begin!=end;begin++)
+				{
+					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
+				}
+				stdx::http_response_header header(200);
+				if (rq_header.cookies().empty())
+				{
+					header.cookies().push_back(stdx::http_cookie(U("test"), U("test")));
+				}
+				header.add_header(U("Content-Type"), U("text/html"));
+				std::string body = "<html><body><h1>Hello World</h1></body></html>";
+				header.add_header(U("Content-Length"), stdx::to_string(body.size()));
+				std::string str = header.to_string().to_u8_string();
+				str.append("\r\n");
+				str.append(body);
+				stdx::uint64_union u;
+				u.value = str.size();
+				auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
+				{
+					try
+					{
+						auto e = r.get();
+						stdx::printf(U("Send: {0} Bytes\n"),e.size);
+					}
+					catch (const std::exception&)
+					{
+
+					}
+				});
 			}
 			catch (const std::exception&err)
 			{
 				stdx::perrorf(U("{0}\n"), err.what());
 			}
-			stdx::http_response_header header(200);
-			header.cookies().push_back(stdx::http_cookie(U("test"), U("test")));
-			header.add_header(U("Content-Type"), U("text/html"));
-			std::string str = header.to_string().to_u8_string();
-			std::string body = "<html><body><h1>Hello World</h1></body></html>";
-			str.append("\r\n");
-			str.append(body);
-			stdx::uint64_union u;
-			u.value = str.size();
-			auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event> &r) mutable
-			{
-				try
-				{
-					auto e = r.get();
-					std::cout << "send: " << e.size << " bytes" << std::endl;
-				}
-				catch (const std::exception&)
-				{
-
-				}
-			});
 		});
 	}
 #pragma endregion

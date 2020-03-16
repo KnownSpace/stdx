@@ -51,7 +51,7 @@ namespace stdx
 		proxy_revalidate
 	};
 
-	using http_status_code_t = uint16_t;
+	using http_status_code_t = uint32_t;
 
 	extern stdx::string http_status_message(stdx::http_status_code_t code);
 
@@ -70,6 +70,8 @@ namespace stdx
 		bool m_secure;
 		bool m_http_only;
 		stdx::string m_domain;
+		bool m_enable_expires;
+		stdx::datetime m_expires;
 	public:
 		http_cookie();
 
@@ -96,7 +98,8 @@ namespace stdx
 		stdx::string& value();
 		const stdx::string &value() const;
 
-		bool enable_max_age() const;
+		const bool &enable_max_age() const;
+		bool& enable_max_age();
 		stdx::http_cookie::max_age_t &max_age();
 		const stdx::http_cookie::max_age_t &max_age() const;
 
@@ -111,6 +114,11 @@ namespace stdx
 
 		stdx::string &domain();
 		const stdx::string &domain() const;
+
+		bool enable_expires() const;
+		void set_enable_expires(bool value);
+		stdx::datetime& expires();
+		const stdx::datetime& expires() const;
 	};
 
 	extern std::list<stdx::http_cookie> make_cookies_by_cookie_header(const stdx::string &header);
@@ -168,6 +176,9 @@ namespace stdx
 
 	struct http_header
 	{
+		using map_t = std::unordered_map<stdx::string, stdx::string>;
+		using iterator_t = typename map_t::iterator;
+		using const_iterator_t = typename map_t::const_iterator;
 	public:
 		http_header();
 
@@ -210,9 +221,17 @@ namespace stdx
 		void clear();
 
 		size_t size() const;
+
+		iterator_t begin();
+
+		const_iterator_t cbegin() const;
+
+		iterator_t end();
+
+		const_iterator_t cend();
 	private:
 		stdx::http_version m_version;
-		std::unordered_map<stdx::string, stdx::string> m_headers;
+		map_t m_headers;
 	};
 
 	struct http_request_header:public stdx::http_header
@@ -291,5 +310,15 @@ namespace stdx
 	private:
 		stdx::http_status_code_t m_status_code;
 		std::list<stdx::http_cookie> m_set_cookies;
+	};
+
+	interface_class http_body
+	{
+	public:
+		using byte_t = unsigned char;
+		using arg_t = std::unordered_map<stdx::string, std::vector<byte_t>>;
+		virtual ~http_body() =default;
+		virtual std::vector<byte_t> to_bytes() const;
+		virtual arg_t get_arg(const stdx::string &name) const;
 	};
 }

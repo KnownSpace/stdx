@@ -535,6 +535,15 @@ namespace stdx
 		{
 			return m_data[index];
 		}
+
+		int32_t to_int32() const;
+		int64_t to_int64() const;
+
+		uint32_t to_uint32() const;
+		uint64_t to_uint64() const;
+
+		double to_double() const;
+		long double to_ldouble() const;
 	private:
 		string_t m_data;
 
@@ -564,7 +573,13 @@ namespace stdx
 	extern stdx::string to_string(const std::wstring &val);
 	extern stdx::string to_string(const char* str);
 #endif
+	template<typename ..._Args>
+	void format_string(stdx::string& format_string, _Args&&...args)
+	{
+		_FormatString(format_string, std::move(std::initializer_list<stdx::string>{stdx::to_string(args)...}));
+	}
 
+	extern void _FormatString(stdx::string &format_string,std::initializer_list<stdx::string> &&args);
 }
 
 namespace std
