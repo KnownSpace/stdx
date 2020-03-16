@@ -1232,7 +1232,9 @@ stdx::string stdx::http_request_header::to_string() const
 	//请求行
 	stdx::string str(stdx::http_method_string(m_method));
 	str.push_back(U(' '));
-	str.append(m_request_url);
+	stdx::string tmp(m_request_url);
+	tmp.url_encode();
+	str.append(tmp);
 	str.push_back(U(' '));
 	str.append(stdx::http_version_string(version()));
 	//其他头部

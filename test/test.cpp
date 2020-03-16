@@ -41,10 +41,11 @@ int main(int argc, char **argv)
 				if (rq_header.request_url() != U("/"))
 				{
 					stdx::http_response_header header(404);
+					header.add_header(U("Content-Type"), U("text/html"));
 					str = header.to_string().to_u8_string();
 					str.append("\r\n");
-
-
+					std::string body = "<html><body><h1>Not Found</h1></body></html>";
+					str.append(body);
 				}
 				else
 				{

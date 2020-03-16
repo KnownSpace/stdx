@@ -320,8 +320,13 @@ namespace stdx
 
 	extern std::string from_base64_string(const std::string& base64_str);
 
-	struct string;
+	extern std::string url_decode(const std::string& str);
 
+	extern std::string url_encode(const std::string& str);
+
+	extern char hex_to_char(unsigned char byte);
+
+	struct string;
 }
 
 #ifdef WIN32
@@ -496,6 +501,8 @@ namespace stdx
 
 		void html_decode();
 
+		void url_encode();
+
 		void url_decode();
 
 		bool is_lower() const;
@@ -558,6 +565,8 @@ namespace stdx
 		{
 			return m_data[index];
 		}
+
+		static char_t hex_to_uchar(unsigned char byte);
 
 		int32_t to_int32() const;
 		int64_t to_int64() const;

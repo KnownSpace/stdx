@@ -1004,97 +1004,113 @@ wchar_t stdx::_MapByte(const std::pair<wchar_t, wchar_t>& pair)
 	return (wchar_t)i;
 }
 
-void stdx::string::url_decode()
+typename stdx::string::char_t stdx::string::hex_to_uchar(unsigned char byte)
 {
-	for (auto begin = m_data.begin();begin!=m_data.end();begin++)
+	switch (byte)
 	{
-		if (*begin == U('%'))
+	case 0x00:
+		return U('0');
+	case 0x01:
+		return U('1');
+	case 0x02:
+		return U('2');
+	case 0x03:
+		return U('3');
+	case 0x04:
+		return U('4');
+	case 0x05:
+		return U('5');
+	case 0x06:
+		return U('6');
+	case 0x07:
+		return U('7');
+	case 0x08:
+		return U('8');
+	case 0x09:
+		return U('9');
+	case 0x0A:
+		return U('A');
+	case 0x0B:
+		return U('B');
+	case 0x0C:
+		return U('C');
+	case 0x0D:
+		return U('D');
+	case 0x0E:
+		return U('E');
+	case 0x0F:
+		return U('F');
+	default:
+		throw std::domain_error("out of domain! should input 0x00 to 0x0F");
+	}
+}
+
+char stdx::hex_to_char(unsigned char byte)
+{
+	switch (byte)
+	{
+	case 0x00:
+		return '0';
+	case 0x01:
+		return '1';
+	case 0x02:
+		return '2';
+	case 0x03:
+		return '3';
+	case 0x04:
+		return '4';
+	case 0x05:
+		return '5';
+	case 0x06:
+		return '6';
+	case 0x07:
+		return '7';
+	case 0x08:
+		return '8';
+	case 0x09:
+		return '9';
+	case 0x0A:
+		return 'A';
+	case 0x0B:
+		return 'B';
+	case 0x0C:
+		return 'C';
+	case 0x0D:
+		return 'D';
+	case 0x0E:
+		return 'E';
+	case 0x0F:
+		return 'F';
+	default:
+		throw std::domain_error("out of domain! should input 0x00 to 0x0F");
+	}
+}
+
+std::string stdx::url_decode(const std::string& str)
+{
+	std::string tmp(str);
+	for (auto begin = tmp.begin(); begin != tmp.end(); begin++)
+	{
+		if (*begin == '%')
 		{
 			begin++;
-			if (begin == m_data.end())
+			if (begin == tmp.end())
 			{
-				return;
+				return tmp;
 			}
 			begin++;
-			if (begin == m_data.end())
+			if (begin == tmp.end())
 			{
-				return;
+				return tmp;
 			}
 			begin--;
-			std::pair<char_t, char_t> pair;
+			std::pair<char, char> pair;
 			pair.first = 0;
 			pair.second = 0;
-#ifdef WIN32
-			if (iswdigit(*begin))
+			if (isdigit(*begin))
 			{
 				pair.first = *begin;
 			}
-			else if (iswalpha(*begin))
-			{
-				if (iswupper(*begin))
-				{
-					*begin = towlower(*begin);
-				}
-				switch (*begin)
-				{
-				case U('a'):
-				case U('b'):
-				case U('c'):
-				case U('d'):
-				case U('e'):
-				case U('f'):
-					pair.first = *begin;
-				default:
-					continue;
-				}
-			}
-			else
-			{
-				continue;
-			}
-			begin++;
-			if (iswdigit(*begin))
-			{
-				pair.second = *begin;
-			}
-			else if (iswalpha(*begin))
-			{
-				if (iswupper(*begin))
-				{
-					*begin = towlower(*begin);
-				}
-				switch (*begin)
-				{
-				case U('a'):
-				case U('b'):
-				case U('c'):
-				case U('d'):
-				case U('e'):
-				case U('f'):
-					pair.second = *begin;
-				default:
-					pair.first = 0;
-					continue;
-				}
-			}
-			else
-			{
-				continue;
-			}
-			if (pair.first !=0 && pair.second != 0)
-			{
-				auto bound = begin+1;
-				begin--;
-				begin--;
-				char_t ch = stdx::_MapByte(pair);
-				begin = m_data.erase(begin, bound);
-				begin = m_data.insert(begin, ch);
-			}
-#else
-			if (isdigit(*begin))
-			{
-
-			}
 			else if (isalpha(*begin))
 			{
 				if (isupper(*begin))
@@ -1103,13 +1119,14 @@ void stdx::string::url_decode()
 				}
 				switch (*begin)
 				{
-				case U('a'):
-				case U('b'):
-				case U('c'):
-				case U('d'):
-				case U('e'):
-				case U('f'):
+				case 'a':
+				case 'b':
+				case 'c':
+				case 'd':
+				case 'e':
+				case 'f':
 					pair.first = *begin;
+					break;
 				default:
 					continue;
 				}
@@ -1138,6 +1155,7 @@ void stdx::string::url_decode()
 				case U('e'):
 				case U('f'):
 					pair.second = *begin;
+					break;
 				default:
 					pair.first = 0;
 					continue;
@@ -1149,14 +1167,55 @@ void stdx::string::url_decode()
 			}
 			if (pair.first != 0 && pair.second != 0)
 			{
-				auto bound = begin+1;
+				auto bound = begin + 1;
 				begin--;
 				begin--;
-				char_t ch = stdx::_MapByte(pair);
-				begin = m_data.erase(begin, bound);
-				begin = m_data.insert(begin, ch);
+				char ch = stdx::_MapByte(pair);
+				begin = tmp.erase(begin, bound);
+				begin = tmp.insert(begin, ch);
 			}
-#endif
 		}
 	}
+	return tmp;
+}
+
+std::string stdx::url_encode(const std::string& str)
+{
+	std::string tmp(str);
+	for (auto begin = tmp.begin();begin!=tmp.end();begin++)
+	{
+		if (!isalnum(*begin))
+		{
+			unsigned char height = *begin &0xF0;
+			height >>= 4;
+			unsigned char low = *begin & 0x0F;
+			begin = tmp.erase(begin);
+			begin = tmp.insert(begin, '%');
+			begin++;
+			begin = tmp.insert(begin, stdx::hex_to_char(height));
+			begin++;
+			begin = tmp.insert(begin, stdx::hex_to_char(low));
+		}
+	}
+	return tmp;
+}
+
+void stdx::string::url_encode()
+{
+#ifdef WIN32
+	std::string tmp(to_native_string());
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_encode(tmp))));
+#else
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_encode(to_native_string()))));
+#endif
+}
+
+void stdx::string::url_decode()
+{
+#ifdef WIN32
+	std::string tmp(to_native_string());
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_decode(tmp))));
+#else
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_decode(to_native_string()))));
+#endif
 }
