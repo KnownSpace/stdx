@@ -151,7 +151,7 @@ stdx::string stdx::http_cookie::to_set_cookie_string() const
 			str.append(tmp);
 			tmp = m_expires.to_string(U("%day {0} %year %hour:%min:%sec GMT"));
 			stdx::format_string(tmp, stdx::to_month_name(m_expires.month()));
-			str.append(str);
+			str.append(tmp);
 		}
 	}
 	if (!m_path.empty())
@@ -197,6 +197,20 @@ stdx::string stdx::http_cookie::to_set_cookie_string_without_header() const
 		str.append(U("; "));
 		str.append(U("Max-Age="));
 		str.append(stdx::to_string(m_max_age));
+	}
+	else
+	{
+		if (m_enable_expires)
+		{
+			str.append(U("; "));
+			str.append(U("Expires="));
+			stdx::string tmp(stdx::to_day_name(m_expires.week_day()));
+			tmp.append(U(", "));
+			str.append(tmp);
+			tmp = m_expires.to_string(U("%day {0} %year %hour:%min:%sec GMT"));
+			stdx::format_string(tmp, stdx::to_month_name(m_expires.month()));
+			str.append(str);
+		}
 	}
 	if (!m_path.empty())
 	{

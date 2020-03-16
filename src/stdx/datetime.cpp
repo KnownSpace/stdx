@@ -766,8 +766,8 @@ stdx::week_day stdx::datetime::week_day() const
 			}
 		}
 	}
-	day %= 7;
 	day += 4;
+	day %= 7;
 	switch (day)
 	{
 	case 0:

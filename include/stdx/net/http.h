@@ -318,7 +318,7 @@ namespace stdx
 		using byte_t = unsigned char;
 		using arg_t = std::unordered_map<stdx::string, std::vector<byte_t>>;
 		virtual ~http_body() =default;
-		virtual std::vector<byte_t> to_bytes() const;
-		virtual arg_t get_arg(const stdx::string &name) const;
+		virtual std::vector<byte_t> to_bytes() const = 0;
+		virtual arg_t get(const stdx::string &name) const = 0;
 	};
 }

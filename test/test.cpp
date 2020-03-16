@@ -15,13 +15,13 @@ int main(int argc, char **argv)
 	{
 		stdx::ipv4_addr addr(U("127.0.0.1"), 8080);
 		s.bind(addr);
+		stdx::printf(U("Listen: {0}:{1}\n"),addr.ip(),addr.port());
 	}
 	catch (std::exception &e)
 	{
-		stdx::perrorf(U("{0}\n"), e.what());
+		stdx::perrorf(U("Error:{0}\n"), e.what());
 		return -1;
 	}
-	std::cout << "listen: http://0.0.0.0:8080" << std::endl;
 	s.listen(65535);
 	while (true)
 	{
@@ -33,9 +33,18 @@ int main(int argc, char **argv)
 			{
 				stdx::http_request_header rq_header = stdx::http_request_header::from_string(stdx::string::from_u8_string(request));
 				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(rq_header.version()),rq_header.request_url(),stdx::http_method_string(rq_header.method()));
+				stdx::printf(U("Headers:\n"));
 				for (auto begin = rq_header.begin(),end=rq_header.end();begin!=end;begin++)
 				{
 					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
+				}
+				if (!rq_header.cookies().empty())
+				{
+					stdx::printf(U("Cookies:\n"));
+					for (auto begin = rq_header.cookies().begin(),end=rq_header.cookies().end();begin!=end;begin++)
+					{
+						stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
+					}
 				}
 				std::string str;
 				if (rq_header.request_url() != U("/"))
@@ -52,7 +61,13 @@ int main(int argc, char **argv)
 					stdx::http_response_header header(200);
 					if (rq_header.cookies().empty())
 					{
-						header.cookies().push_back(stdx::http_cookie(U("test"), U("test")));
+						stdx::http_cookie cookie(U("test"), U("test"));
+						cookie.expires() = stdx::datetime::now_utc();
+						stdx::time_span span;
+						span.minute = 5;
+						cookie.expires() += span;
+						cookie.set_enable_expires(true);
+						header.cookies().push_back(cookie);
 					}
 					header.add_header(U("Content-Type"), U("text/html"));
 					std::string body = "<html><body><h1>Hello World</h1></body></html>";
@@ -78,7 +93,7 @@ int main(int argc, char **argv)
 			}
 			catch (const std::exception&err)
 			{
-				stdx::perrorf(U("{0}\n"), err.what());
+				stdx::perrorf(U("Error:{0}\n"), err.what());
 			}
 		});
 	}
