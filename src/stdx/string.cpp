@@ -410,6 +410,11 @@ bool stdx::string::equal(const string& other) const
 	return (m_data == other.m_data);
 }
 
+bool stdx::string::equal(const char_t* str) const
+{
+	return (m_data == str);
+}
+
 typename stdx::string::string_t stdx::string::to_std_string() const
 {
 	return m_data;

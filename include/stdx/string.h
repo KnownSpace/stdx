@@ -474,6 +474,7 @@ namespace stdx
 		size_type find_last_of(const char_t &ch, size_type pos = 0) const;
 
 		bool equal(const stdx::string& other) const;
+		bool equal(const char_t *str) const;
 
 		string_t to_std_string() const;
 
@@ -518,6 +519,21 @@ namespace stdx
 		bool operator==(const stdx::string& other) const
 		{
 			return equal(other);
+		}
+
+		bool operator==(const char_t* str) const
+		{
+			return equal(str);
+		}
+
+		bool operator!=(const stdx::string& other) const
+		{
+			return !equal(other);
+		}
+
+		bool operator!=(const char_t* str) const
+		{
+			return !equal(str);
 		}
 
 		stdx::string& operator+=(const stdx::string& other)

@@ -37,17 +37,29 @@ int main(int argc, char **argv)
 				{
 					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
 				}
-				stdx::http_response_header header(200);
-				if (rq_header.cookies().empty())
+				std::string str;
+				if (rq_header.request_url() != U("/"))
 				{
-					header.cookies().push_back(stdx::http_cookie(U("test"), U("test")));
+					stdx::http_response_header header(404);
+					str = header.to_string().to_u8_string();
+					str.append("\r\n");
+
+
 				}
-				header.add_header(U("Content-Type"), U("text/html"));
-				std::string body = "<html><body><h1>Hello World</h1></body></html>";
-				header.add_header(U("Content-Length"), stdx::to_string(body.size()));
-				std::string str = header.to_string().to_u8_string();
-				str.append("\r\n");
-				str.append(body);
+				else
+				{
+					stdx::http_response_header header(200);
+					if (rq_header.cookies().empty())
+					{
+						header.cookies().push_back(stdx::http_cookie(U("test"), U("test")));
+					}
+					header.add_header(U("Content-Type"), U("text/html"));
+					std::string body = "<html><body><h1>Hello World</h1></body></html>";
+					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
+					str = header.to_string().to_u8_string();
+					str.append("\r\n");
+					str.append(body);
+				}
 				stdx::uint64_union u;
 				u.value = str.size();
 				auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
