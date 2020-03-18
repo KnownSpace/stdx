@@ -1184,7 +1184,7 @@ std::string stdx::url_encode(const std::string& str)
 	std::string tmp(str);
 	for (auto begin = tmp.begin();begin!=tmp.end();begin++)
 	{
-		if (!isalnum(*begin))
+		if (!isalnum(*begin) && *begin != '/' && *begin != '?' && *begin != '&' && *begin != '=' && *begin != '.' && *begin != '#' && *begin != '@')
 		{
 			unsigned char height = *begin &0xF0;
 			height >>= 4;
@@ -1203,19 +1203,19 @@ std::string stdx::url_encode(const std::string& str)
 void stdx::string::url_encode()
 {
 #ifdef WIN32
-	std::string tmp(to_native_string());
-	this->operator=(std::move(stdx::string::from_native_string(stdx::url_encode(tmp))));
+	std::string tmp(to_u8_string());
+	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_encode(tmp))));
 #else
-	this->operator=(std::move(stdx::string::from_native_string(stdx::url_encode(to_native_string()))));
+	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_encode(to_native_string()))));
 #endif
 }
 
 void stdx::string::url_decode()
 {
 #ifdef WIN32
-	std::string tmp(to_native_string());
-	this->operator=(std::move(stdx::string::from_native_string(stdx::url_decode(tmp))));
+	std::string tmp(to_u8_string());
+	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_decode(tmp))));
 #else
-	this->operator=(std::move(stdx::string::from_native_string(stdx::url_decode(to_native_string()))));
+	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_decode(to_native_string()))));
 #endif
 }

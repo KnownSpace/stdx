@@ -45,6 +45,7 @@ namespace stdx
 		void set_zero();
 
 		char *to_raw();
+
 	private:
 		size_t m_size;
 		char *m_data;

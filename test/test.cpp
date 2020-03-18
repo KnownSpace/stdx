@@ -9,6 +9,28 @@ int main(int argc, char **argv)
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
+	stdx::file_io_service file_io_service;
+	stdx::file doc(file_io_service,U("./index.html"));
+	if (!doc.exist())
+	{
+		stdx::perrorf(U("Error:File {0} does not exist"),doc.path());
+		return -1;
+	}
+	std::string doc_content;
+	auto stream = doc.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
+	stream.read_to_end(0).then([&doc_content](stdx::task_result<stdx::file_read_event> r) mutable
+	{
+		try
+		{
+			auto e = r.get();
+			doc_content = std::string(e.buffer, e.buffer.size());
+		}
+		catch (const std::exception &err)
+		{
+			stdx::perrorf(U("Error:{0}"),err.what());
+			std::terminate();
+		}
+	}).wait();
 	stdx::network_io_service service;
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
@@ -26,7 +48,7 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		auto t = c.recv(1024).then([c](stdx::network_recv_event &e) mutable
+		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event &e) mutable
 		{
 			std::string request(e.buffer,e.size);
 			try
@@ -56,6 +78,16 @@ int main(int argc, char **argv)
 					std::string body = "<html><body><h1>Not Found</h1></body></html>";
 					str.append(body);
 				}
+				else if (rq_header.request_url() == U("/test"))
+				{
+					stdx::http_response_header header(200);
+					header.add_header(U("Content-Type"), U("text/html"));
+					std::string body = stdx::ansi_to_utf8(doc_content);
+					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
+					str = header.to_string().to_u8_string();
+					str.append("\r\n");
+					str.append(body);
+				}
 				else
 				{
 					stdx::http_response_header header(200);
@@ -70,31 +102,35 @@ int main(int argc, char **argv)
 						header.cookies().push_back(cookie);
 					}
 					header.add_header(U("Content-Type"), U("text/html"));
-					std::string body = "<html><body><h1>Hello World</h1></body></html>";
+					std::string body = stdx::ansi_to_utf8(doc_content);
 					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
 					str = header.to_string().to_u8_string();
 					str.append("\r\n");
 					str.append(body);
 				}
-				stdx::uint64_union u;
-				u.value = str.size();
-				auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
-				{
-					try
-					{
-						auto e = r.get();
-						stdx::printf(U("Send: {0} Bytes\n"),e.size);
-					}
-					catch (const std::exception&)
-					{
-
-					}
-				});
+				return str;
 			}
 			catch (const std::exception&err)
 			{
 				stdx::perrorf(U("Error:{0}\n"), err.what());
 			}
+			return std::string();
+		}).then([c](std::string str) mutable
+		{
+			stdx::uint64_union u;
+			u.value = str.size();
+			auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
+			{
+				try
+				{
+					auto e = r.get();
+					stdx::printf(U("Send: {0} Bytes\n"), e.size);
+				}
+				catch (const std::exception&)
+				{
+
+				}
+			});
 		});
 	}
 #pragma endregion

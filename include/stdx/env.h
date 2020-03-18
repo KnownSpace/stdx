@@ -23,7 +23,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#define interface_class class
+#define interface_class struct
 #define get_byte(x,ptr) *((char*)ptr+(x))
 #define delete_copy(type) type(const type &)=delete
 #define delete_move(type) type(type&&)=delete

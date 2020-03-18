@@ -1456,3 +1456,445 @@ stdx::http_response_header stdx::http_response_header::from_string(const stdx::s
 	}
 	return header;
 }
+
+stdx::http_parameter::http_parameter(const vector_t& vector)
+	:m_vector()
+	,m_map()
+{
+	m_vector.set(vector);
+}
+
+stdx::http_parameter::http_parameter(const map_t& map)
+	:m_vector()
+	,m_map()
+{
+	m_map.set(map);
+}
+
+stdx::http_parameter::http_parameter(const stdx::http_parameter& other)
+	:m_vector(other.m_vector)
+	,m_map(other.m_map)
+{}
+
+stdx::http_parameter::http_parameter(stdx::http_parameter&& other) noexcept
+	:m_vector(other.m_vector)
+	,m_map(other.m_map)
+{}
+
+stdx::http_parameter& stdx::http_parameter::operator=(const stdx::http_parameter& other)
+{
+	m_vector = other.m_vector;
+	m_map = other.m_map;
+	return *this;
+}
+
+stdx::http_parameter& stdx::http_parameter::operator=(stdx::http_parameter&& other) noexcept
+{
+	m_vector = other.m_vector;
+	m_map = other.m_map;
+	return *this;
+}
+
+bool stdx::http_parameter::is_val() const
+{
+	return !m_vector.is_null();
+}
+
+typename stdx::http_parameter::vector_t& stdx::http_parameter::val()
+{
+	if (m_vector.is_null())
+	{
+		throw std::logic_error("this parameter is not a value");
+	}
+	return m_vector.val();
+}
+
+const typename stdx::http_parameter::vector_t& stdx::http_parameter::val() const
+{
+	if (m_vector.is_null())
+	{
+		throw std::logic_error("this parameter is not a value");
+	}
+	return m_vector.val();
+}
+
+void stdx::http_parameter::set_val(const vector_t& val)
+{
+	if (!m_map.is_null())
+	{
+		m_map.be_null();
+	}
+	m_vector.set(val);
+}
+
+stdx::string stdx::http_parameter::val_as_string() const
+{
+	const vector_t &vector = val();
+	std::string tmp(vector.cbegin(),vector.cend());
+	stdx::string str(std::move(stdx::string::from_u8_string(tmp)));
+	return str;
+}
+
+int32_t stdx::http_parameter::val_as_int32() const
+{
+	return val_as_string().to_int32();
+}
+
+int64_t stdx::http_parameter::val_as_int64() const
+{
+	return val_as_string().to_int64();
+}
+
+uint32_t stdx::http_parameter::val_as_uint32() const
+{
+	return val_as_string().to_uint32();
+}
+
+uint64_t stdx::http_parameter::val_as_uint64() const
+{
+	return val_as_string().to_uint64();
+}
+
+double stdx::http_parameter::val_as_double() const
+{
+	return val_as_string().to_double();
+}
+
+long double stdx::http_parameter::val_as_ldouble() const
+{
+	return val_as_string().to_ldouble();
+}
+
+bool stdx::http_parameter::is_map() const
+{
+	return !m_map.is_null();
+}
+
+typename stdx::http_parameter::map_t& stdx::http_parameter::valmap()
+{
+	return m_map.val();
+}
+
+const typename stdx::http_parameter::map_t &stdx::http_parameter::valmap() const
+{
+	return m_map.val();
+}
+
+void stdx::http_parameter::set_map(const map_t& map)
+{
+	if (!m_vector.is_null())
+	{
+		m_vector.be_null();
+	}
+	m_map.set(map);
+}
+
+typename stdx::http_parameter::vector_t& stdx::http_parameter::subval(const stdx::string& name)
+{
+	if (m_map.is_null())
+	{
+		throw std::logic_error("this parameter is not a map");
+	}
+	return m_map.val().at(name);
+}
+
+const typename stdx::http_parameter::vector_t& stdx::http_parameter::subval(const stdx::string& name) const
+{
+	if (m_map.is_null())
+	{
+		throw std::logic_error("this parameter is not a map");
+	}
+	return m_map.val().at(name);
+}
+
+bool stdx::http_parameter::exist_subval(const stdx::string& name) const
+{
+	if (m_map.is_null())
+	{
+		throw std::logic_error("this parameter is not a map");
+	}
+	return m_map.val().find(name) != m_map.val().end();
+}
+
+stdx::string stdx::http_parameter::subval_as_string(const stdx::string& name) const
+{
+	const vector_t& vector = subval(name);
+	std::string tmp(vector.cbegin(),vector.cend());
+	stdx::string str(std::move(stdx::string::from_u8_string(tmp)));
+	return str;
+}
+
+int32_t stdx::http_parameter::subval_as_int32(const stdx::string& name) const
+{
+	return subval_as_string(name).to_int32();
+}
+
+int64_t stdx::http_parameter::subval_as_int64(const stdx::string& name) const
+{
+	return subval_as_string(name).to_int64();
+}
+
+uint32_t stdx::http_parameter::subval_as_uint32(const stdx::string& name) const
+{
+	return subval_as_string(name).to_uint32();
+}
+
+uint64_t stdx::http_parameter::subval_as_uint64(const stdx::string& name) const
+{
+	return subval_as_string(name).to_uint64();
+}
+
+double stdx::http_parameter::subval_as_double(const stdx::string& name) const
+{
+	return subval_as_string(name).to_double();
+}
+
+long double stdx::http_parameter::subval_as_ldouble(const stdx::string& name) const
+{
+	return subval_as_string(name).to_ldouble();
+}
+
+stdx::http_urlencoded_form::http_urlencoded_form()
+	:m_collection()
+{}
+
+stdx::http_urlencoded_form::http_urlencoded_form(const self_t& other)
+	:m_collection(other.m_collection)
+{}
+
+stdx::http_urlencoded_form::http_urlencoded_form(self_t&& other) noexcept
+	:m_collection(other.m_collection)
+{}
+
+typename stdx::http_urlencoded_form::self_t& stdx::http_urlencoded_form::operator=(const stdx::http_urlencoded_form& other)
+{
+	m_collection = other.m_collection;
+	return *this;
+}
+
+typename stdx::http_urlencoded_form::self_t& stdx::http_urlencoded_form::operator=(stdx::http_urlencoded_form&& other) noexcept
+{
+	m_collection = other.m_collection;
+	return *this;
+}
+
+typename stdx::http_urlencoded_form::arg_t& stdx::http_urlencoded_form::get(const stdx::string& name)
+{
+	return m_collection.at(name);
+}
+
+const typename stdx::http_urlencoded_form::arg_t& stdx::http_urlencoded_form::get(const stdx::string& name) const
+{
+	return m_collection.at(name);
+}
+
+void stdx::http_urlencoded_form::add(const stdx::string& name, const arg_t& value)
+{
+	m_collection.emplace(name, value);
+}
+
+void stdx::http_urlencoded_form::del(const stdx::string& name)
+{
+	m_collection.erase(name);
+}
+
+typename stdx::http_urlencoded_form::iterator_t stdx::http_urlencoded_form::begin()
+{
+	return m_collection.begin();
+}
+
+typename stdx::http_urlencoded_form::const_iterator_t stdx::http_urlencoded_form::cbegin() const
+{
+	return m_collection.cbegin();
+}
+
+typename stdx::http_urlencoded_form::iterator_t stdx::http_urlencoded_form::end()
+{
+	return m_collection.end();
+}
+
+typename stdx::http_urlencoded_form::const_iterator_t stdx::http_urlencoded_form::cend() const
+{
+	return m_collection.cend();
+}
+
+bool stdx::http_urlencoded_form::exist(const stdx::string& name) const
+{
+	return m_collection.find(name) != m_collection.end();
+}
+
+std::vector<typename stdx::http_urlencoded_form::byte_t> stdx::http_urlencoded_form::to_bytes() const
+{
+	std::string builder;
+	if (!m_collection.empty())
+	{
+		auto begin = m_collection.cbegin(), end = m_collection.cend();
+		{
+			builder.append(begin->first.to_u8_string());
+			builder.push_back('=');
+			auto&& val = begin->second.val();
+			std::string tmp(val.begin(), val.end());
+			builder.append(tmp);
+		}
+		begin++;
+		if (m_collection.size() > 1)
+		{
+			while (begin!=end)
+			{
+				builder.push_back('&');
+				builder.append(begin->first.to_u8_string());
+				builder.push_back('=');
+				auto&& val = begin->second.val();
+				std::string tmp(val.begin(), val.end());
+				builder.append(tmp);
+			}
+		}
+	}
+	std::vector<byte_t> vector(builder.begin(),builder.end());
+	return vector;
+}
+
+stdx::http_multipart_form::http_multipart_form(const stdx::string& boundary)
+	:m_boundary(boundary)
+	,m_collection()
+{}
+
+stdx::http_multipart_form::http_multipart_form(const self_t& other)
+	:m_boundary(other.m_boundary)
+	,m_collection(other.m_collection)
+{}
+
+stdx::http_multipart_form::http_multipart_form(self_t&& other) noexcept
+	:m_boundary(other.m_boundary)
+	,m_collection(other.m_collection)
+{}
+
+stdx::http_multipart_form::self_t& stdx::http_multipart_form::operator=(const self_t& other)
+{
+	m_boundary = other.m_boundary;
+	m_collection = other.m_collection;
+	return *this;
+}
+
+stdx::http_multipart_form::self_t& stdx::http_multipart_form::operator=(self_t&& other) noexcept
+{
+	m_boundary = other.m_boundary;
+	m_collection = other.m_collection;
+	return *this;
+}
+
+typename stdx::http_multipart_form::arg_t& stdx::http_multipart_form::get(const stdx::string& name)
+{
+	return m_collection.at(name);
+}
+
+const typename stdx::http_multipart_form::arg_t& stdx::http_multipart_form::get(const stdx::string& name) const
+{
+	return m_collection.at(name);
+}
+
+void stdx::http_multipart_form::add(const stdx::string& name, const arg_t& value)
+{
+	m_collection.emplace(name, value);
+}
+
+void stdx::http_multipart_form::del(const stdx::string& name)
+{
+	m_collection.erase(name);
+}
+
+typename stdx::http_multipart_form::iterator_t stdx::http_multipart_form::begin()
+{
+	return m_collection.begin();
+}
+
+typename stdx::http_multipart_form::const_iterator_t stdx::http_multipart_form::cbegin() const
+{
+	return m_collection.cbegin();
+}
+
+typename stdx::http_multipart_form::iterator_t stdx::http_multipart_form::end()
+{
+	return m_collection.end();
+}
+
+typename stdx::http_multipart_form::const_iterator_t stdx::http_multipart_form::cend() const
+{
+	return m_collection.cend();
+}
+
+bool stdx::http_multipart_form::exist(const stdx::string& name) const
+{
+	return m_collection.find(name) != m_collection.end();
+}
+
+std::vector<typename stdx::http_multipart_form::byte_t> stdx::http_multipart_form::to_bytes() const
+{
+	std::vector<byte_t> vector;
+	return vector;
+}
+
+std::vector<stdx::http_msg::byte_t> stdx::http_msg::to_bytes() const
+{
+	stdx::string &&header_string = header().to_string();
+	header_string.append(U("\r\n"));
+	std::string&& tmp = header_string.to_u8_string();
+	std::vector<byte_t> vector(tmp.cbegin(),tmp.cend());
+	std::vector<byte_t> &&body_byte = body().to_bytes();
+	for (auto begin = body_byte.begin(),end=body_byte.end();begin!=end;begin++)
+	{
+		vector.push_back(*begin);
+	}
+	return vector;
+}
+
+stdx::string http_form_type_string(stdx::http_form_type type)
+{
+	switch (type)
+	{
+	case stdx::http_form_type::urlencoded:
+		return U("application/x-www-form-urlencoded");
+	case stdx::http_form_type::multipart:
+		return U("multipart/form-data");
+	case stdx::http_form_type::text:
+		return U("text/plain");
+	default:
+		return U("application/x-www-form-urlencoded");
+	}
+}
+
+stdx::http_form_type make_http_form_type_by_string(const stdx::string& type)
+{
+	if (type == U("multipart/form-data"))
+	{
+		return stdx::http_form_type::multipart;
+	}
+	else if(type == U("application/x-www-form-urlencoded"))
+	{
+		return stdx::http_form_type::urlencoded;
+	}
+	else if(type == U("text/plain"))
+	{
+		return stdx::http_form_type::text;
+	}
+	throw std::invalid_argument("unkonw http form type");
+}
+
+std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() const
+{
+	if (!m_header->exist(U("Content-Type")))
+	{
+		if (m_form->form_type() == stdx::http_form_type::multipart)
+		{
+			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+			content_type.append(U("; boundary="));
+			const stdx::http_multipart_form& form = (const stdx::http_multipart_form&)*m_form;
+			content_type.append(form.boundary());
+		}
+		else
+		{
+			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+		}
+	}
+	return http_msg::to_bytes();
+}

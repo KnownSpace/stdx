@@ -3,6 +3,7 @@
 #include <stdx/string.h>
 #include <stdx/datetime.h>
 #include <unordered_map>
+#include <stdx/nullable.h>
 
 namespace stdx
 {
@@ -316,9 +317,304 @@ namespace stdx
 	{
 	public:
 		using byte_t = unsigned char;
-		using arg_t = std::unordered_map<stdx::string, std::vector<byte_t>>;
-		virtual ~http_body() =default;
+		virtual ~http_body() = default;
 		virtual std::vector<byte_t> to_bytes() const = 0;
-		virtual arg_t get(const stdx::string &name) const = 0;
+	};
+
+	struct http_parameter
+	{
+		using byte_t = unsigned char;
+		using vector_t = std::vector<byte_t>;
+		using map_t = std::unordered_map<stdx::string,vector_t>;
+	public:
+		http_parameter() = default;
+
+		http_parameter(const vector_t& vector);
+
+		http_parameter(const map_t& map);
+
+		http_parameter(const stdx::http_parameter& other);
+
+		http_parameter(stdx::http_parameter&& other) noexcept;
+
+		~http_parameter() = default;
+
+		stdx::http_parameter& operator=(const stdx::http_parameter& other);
+
+		stdx::http_parameter& operator=(stdx::http_parameter&& other) noexcept;
+		
+		bool is_val() const;
+
+		vector_t& val();
+		const vector_t& val() const;
+
+		void set_val(const vector_t& val);
+
+		int32_t val_as_int32() const;
+		int64_t val_as_int64() const;
+
+		uint32_t val_as_uint32() const;
+		uint64_t val_as_uint64() const;
+
+		double val_as_double() const;
+		long double val_as_ldouble() const;
+
+		stdx::string val_as_string() const;
+
+		bool is_map() const;
+
+		map_t &valmap();
+		const map_t& valmap() const;
+
+		void set_map(const map_t &map);
+
+		vector_t& subval(const stdx::string &name);
+		const vector_t& subval(const stdx::string &name) const;
+
+		bool exist_subval(const stdx::string& name) const;
+
+		int32_t subval_as_int32(const stdx::string& name) const;
+		int64_t subval_as_int64(const stdx::string& name) const;
+
+		uint32_t subval_as_uint32(const stdx::string& name) const;
+		uint64_t subval_as_uint64(const stdx::string& name) const;
+
+		double subval_as_double(const stdx::string& name) const;
+		long double subval_as_ldouble(const stdx::string& name) const;
+
+		stdx::string subval_as_string(const stdx::string& name) const;
+	private:
+		stdx::nullable<vector_t> m_vector;
+		stdx::nullable<map_t> m_map;
+	};
+
+	enum class http_form_type
+	{
+		urlencoded,
+		multipart,
+		text
+	};
+
+	extern stdx::string http_form_type_string(stdx::http_form_type type);
+
+	extern stdx::http_form_type make_http_form_type_by_string(const stdx::string &type);
+
+	interface_class http_form:public http_body
+	{
+	public:
+
+		using arg_t = http_parameter;
+
+		using collection_t = std::unordered_map<stdx::string,arg_t>;
+
+		using iterator_t = typename collection_t::iterator;
+
+		using const_iterator_t = typename collection_t::const_iterator;
+
+		virtual ~http_form() =default;
+
+		virtual arg_t &get(const stdx::string &name) = 0;
+
+		virtual const arg_t& get(const stdx::string& name) const = 0;
+
+		virtual void add(const stdx::string& name, const arg_t& value) = 0;
+
+		virtual void del(const stdx::string& name) = 0;
+
+		arg_t& operator[](const stdx::string& name)
+		{
+			return get(name);
+		}
+
+		const arg_t& operator[](const stdx::string& name) const
+		{
+			return get(name);
+		}
+
+		virtual iterator_t begin() =0;
+		virtual const_iterator_t cbegin() const = 0;
+
+		virtual iterator_t end() = 0;
+		virtual const_iterator_t cend() const = 0;
+
+		virtual bool exist(const stdx::string& name) const = 0;
+
+		virtual stdx::http_form_type form_type() const = 0;
+	};
+
+	struct http_urlencoded_form:public stdx::http_form
+	{
+		using self_t = stdx::http_urlencoded_form;
+	public:
+		http_urlencoded_form();
+
+		http_urlencoded_form(const self_t& other);
+
+		http_urlencoded_form(self_t&& other) noexcept;
+
+		~http_urlencoded_form() = default;
+
+		self_t& operator=(const self_t& other);
+		self_t& operator=(self_t&& other) noexcept;
+
+		virtual arg_t& get(const stdx::string& name) override;
+		virtual const arg_t& get(const stdx::string& name) const override;
+
+		virtual void add(const stdx::string& name, const arg_t& value) override;
+
+		virtual void del(const stdx::string& name) override;
+
+		virtual iterator_t begin() override;
+		virtual const_iterator_t cbegin() const override;
+
+		virtual iterator_t end() override;
+		virtual const_iterator_t cend() const override;
+
+		virtual bool exist(const stdx::string& name) const override;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+
+		virtual stdx::http_form_type form_type() const
+		{
+			return stdx::http_form_type::urlencoded;
+		}
+	private:
+		collection_t m_collection;
+	};
+
+	struct http_multipart_form:public http_form
+	{
+		using self_t = stdx::http_multipart_form;
+	public:
+		http_multipart_form() = default;
+
+		http_multipart_form(const stdx::string &boundary);
+
+		http_multipart_form(const self_t& other);
+
+		http_multipart_form(self_t&& other) noexcept;
+
+		~http_multipart_form() = default;
+
+		self_t& operator=(const self_t& other);
+
+		self_t& operator=(self_t&& other) noexcept;
+
+		virtual arg_t& get(const stdx::string& name) override;
+		virtual const arg_t& get(const stdx::string& name) const override;
+
+		virtual void add(const stdx::string& name, const arg_t& value) override;
+
+		virtual void del(const stdx::string& name) override;
+
+		virtual iterator_t begin() override;
+		virtual const_iterator_t cbegin() const override;
+
+		virtual iterator_t end() override;
+		virtual const_iterator_t cend() const override;
+
+		virtual bool exist(const stdx::string& name) const override;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+
+		stdx::string& boundary();
+		const stdx::string& boundary() const;
+
+		virtual stdx::http_form_type form_type() const
+		{
+			return stdx::http_form_type::multipart;
+		}
+	private:
+		stdx::string m_boundary;
+		collection_t m_collection;
+	};
+
+	struct http_text_form:public http_form
+	{
+		using self_t = stdx::http_text_form;
+	public:
+
+		http_text_form();
+
+		http_text_form(const self_t &&other);
+
+		http_text_form(self_t&& other) noexcept;
+
+		~http_text_form() = default;
+
+		self_t& operator=(const self_t& other);
+
+		self_t& operator=(self_t&& other) noexcept;
+
+		virtual arg_t& get(const stdx::string& name) override;
+		virtual const arg_t& get(const stdx::string& name) const override;
+
+		virtual void add(const stdx::string& name, const arg_t& value) override;
+
+		virtual void del(const stdx::string& name) override;
+
+		virtual iterator_t begin() override;
+		virtual const_iterator_t cbegin() const override;
+
+		virtual iterator_t end() override;
+		virtual const_iterator_t cend() const override;
+
+		virtual bool exist(const stdx::string& name) const override;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+
+		virtual stdx::http_form_type form_type() const
+		{
+			return stdx::http_form_type::text;
+		}
+	private:
+	};
+
+	class http_msg
+	{
+	public:
+		using byte_t = unsigned char;
+
+		virtual ~http_msg() = default;
+
+		virtual std::vector<byte_t> to_bytes() const;
+
+		virtual stdx::http_header& header() = 0;
+
+		virtual const stdx::http_header& header() const = 0;
+
+		virtual stdx::http_body& body() = 0;
+
+		virtual const stdx::http_body& body() const = 0;
+	};
+
+	class http_request:public http_msg
+	{
+		using header_t = std::shared_ptr<stdx::http_request_header>;
+		using body_t = std::shared_ptr<stdx::http_form>;
+	public:
+		http_request();
+		~http_request();
+
+		stdx::http_request_header& request_header();
+
+		const stdx::http_request_header& request_header() const;
+
+		virtual stdx::http_header& header() override;
+
+		virtual const stdx::http_header& header() const override;
+
+		stdx::http_form& form();
+
+		const stdx::http_form& form() const;
+
+		virtual stdx::http_body& body() override;
+
+		virtual const stdx::http_body& body() const override;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+	private:
+		header_t m_header;
+		body_t m_form;
 	};
 }
