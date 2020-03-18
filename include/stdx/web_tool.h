@@ -55,7 +55,7 @@
 //					{
 //						continue;
 //					}
-//					//已两个CRLF分割成头部和主体的主体(嗯?应该这么叫)
+//					//已两个CRLF分割成头部和主体的主体
 //					std::vector<std::string> temp = split_string(*begin, "\r\n\r\n");
 //					try
 //					{
@@ -142,7 +142,6 @@
 //						{
 //							throw std::invalid_argument("非法的Form Body:Content-Disposition的name属性为空");
 //						}
-//						//设置MAP,漫长的一次循环结束了
 //						(*map_ptr)[name] = temp[1];
 //					}
 //					catch (const std::out_of_range &)

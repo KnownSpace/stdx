@@ -1830,7 +1830,61 @@ bool stdx::http_multipart_form::exist(const stdx::string& name) const
 
 std::vector<typename stdx::http_multipart_form::byte_t> stdx::http_multipart_form::to_bytes() const
 {
-	std::vector<byte_t> vector;
+
+	std::string builder;
+	if (m_boundary.empty())
+	{
+		throw std::logic_error("set form boundary first");
+	}
+	for (auto begin = m_collection.cbegin(),end=m_collection.cend();begin!=end;begin++)
+	{
+		builder.append(m_boundary.to_u8_string());
+		builder.append("Content-Disposition: form-data;name=\"");
+		builder.append(begin->first.to_u8_string());
+		builder.push_back('\"');
+		for (auto sub_begin = begin->second.valmap().cbegin(),sub_end = begin->second.valmap().cend();sub_begin!=sub_end;sub_begin++)
+		{
+			if (sub_begin->first != U("Body") && sub_begin->first != U("Content-Type") && sub_begin->first != U("Content-Transfer-Encoding"))
+			{
+				builder.append("; ");
+				builder.append(sub_begin->first.to_u8_string());
+				builder.push_back('=');
+				for (auto data_begin = sub_begin->second.cbegin(),data_end=sub_begin->second.cend();data_begin!=data_end;data_end++)
+				{
+					builder.push_back((char)*data_begin);
+				}
+			}
+		}
+		auto content_type = begin->second.valmap().find(U("Content-Type"));
+		if (content_type != begin->second.valmap().cend())
+		{
+			builder.append("\r\nContent-Type: ");
+			for (auto data_begin = content_type->second.cbegin(), data_end = content_type->second.cend(); data_begin != data_end; data_end++)
+			{
+				builder.push_back((char)*data_begin);
+			}
+		}
+		auto encoding = begin->second.valmap().find(U("Content-Transfer-Encoding"));
+		if (encoding != begin->second.valmap().cend())
+		{
+			builder.append("\r\nContent-Transfer-Encoding: ");
+			for (auto data_begin = encoding->second.cbegin(), data_end = encoding->second.cend(); data_begin != data_end; data_end++)
+			{
+				builder.push_back((char)*data_begin);
+			}
+		}
+		auto body = begin->second.valmap().find(U("Body"));
+		if (body != begin->second.valmap().cend())
+		{
+			builder.append("\r\n\r\n");
+			for (auto data_begin = body->second.cbegin(), data_end = body->second.cend(); data_begin != data_end; data_end++)
+			{
+				builder.push_back((char)*data_begin);
+			}
+		}
+	}
+	builder.append(m_boundary.to_u8_string());
+	std::vector<byte_t> vector(builder.begin(),builder.end());
 	return vector;
 }
 
