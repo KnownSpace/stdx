@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <stdx/env.h>
 #include <stdx/string.h>
 #include <stdx/datetime.h>
@@ -383,6 +383,112 @@ namespace stdx
 		long double subval_as_ldouble(const stdx::string& name) const;
 
 		stdx::string subval_as_string(const stdx::string& name) const;
+
+		bool exist_map_body() const
+		{
+			return exist_subval(U("Body"));
+		}
+
+		vector_t& map_body()
+		{
+			return subval(U("Body"));
+		}
+
+		const vector_t& map_body() const
+		{
+			return subval(U("Body"));
+		}
+
+		stdx::string map_body_as_string()
+		{
+			return subval_as_string(U("Body"));
+		}
+
+		int32_t map_body_as_int32() const
+		{
+			return subval_as_int32(U("Body"));
+		}
+
+		int64_t map_body_as_int64() const
+		{
+			return subval_as_int64(U("Body"));
+		}
+
+		uint32_t map_body_as_uint32() const
+		{
+			return subval_as_uint32(U("Body"));
+		}
+
+		uint64_t map_body_as_uint64() const
+		{
+			return subval_as_uint64(U("Body"));
+		}
+
+		double map_body_as_double() const
+		{
+			return subval_as_double(U("Body"));
+		}
+
+		long double map_body_as_ldouble() const
+		{
+			return subval_as_ldouble(U("Body"));
+		}
+
+		bool exist_map_content_type() const
+		{
+			return exist_subval(U("Content-Type"));
+		}
+
+		stdx::string map_content_type() const
+		{
+			return subval_as_string(U("Content-Type"));
+		}
+
+		void set_map_content_type(const stdx::string& content_type)
+		{
+			if (content_type.empty())
+			{
+				throw std::invalid_argument("invalid content-type");
+			}
+			std::string&& tmp = content_type.to_u8_string();
+			std::vector<byte_t> vector(tmp.begin(),tmp.end());
+			if (exist_map_content_type())
+			{
+				subval(U("Content-Type")) = vector;
+			}
+			else
+			{
+				m_map.val().emplace(U("Content-Type"),std::move(vector));
+			}
+		}
+		
+		bool exist_map_encoding() const
+		{
+			return exist_subval(U("Content-Transfer-Encoding"));
+		}
+
+		stdx::string map_encoding() const
+		{
+			return subval_as_string(U("Content-Transfer-Encoding"));
+		}
+
+		void set_map_encoding(const stdx::string& encoding)
+		{
+			if (encoding.empty())
+			{
+				throw std::invalid_argument("invalid encoding");
+			}
+			std::string&& tmp = encoding.to_u8_string();
+			std::vector<byte_t> vector(tmp.begin(), tmp.end());
+			if (exist_map_content_type())
+			{
+				subval(U("Content-Transfer-Encoding")) = vector;
+			}
+			else
+			{
+				m_map.val().emplace(U("Content-Transfer-Encoding"), std::move(vector));
+			}
+		}
 	private:
 		stdx::nullable<vector_t> m_vector;
 		stdx::nullable<map_t> m_map;
@@ -536,7 +642,7 @@ namespace stdx
 
 		http_text_form();
 
-		http_text_form(const self_t &&other);
+		http_text_form(const self_t &other);
 
 		http_text_form(self_t&& other) noexcept;
 
@@ -568,7 +674,10 @@ namespace stdx
 			return stdx::http_form_type::text;
 		}
 	private:
+		collection_t m_collection;
 	};
+
+	using http_form_ptr = std::shared_ptr<stdx::http_form>;
 
 	class http_msg
 	{
@@ -588,33 +697,80 @@ namespace stdx
 		virtual const stdx::http_body& body() const = 0;
 	};
 
+	using http_msg_ptr = std::shared_ptr<stdx::http_msg>;
+
 	class http_request:public http_msg
 	{
 		using header_t = std::shared_ptr<stdx::http_request_header>;
 		using body_t = std::shared_ptr<stdx::http_form>;
 	public:
 		http_request();
-		~http_request();
+
+		http_request(const stdx::http_request& other);
+
+		template<typename _Form,class = typename std::enable_if<stdx::is_base_on<_Form,stdx::http_form>::value>::type>
+		http_request()
+			:m_header(std::make_shared<stdx::http_request_header>())
+			,m_form(std::make_shared<_Form>())
+		{}
+
+		http_request(const stdx::http_form_ptr &form)
+			: m_header(std::make_shared<stdx::http_request_header>())
+			, m_form(form)
+		{}
+
+		~http_request() = default;
+
+		stdx::http_request& operator=(const stdx::http_request& other);
+
+		bool operator==(const stdx::http_request& other) const;
+
+		bool operator!=(const stdx::http_request& other) const
+		{
+			return !this->operator==(other);
+		}
 
 		stdx::http_request_header& request_header();
 
 		const stdx::http_request_header& request_header() const;
 
-		virtual stdx::http_header& header() override;
+		virtual stdx::http_header& header() override
+		{
+			return request_header();
+		}
 
-		virtual const stdx::http_header& header() const override;
+		virtual const stdx::http_header& header() const override
+		{
+			return request_header();
+		}
 
 		stdx::http_form& form();
 
 		const stdx::http_form& form() const;
 
-		virtual stdx::http_body& body() override;
+		virtual stdx::http_body& body() override
+		{
+			return form();
+		}
 
-		virtual const stdx::http_body& body() const override;
+		virtual const stdx::http_body& body() const override
+		{
+			return form();
+		}
+
+		std::vector<byte_t> to_bytes();
 
 		virtual std::vector<byte_t> to_bytes() const override;
 	private:
 		header_t m_header;
 		body_t m_form;
 	};
+
+	extern stdx::http_urlencoded_form make_http_urlencoded_form(const std::vector<unsigned char>& bytes);
+
+	extern stdx::http_multipart_form make_http_multipart_form(const std::vector<unsigned char>& bytes,const stdx::string &boundary);
+
+	extern stdx::http_text_form make_http_text_form(const std::vector<unsigned char>& bytes);
+
+	extern stdx::http_form_ptr make_http_form(stdx::http_form_type type,const std::vector<unsigned char> &bytes,const stdx::string &boundary);
 }

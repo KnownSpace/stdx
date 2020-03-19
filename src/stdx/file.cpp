@@ -364,7 +364,7 @@ void stdx::_FileStream::close()
 	}
 }
 
-void stdx::_FileStream::read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
+void stdx::_FileStream::read_utill(const DWORD& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
 {
 	auto x = this->read(size, offset).then([call, offset, size, this](stdx::task_result<stdx::file_read_event> r) mutable
 	{
@@ -376,7 +376,7 @@ void stdx::_FileStream::read_utill(const size_t& size, uint64_t offset, std::fun
 	});
 }
 
-void stdx::_FileStream::read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
+void stdx::_FileStream::read_utill_eof(const DWORD& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
 {
 	return read_utill(size, offset, [call, err_handler](stdx::task_result<stdx::file_read_event> r) mutable
 		{

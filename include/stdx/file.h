@@ -265,9 +265,9 @@ namespace stdx
 
 
 		//直到call返回true停止
-		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
+		void read_utill(const DWORD& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
 
-		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
+		void read_utill_eof(const DWORD& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{

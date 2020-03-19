@@ -1,4 +1,4 @@
-#include <stdx/net/http.h>
+Ôªø#include <stdx/net/http.h>
 
 stdx::http_cookie::http_cookie()
 	:m_name()
@@ -1243,7 +1243,7 @@ const std::list<stdx::http_cookie>& stdx::http_request_header::cookies() const
 
 stdx::string stdx::http_request_header::to_string() const
 {
-	//«Î«Û––
+	//ËØ∑Ê±ÇË°å
 	stdx::string str(stdx::http_method_string(m_method));
 	str.push_back(U(' '));
 	stdx::string tmp(m_request_url);
@@ -1251,7 +1251,7 @@ stdx::string stdx::http_request_header::to_string() const
 	str.append(tmp);
 	str.push_back(U(' '));
 	str.append(stdx::http_version_string(version()));
-	//∆‰À˚Õ∑≤ø
+	//ÂÖ∂‰ªñÂ§¥ÈÉ®
 	str.append(http_header::to_string());
 	//Cookie
 	if (!m_cookies.empty())
@@ -1278,7 +1278,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 	{
 		throw std::invalid_argument("can not split string by CRLF");
 	}
-	//«Î«Û––
+	//ËØ∑Ê±ÇË°å
 	stdx::string& first_line = list.front();
 	std::list<stdx::string>&& request_info = first_line.split(U(" "));
 	if (request_info.size() < 3)
@@ -1294,7 +1294,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 		begin++;
 		header.version() = stdx::make_http_version_by_string(*begin);
 	}
-	//∆‰À˚Õ∑≤ø∫ÕCookie
+	//ÂÖ∂‰ªñÂ§¥ÈÉ®ÂíåCookie
 	if (list.size() > 1)
 	{
 		auto begin = list.begin(), end = list.end();
@@ -1392,14 +1392,14 @@ const std::list<stdx::http_cookie>& stdx::http_response_header::cookies() const
 
 stdx::string stdx::http_response_header::to_string() const
 {
-	//◊¥Ã¨––
+	//Áä∂ÊÄÅË°å
 	stdx::string str(stdx::http_version_string(version()));
 	str.push_back(U(' '));
 	str.append(stdx::to_string(m_status_code));
 	str.push_back(U(' '));
 	str.append(stdx::http_status_message(m_status_code));
 	str.append(U("\r\n"));
-	//∆‰À˚Õ∑≤ø
+	//ÂÖ∂‰ªñÂ§¥ÈÉ®
 	str.append(http_header::to_string());
 	//Set-Cookie
 	for (auto begin = m_set_cookies.begin(), end = m_set_cookies.end(); begin != end; begin++)
@@ -1422,7 +1422,7 @@ stdx::http_response_header stdx::http_response_header::from_string(const stdx::s
 	{
 		throw std::invalid_argument("can not split string by CRLF");
 	}
-	//◊¥Ã¨––
+	//Áä∂ÊÄÅË°å
 	stdx::string& first_line = list.front();
 	std::list<stdx::string>&& status_info = first_line.split(U(" "));
 	if (status_info.size() < 2)
@@ -1436,7 +1436,7 @@ stdx::http_response_header stdx::http_response_header::from_string(const stdx::s
 		header.status_code() = begin->to_uint32();
 		begin++;
 	}
-	//∆‰À˚Õ∑≤ø∫ÕCookie
+	//ÂÖ∂‰ªñÂ§¥ÈÉ®ÂíåCookie
 	if (list.size() > 1)
 	{
 		auto begin = list.begin(),end = list.end();
@@ -1733,8 +1733,21 @@ std::vector<typename stdx::http_urlencoded_form::byte_t> stdx::http_urlencoded_f
 			builder.append(begin->first.to_u8_string());
 			builder.push_back('=');
 			auto&& val = begin->second.val();
-			std::string tmp(val.begin(), val.end());
-			builder.append(tmp);
+			for (auto val_begin = val.cbegin(),val_end=val.cend();val_begin!=val_end;val_begin++)
+			{
+				if (*val_begin == '&')
+				{
+					builder.append("%26");
+				}
+				else if (*val_begin == ' ')
+				{
+					builder.append("+");
+				}
+				else
+				{
+					builder.push_back(*val_begin);
+				}
+			}
 		}
 		begin++;
 		if (m_collection.size() > 1)
@@ -1745,8 +1758,25 @@ std::vector<typename stdx::http_urlencoded_form::byte_t> stdx::http_urlencoded_f
 				builder.append(begin->first.to_u8_string());
 				builder.push_back('=');
 				auto&& val = begin->second.val();
-				std::string tmp(val.begin(), val.end());
-				builder.append(tmp);
+				for (auto val_begin = val.cbegin(), val_end = val.cend(); val_begin != val_end; val_begin++)
+				{
+					if (*val_begin == '&')
+					{
+						builder.append("%26");
+					}
+					else if (*val_begin == ' ')
+					{
+						builder.append("+");
+					}
+					else if (*val_begin == '+')
+					{
+						builder.append("%2B");
+					}
+					else
+					{
+						builder.push_back(*val_begin);
+					}
+				}
 			}
 		}
 	}
@@ -1828,9 +1858,18 @@ bool stdx::http_multipart_form::exist(const stdx::string& name) const
 	return m_collection.find(name) != m_collection.end();
 }
 
+stdx::string& stdx::http_multipart_form::boundary()
+{
+	return m_boundary;
+}
+
+const stdx::string& stdx::http_multipart_form::boundary() const
+{
+	return m_boundary;
+}
+
 std::vector<typename stdx::http_multipart_form::byte_t> stdx::http_multipart_form::to_bytes() const
 {
-
 	std::string builder;
 	if (m_boundary.empty())
 	{
@@ -1888,13 +1927,93 @@ std::vector<typename stdx::http_multipart_form::byte_t> stdx::http_multipart_for
 	return vector;
 }
 
+stdx::http_text_form::http_text_form()
+	:m_collection()
+{
+	m_collection.emplace(U("value"),arg_t());
+}
+
+stdx::http_text_form::http_text_form(const self_t& other)
+	: m_collection(other.m_collection)
+{}
+
+stdx::http_text_form::http_text_form(self_t&& other) noexcept
+	:m_collection(other.m_collection)
+{}
+
+stdx::http_text_form::self_t& stdx::http_text_form::operator=(const self_t& other)
+{
+	m_collection = other.m_collection;
+	return *this;
+}
+
+stdx::http_text_form::self_t& stdx::http_text_form::operator=(self_t&& other) noexcept
+{
+	m_collection = other.m_collection;
+	return *this;
+}
+
+typename stdx::http_text_form::arg_t& stdx::http_text_form::get(const stdx::string& name)
+{
+	return m_collection.at(U("value"));
+}
+
+const typename stdx::http_text_form::arg_t& stdx::http_text_form::get(const stdx::string& name) const
+{
+	return m_collection.at(U("value"));
+}
+
+void stdx::http_text_form::add(const stdx::string& name, const arg_t& value)
+{
+	if (name != U("value"))
+	{
+		throw std::logic_error("cannot add value to text form");
+	}
+	m_collection.at(U("value")) = value;
+}
+
+void stdx::http_text_form::del(const stdx::string& name)
+{
+	throw std::logic_error("cannot delete value from text form");
+}
+
+typename stdx::http_text_form::iterator_t stdx::http_text_form::begin()
+{
+	return m_collection.begin();
+}
+
+typename stdx::http_text_form::const_iterator_t stdx::http_text_form::cbegin() const
+{
+	return m_collection.cbegin();
+}
+
+typename stdx::http_text_form::iterator_t stdx::http_text_form::end()
+{
+	return m_collection.end();
+}
+
+typename stdx::http_text_form::const_iterator_t stdx::http_text_form::cend() const
+{
+	return m_collection.cend();
+}
+
+bool stdx::http_text_form::exist(const stdx::string& name) const
+{
+	return name == U("value");
+}
+
+std::vector<typename stdx::http_text_form::byte_t> stdx::http_text_form::to_bytes() const
+{
+	return m_collection.at(U("value")).val();
+}
+
 std::vector<stdx::http_msg::byte_t> stdx::http_msg::to_bytes() const
 {
+	std::vector<byte_t>&& body_byte = body().to_bytes();
 	stdx::string &&header_string = header().to_string();
 	header_string.append(U("\r\n"));
 	std::string&& tmp = header_string.to_u8_string();
 	std::vector<byte_t> vector(tmp.cbegin(),tmp.cend());
-	std::vector<byte_t> &&body_byte = body().to_bytes();
 	for (auto begin = body_byte.begin(),end=body_byte.end();begin!=end;begin++)
 	{
 		vector.push_back(*begin);
@@ -1902,7 +2021,7 @@ std::vector<stdx::http_msg::byte_t> stdx::http_msg::to_bytes() const
 	return vector;
 }
 
-stdx::string http_form_type_string(stdx::http_form_type type)
+stdx::string stdx::http_form_type_string(stdx::http_form_type type)
 {
 	switch (type)
 	{
@@ -1917,7 +2036,7 @@ stdx::string http_form_type_string(stdx::http_form_type type)
 	}
 }
 
-stdx::http_form_type make_http_form_type_by_string(const stdx::string& type)
+stdx::http_form_type stdx::make_http_form_type_by_string(const stdx::string& type)
 {
 	if (type == U("multipart/form-data"))
 	{
@@ -1938,17 +2057,133 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 {
 	if (!m_header->exist(U("Content-Type")))
 	{
+		stdx::http_request rq(*this);
+		return rq.to_bytes();
+	}
+	return http_msg::to_bytes();
+}
+
+stdx::http_request::http_request()
+	:m_header(std::make_shared<stdx::http_request_header>())
+	,m_form(std::make_shared<stdx::http_urlencoded_form>())
+{}
+
+stdx::http_request::http_request(const stdx::http_request& other)
+	:m_header(other.m_header)
+	,m_form(other.m_form)
+{}
+
+stdx::http_request& stdx::http_request::operator=(const stdx::http_request & other)
+{
+	m_header = other.m_header;
+	m_form = other.m_form;
+	return *this;
+}
+
+bool stdx::http_request::operator==(const stdx::http_request& other) const
+{
+	return m_header == other.m_header && m_form == other.m_form;
+}
+
+stdx::http_request_header& stdx::http_request::request_header()
+{
+	return *m_header;
+}
+
+const stdx::http_request_header& stdx::http_request::request_header() const
+{
+	return *m_header;
+}
+
+stdx::http_form& stdx::http_request::form()
+{
+	return *m_form;
+}
+
+const stdx::http_form& stdx::http_request::form() const
+{
+	return *m_form;
+}
+
+std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes()
+{
+	if (!m_header->exist(U("Content-Type")))
+	{
 		if (m_form->form_type() == stdx::http_form_type::multipart)
 		{
 			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
 			content_type.append(U("; boundary="));
-			const stdx::http_multipart_form& form = (const stdx::http_multipart_form&)*m_form;
+			const stdx::http_multipart_form& form = (const stdx::http_multipart_form&) * m_form;
 			content_type.append(form.boundary());
+			m_header->add_header(U("Content-Type"), content_type);
 		}
 		else
 		{
 			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+			m_header->add_header(U("Content-Type"), content_type);
 		}
 	}
 	return http_msg::to_bytes();
+}
+
+stdx::http_urlencoded_form stdx::make_http_urlencoded_form(const std::vector<unsigned char>& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid urlencoded form data");
+	}
+	stdx::http_urlencoded_form form;
+	std::string str(bytes.cbegin(), bytes.cend());
+	std::list<std::string> args; 
+	stdx::spit_string(str, std::string("&"),args);
+	for (auto begin = args.begin(),end=args.end();begin!=end;begin++)
+	{
+		size_t pos = begin->find('=');
+		if (pos != std::string::npos)
+		{
+			std::string&& name = begin->substr(0, pos);
+			std::string&& value = begin->substr(pos + 1, begin->size() - 1 - pos);
+			stdx::replace_string(value, std::string("+"), std::string(" "));
+			value = stdx::url_decode(value);
+			std::vector<unsigned char> vector(value.cbegin(), value.cend());
+			stdx::http_parameter arg(vector);
+			form.add(stdx::string::from_u8_string(name), arg);
+		}
+		else
+		{
+			throw std::invalid_argument("invalid urlencoded form data");
+		}
+	}
+	return form;
+}
+
+stdx::http_text_form stdx::make_http_text_form(const std::vector<unsigned char>& bytes)
+{
+	stdx::http_text_form form;
+	form.add(U("value"), bytes);
+	return form;
+}
+
+stdx::http_form_ptr stdx::make_http_form(stdx::http_form_type type, const std::vector<unsigned char>& bytes,const stdx::string& boundary)
+{
+	stdx::http_form_ptr form;
+	switch (type)
+	{
+	case stdx::http_form_type::urlencoded:
+		form = std::make_shared<stdx::http_urlencoded_form>(stdx::make_http_urlencoded_form(bytes));
+		break;
+	case stdx::http_form_type::multipart:
+		form = std::make_shared<stdx::http_multipart_form>(stdx::make_http_multipart_form(bytes,boundary));
+		break;
+	case stdx::http_form_type::text:
+		form = std::make_shared<stdx::http_text_form>(stdx::make_http_text_form(bytes));
+		break;
+	}
+	return form;
+}
+
+stdx::http_multipart_form stdx::make_http_multipart_form(const std::vector<unsigned char>& bytes, const stdx::string& boundary)
+{
+	stdx::http_multipart_form form;
+	return form;
 }

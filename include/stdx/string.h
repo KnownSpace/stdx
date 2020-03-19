@@ -65,7 +65,8 @@ namespace stdx
 	}
 
 #ifdef WIN32
-#define U(x) L##x
+#define __U(x) L##x
+#define U(x) __U(x)
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
 						if(_ERROR_CODE != ERROR_IO_PENDING) \

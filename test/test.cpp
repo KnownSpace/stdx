@@ -6,6 +6,7 @@
 #include <stdx/net/socket.h>
 int main(int argc, char **argv)
 {
+	setlocale(LC_ALL, "chs");
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
@@ -51,9 +52,10 @@ int main(int argc, char **argv)
 		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event &e) mutable
 		{
 			std::string request(e.buffer,e.size);
+			size_t pos = request.find("\r\n\r\n");
 			try
 			{
-				stdx::http_request_header rq_header = stdx::http_request_header::from_string(stdx::string::from_u8_string(request));
+				stdx::http_request_header rq_header = stdx::http_request_header::from_string(stdx::string::from_u8_string(request.substr(0,pos)));
 				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(rq_header.version()),rq_header.request_url(),stdx::http_method_string(rq_header.method()));
 				stdx::printf(U("Headers:\n"));
 				for (auto begin = rq_header.begin(),end=rq_header.end();begin!=end;begin++)
@@ -69,26 +71,7 @@ int main(int argc, char **argv)
 					}
 				}
 				std::string str;
-				if (rq_header.request_url() != U("/"))
-				{
-					stdx::http_response_header header(404);
-					header.add_header(U("Content-Type"), U("text/html"));
-					str = header.to_string().to_u8_string();
-					str.append("\r\n");
-					std::string body = "<html><body><h1>Not Found</h1></body></html>";
-					str.append(body);
-				}
-				else if (rq_header.request_url() == U("/test"))
-				{
-					stdx::http_response_header header(200);
-					header.add_header(U("Content-Type"), U("text/html"));
-					std::string body = stdx::ansi_to_utf8(doc_content);
-					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
-					str = header.to_string().to_u8_string();
-					str.append("\r\n");
-					str.append(body);
-				}
-				else
+				if (rq_header.request_url() == U("/"))
 				{
 					stdx::http_response_header header(200);
 					if (rq_header.cookies().empty())
@@ -106,6 +89,31 @@ int main(int argc, char **argv)
 					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
 					str = header.to_string().to_u8_string();
 					str.append("\r\n");
+					str.append(body);
+				}
+				else if (rq_header.request_url() == U("/test"))
+				{
+					
+					pos += 4;
+					std::vector<unsigned char> rq_body(request.cbegin()+pos,request.cend());
+					stdx::http_form_ptr form = stdx::make_http_form(stdx::http_form_type::urlencoded,rq_body,U(""));
+					stdx::string val = form->get(U("test")).val_as_string();
+					stdx::printf(U("Form Value:{0}\n"),val);
+					stdx::http_response_header header(200);
+					header.add_header(U("Content-Type"), U("text/html"));
+					std::string body = stdx::ansi_to_utf8(doc_content);
+					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
+					str = header.to_string().to_u8_string();
+					str.append("\r\n");
+					str.append(body);
+				}
+				else
+				{
+					stdx::http_response_header header(404);
+					header.add_header(U("Content-Type"), U("text/html"));
+					str = header.to_string().to_u8_string();
+					str.append("\r\n");
+					std::string body = "<html><body><h1>Not Found</h1></body></html>";
 					str.append(body);
 				}
 				return str;
