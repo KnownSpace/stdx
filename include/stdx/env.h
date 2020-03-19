@@ -277,3 +277,10 @@ namespace stdx
 	template<typename _T>
 	typename std::add_pointer<_T>::type declptr();
 }
+
+namespace stdx
+{
+	extern void little_endian_to_big_endian(char *buffer,size_t n);
+
+	extern void big_endian_to_little_endian(char *buffer,size_t n);
+}

@@ -1247,7 +1247,7 @@ stdx::string stdx::http_request_header::to_string() const
 	stdx::string str(stdx::http_method_string(m_method));
 	str.push_back(U(' '));
 	stdx::string tmp(m_request_url);
-	tmp.url_encode();
+	tmp.u8_url_encode();
 	str.append(tmp);
 	str.push_back(U(' '));
 	str.append(stdx::http_version_string(version()));
@@ -1289,7 +1289,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 		auto begin = request_info.begin();
 		header.method() = stdx::make_http_method_by_string(*begin);
 		begin++;
-		begin->url_decode();
+		begin->u8_url_decode();
 		header.request_url() = *begin;
 		begin++;
 		header.version() = stdx::make_http_version_by_string(*begin);
@@ -1518,6 +1518,15 @@ const typename stdx::http_parameter::vector_t& stdx::http_parameter::val() const
 	return m_vector.val();
 }
 
+void stdx::http_parameter::set_val()
+{
+	if (!m_map.is_null())
+	{
+		m_map.be_null();
+	}
+	m_vector.set();
+}
+
 void stdx::http_parameter::set_val(const vector_t& val)
 {
 	if (!m_map.is_null())
@@ -1578,6 +1587,15 @@ typename stdx::http_parameter::map_t& stdx::http_parameter::valmap()
 const typename stdx::http_parameter::map_t &stdx::http_parameter::valmap() const
 {
 	return m_map.val();
+}
+
+void stdx::http_parameter::set_map()
+{
+	if (!m_vector.is_null())
+	{
+		m_vector.be_null();
+	}
+	m_map.set();
 }
 
 void stdx::http_parameter::set_map(const map_t& map)

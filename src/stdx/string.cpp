@@ -671,9 +671,15 @@ stdx::string stdx::string::upper() const
 	return tmp;
 }
 
-std::string stdx::string::to_base64_string() const
+std::string stdx::string::to_native_base64_string() const
 {
 	std::string str(to_native_string());
+	return stdx::to_base64_string(str);
+}
+
+std::string stdx::string::to_u8_base64_string() const
+{
+	std::string str(to_u8_string());
 	return stdx::to_base64_string(str);
 }
 
@@ -730,9 +736,14 @@ char stdx::base64_char_to_char(char ch)
 	throw std::invalid_argument("unknow base64 char");
 }
 
-stdx::string stdx::string::from_base64_string(const std::string& base64_str)
+stdx::string stdx::string::from_native_base64_string(const std::string& base64_str)
 {
 	return stdx::string::from_native_string(stdx::from_base64_string(base64_str));
+}
+
+stdx::string stdx::string::from_u8_base64_string(const std::string& base64_str)
+{
+	return stdx::string::from_u8_string(stdx::from_base64_string(base64_str));
 }
 
 std::string stdx::to_base64_string(const std::string& data)
@@ -1200,22 +1211,66 @@ std::string stdx::url_encode(const std::string& str)
 	return tmp;
 }
 
-void stdx::string::url_encode()
+void stdx::string::u8_url_encode()
 {
 #ifdef WIN32
 	std::string tmp(to_u8_string());
 	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_encode(tmp))));
 #else
-	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_encode(to_native_string()))));
+	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_encode(to_u8_string()))));
 #endif
 }
 
-void stdx::string::url_decode()
+void stdx::string::u8_url_decode()
 {
 #ifdef WIN32
 	std::string tmp(to_u8_string());
 	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_decode(tmp))));
 #else
-	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_decode(to_native_string()))));
+	this->operator=(std::move(stdx::string::from_u8_string(stdx::url_decode(to_u8_string()))));
 #endif
+}
+
+void stdx::string::native_url_encode()
+{
+#ifdef WIN32
+	std::string tmp(to_native_string());
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_encode(tmp))));
+#else
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_encode(to_native_string()))));
+#endif
+}
+
+void stdx::string::native_url_decode()
+{
+#ifdef WIN32
+	std::string tmp(to_native_string());
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_decode(tmp))));
+#else
+	this->operator=(std::move(stdx::string::from_native_string(stdx::url_decode(to_native_string()))));
+#endif
+}
+
+std::string stdx::string::to_u8_url_encode() const
+{
+	std::string tmp(to_u8_string());
+	tmp = stdx::url_encode(tmp);
+	return tmp;
+}
+
+std::string stdx::string::to_native_url_encode() const
+{
+	std::string tmp(to_native_string());
+	tmp = stdx::url_encode(tmp);
+	return tmp;
+}
+
+stdx::string stdx::string::from_u8_url_decode(const std::string& url_str)
+{
+	return stdx::string::from_u8_string(stdx::url_decode(url_str));
+}
+
+stdx::string stdx::string::from_native_url_decode(const std::string& url_str)
+{
+	return stdx::string::from_native_string(stdx::url_decode(url_str));
 }

@@ -348,6 +348,8 @@ namespace stdx
 		vector_t& val();
 		const vector_t& val() const;
 
+		void set_val();
+
 		void set_val(const vector_t& val);
 
 		int32_t val_as_int32() const;
@@ -365,6 +367,8 @@ namespace stdx
 
 		map_t &valmap();
 		const map_t& valmap() const;
+
+		void set_map();
 
 		void set_map(const map_t &map);
 

@@ -488,23 +488,39 @@ namespace stdx
 
 		std::string to_native_string() const;
 
-		std::string to_base64_string() const;
+		std::string to_u8_base64_string() const;
+
+		std::string to_native_base64_string() const;
 
 		static stdx::string from_native_string(const std::string &str);
 
 		static stdx::string from_u8_string(const std::string &str);
 
+		static stdx::string from_u8_base64_string(const std::string &base64_str);
+
 		static stdx::string from_buffer(const stdx::buffer &buf);
 
-		static stdx::string from_base64_string(const std::string &base64_str);
+		static stdx::string from_native_base64_string(const std::string &base64_str);
 
 		void html_encode();
 
 		void html_decode();
 
-		void url_encode();
+		void u8_url_encode();
 
-		void url_decode();
+		void u8_url_decode();
+
+		std::string to_u8_url_encode() const;
+
+		static stdx::string from_u8_url_decode(const std::string &url_str);
+
+		void native_url_encode();
+
+		void native_url_decode();
+
+		std::string to_native_url_encode() const;
+
+		static stdx::string from_native_url_decode(const std::string& url_str);
 
 		bool is_lower() const;
 
