@@ -1195,7 +1195,7 @@ std::string stdx::url_encode(const std::string& str)
 	std::string tmp(str);
 	for (auto begin = tmp.begin();begin!=tmp.end();begin++)
 	{
-		if (!isalnum(*begin) && *begin != '/' && *begin != '?' && *begin != '&' && *begin != '=' && *begin != '.' && *begin != '#' && *begin != '@')
+		if (*begin != '&')
 		{
 			unsigned char height = *begin &0xF0;
 			height >>= 4;

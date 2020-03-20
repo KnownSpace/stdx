@@ -44,7 +44,7 @@ namespace stdx
 	}
 
 	template<typename _Container, typename _String = std::string, class = typename  std::enable_if<stdx::is_basic_string<_String>::value>::type>
-	inline void spit_string(const _String& str, const _String& chars, _Container& container)
+	inline void split_string(const _String& str, const _String& chars, _Container& container)
 	{
 		return _SpitStr(str, chars, container);
 	}
@@ -538,7 +538,7 @@ namespace stdx
 		_Container split(const stdx::string &text) const
 		{
 			_Container cont;
-			stdx::spit_string<_Container, string_t>(m_data,text.m_data,cont);
+			stdx::split_string<_Container, string_t>(m_data,text.m_data,cont);
 			return cont;
 		}
 

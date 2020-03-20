@@ -10,36 +10,6 @@
 //	{
 //		namespace web
 //		{
-//			//将请求主体分割成MAP 适用于application/x-www-form-urlencoded
-//			std::shared_ptr<std::map<std::string, std::string>> split_request_body(const std::string &body)
-//			{
-//				//创建body的副本
-//				auto _body(body);
-//				//创建结果vector
-//				std::vector<std::string> res;
-//				//用&分割body
-//				boost::algorithm::split(res, _body, boost::algorithm::is_any_of("&"));
-//				//创建MAP
-//				std::shared_ptr<std::map<std::string, std::string>> map_ptr = std::make_shared<std::map<std::string, std::string>>();
-//				try
-//				{
-//					//遍历分割结果
-//					for (auto begin = std::begin(res), end = std::end(res); begin != end; begin++)
-//					{
-//						//用=分割 如果越界访问则数据不正确
-//						std::vector<std::string> temp;
-//						boost::algorithm::split(temp, *begin, boost::algorithm::is_any_of("="));
-//						//设置对应的项
-//						//搞定
-//						(*map_ptr)[url_decode(temp[0])] = url_decode(temp[1]);
-//					}
-//					return map_ptr;
-//				}
-//				catch (const std::out_of_range &)
-//				{
-//					throw std::invalid_argument("非法的Form Body:无法获取键值对");
-//				}
-//			}
 //			//将请求主体分割成MAP 适用于multipart/form-data
 //			std::shared_ptr<std::map<std::string, std::string>> split_request_body(const std::string &body, const std::string &boundary)
 //			{

@@ -51,30 +51,34 @@ int main(int argc, char **argv)
 		auto c = s.accept();
 		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event &e) mutable
 		{
-			std::string request(e.buffer,e.size);
-			size_t pos = request.find("\r\n\r\n");
+			std::vector<unsigned char> tmp;
+			for (size_t i = 0; i < e.size; i++)
+			{
+				tmp.push_back((unsigned char)e.buffer[i]);
+			}
+			stdx::http_request &&request = stdx::http_request::from_bytes(tmp);
 			try
 			{
-				stdx::http_request_header rq_header = stdx::http_request_header::from_string(stdx::string::from_u8_string(request.substr(0,pos)));
-				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(rq_header.version()),rq_header.request_url(),stdx::http_method_string(rq_header.method()));
+				
+				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
 				stdx::printf(U("Headers:\n"));
-				for (auto begin = rq_header.begin(),end=rq_header.end();begin!=end;begin++)
+				for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
 				{
 					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
 				}
-				if (!rq_header.cookies().empty())
+				if (!request.request_header().cookies().empty())
 				{
 					stdx::printf(U("Cookies:\n"));
-					for (auto begin = rq_header.cookies().begin(),end=rq_header.cookies().end();begin!=end;begin++)
+					for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
 					{
 						stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
 					}
 				}
 				std::string str;
-				if (rq_header.request_url() == U("/"))
+				if (request.request_header().request_url() == U("/"))
 				{
 					stdx::http_response_header header(200);
-					if (rq_header.cookies().empty())
+					if (request.request_header().cookies().empty())
 					{
 						stdx::http_cookie cookie(U("test"), U("test"));
 						cookie.expires() = stdx::datetime::now_utc();
@@ -91,13 +95,17 @@ int main(int argc, char **argv)
 					str.append("\r\n");
 					str.append(body);
 				}
-				else if (rq_header.request_url() == U("/test"))
+				else if (request.request_header().request_url() == U("/test"))
 				{
-					
-					pos += 4;
-					std::vector<unsigned char> rq_body(request.cbegin()+pos,request.cend());
-					stdx::http_form_ptr form = stdx::make_http_form(stdx::http_form_type::urlencoded,rq_body,U(""));
-					stdx::string val = form->get(U("test")).val_as_string();
+					stdx::string val;
+					if (request.form().form_type() == stdx::http_form_type::multipart )
+					{
+						val = request.form().get(U("test")).map_body_as_string();
+					}
+					else
+					{
+						val = request.form().get(U("test")).val_as_string();
+					}
 					stdx::printf(U("Form Value:{0}\n"),val);
 					stdx::http_response_header header(200);
 					header.add_header(U("Content-Type"), U("text/html"));

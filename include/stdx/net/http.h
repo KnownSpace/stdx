@@ -313,12 +313,15 @@ namespace stdx
 		std::list<stdx::http_cookie> m_set_cookies;
 	};
 
+	using http_header_ptr = std::shared_ptr<stdx::http_header>;
+
 	interface_class http_body
 	{
 	public:
 		using byte_t = unsigned char;
 		virtual ~http_body() = default;
 		virtual std::vector<byte_t> to_bytes() const = 0;
+		virtual bool empty() const = 0;
 	};
 
 	struct http_parameter
@@ -401,6 +404,21 @@ namespace stdx
 		const vector_t& map_body() const
 		{
 			return subval(U("Body"));
+		}
+
+		void set_map_body(const vector_t &body)
+		{
+			if (!exist_map_body())
+			{
+				m_map.val().emplace(U("Body"), body);
+			}
+			map_body() = body;
+		}
+
+		void set_map_body()
+		{
+			vector_t body;
+			set_map_body(body);
 		}
 
 		stdx::string map_body_as_string()
@@ -588,6 +606,12 @@ namespace stdx
 		{
 			return stdx::http_form_type::urlencoded;
 		}
+
+		virtual bool empty() const
+		{
+			return m_collection.empty();
+		}
+
 	private:
 		collection_t m_collection;
 	};
@@ -634,6 +658,12 @@ namespace stdx
 		{
 			return stdx::http_form_type::multipart;
 		}
+
+		virtual bool empty() const
+		{
+			return m_collection.empty();
+		}
+
 	private:
 		stdx::string m_boundary;
 		collection_t m_collection;
@@ -676,6 +706,11 @@ namespace stdx
 		virtual stdx::http_form_type form_type() const
 		{
 			return stdx::http_form_type::text;
+		}
+
+		virtual bool empty() const
+		{
+			return m_collection.empty() || m_collection.at(U("value")).val().empty();
 		}
 	private:
 		collection_t m_collection;
@@ -723,6 +758,28 @@ namespace stdx
 			, m_form(form)
 		{}
 
+		http_request(const header_t& header)
+			: m_header(header)
+			, m_form(std::make_shared<stdx::http_urlencoded_form>())
+		{}
+
+		http_request(const header_t& header, const stdx::http_form_ptr& form)
+			: m_header(header)
+			, m_form(form)
+		{}
+
+		template<typename _Form, class = typename std::enable_if<stdx::is_base_on<_Form, stdx::http_form>::value>::type>
+		http_request(const header_t& header)
+			: m_header(header)
+			, m_form(std::make_shared<_Form>())
+		{}
+
+		template<typename _Form, class = typename std::enable_if<stdx::is_base_on<_Form, stdx::http_form>::value>::type>
+		http_request(const header_t& header,const std::shared_ptr<_Form> &form)
+			: m_header(header)
+			, m_form(form)
+		{}
+
 		~http_request() = default;
 
 		stdx::http_request& operator=(const stdx::http_request& other);
@@ -765,6 +822,8 @@ namespace stdx
 		std::vector<byte_t> to_bytes();
 
 		virtual std::vector<byte_t> to_bytes() const override;
+
+		static stdx::http_request from_bytes(const std::vector<unsigned char> &bytes);
 	private:
 		header_t m_header;
 		body_t m_form;
@@ -777,4 +836,6 @@ namespace stdx
 	extern stdx::http_text_form make_http_text_form(const std::vector<unsigned char>& bytes);
 
 	extern stdx::http_form_ptr make_http_form(stdx::http_form_type type,const std::vector<unsigned char> &bytes,const stdx::string &boundary);
+
+	extern stdx::http_form_type get_http_form_type_and_boundary(const stdx::string &content_type,stdx::string &boundary);
 }
