@@ -124,6 +124,14 @@ int main(int argc, char **argv)
 					std::string body = "<html><body><h1>Not Found</h1></body></html>";
 					str.append(body);
 				}
+				tmp = request.to_bytes();
+				for (size_t i = 0; i < 614; i++)
+				{
+					if (e.buffer[i] != tmp[i])
+					{
+						stdx::printf(U("{0} {1}:{2}\n"),i,e.buffer[i],tmp[i]);
+					}
+				}
 				return str;
 			}
 			catch (const std::exception&err)

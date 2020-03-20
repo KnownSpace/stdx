@@ -1250,6 +1250,7 @@ stdx::string stdx::http_request_header::to_string() const
 	str.append(tmp);
 	str.push_back(U(' '));
 	str.append(stdx::http_version_string(version()));
+	str.append(U("\r\n"));
 	//其他头部
 	str.append(http_header::to_string());
 	//Cookie
