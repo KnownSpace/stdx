@@ -568,6 +568,8 @@ namespace stdx
 		virtual bool exist(const stdx::string& name) const = 0;
 
 		virtual stdx::http_form_type form_type() const = 0;
+
+		virtual void clear() = 0;
 	};
 
 	struct http_urlencoded_form:public stdx::http_form
@@ -602,14 +604,19 @@ namespace stdx
 
 		virtual std::vector<byte_t> to_bytes() const override;
 
-		virtual stdx::http_form_type form_type() const
+		virtual stdx::http_form_type form_type() const override
 		{
 			return stdx::http_form_type::urlencoded;
 		}
 
-		virtual bool empty() const
+		virtual bool empty() const override
 		{
 			return m_collection.empty();
+		}
+
+		virtual void clear() override
+		{
+			m_collection.clear();
 		}
 
 	private:
@@ -654,14 +661,19 @@ namespace stdx
 		stdx::string& boundary();
 		const stdx::string& boundary() const;
 
-		virtual stdx::http_form_type form_type() const
+		virtual stdx::http_form_type form_type() const override
 		{
 			return stdx::http_form_type::multipart;
 		}
 
-		virtual bool empty() const
+		virtual bool empty() const override
 		{
 			return m_collection.empty();
+		}
+
+		virtual void clear() override
+		{
+			m_collection.clear();
 		}
 
 	private:
@@ -703,20 +715,146 @@ namespace stdx
 
 		virtual std::vector<byte_t> to_bytes() const override;
 
-		virtual stdx::http_form_type form_type() const
+		virtual stdx::http_form_type form_type() const override
 		{
 			return stdx::http_form_type::text;
 		}
 
-		virtual bool empty() const
+		virtual bool empty() const override
 		{
 			return m_collection.empty() || m_collection.at(U("value")).val().empty();
+		}
+
+		virtual void clear() override
+		{
+			if (!m_collection.empty())
+			{
+				m_collection.at(U("value")).val().clear();
+			}
 		}
 	private:
 		collection_t m_collection;
 	};
 
 	using http_form_ptr = std::shared_ptr<stdx::http_form>;
+
+	//enum class http_response_body_type
+	//{
+
+	//};
+
+	struct http_response_body:public stdx::http_body
+	{
+	public:
+		virtual ~http_response_body() = default;
+
+		virtual std::vector<byte_t> data() const = 0;
+
+		virtual stdx::string data_as_string() const = 0;
+
+		virtual void push(const byte_t *buffer,size_t count) = 0;
+
+		virtual void push(const std::vector<byte_t>& buffer) = 0;
+
+		virtual void pop();
+	};
+
+	using http_response_body_ptr = std::shared_ptr<stdx::http_response_body>;
+
+	struct http_identity_body :public stdx::http_response_body
+	{
+		using self_t = stdx::http_identity_body;
+	public:
+		http_identity_body();
+
+		http_identity_body(const std::vector<byte_t>& data);
+
+		http_identity_body(const std::initializer_list<std::vector<byte_t>>& data);
+
+		http_identity_body(const self_t& other);
+
+		http_identity_body(self_t&& other) noexcept;
+
+		~http_identity_body() = default;
+
+		self_t& operator=(const self_t& other);
+
+		self_t& operator=(self_t&& other) noexcept;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+
+		virtual bool empty() const override;
+
+		virtual std::vector<byte_t> data() const override;
+
+		virtual stdx::string data_as_string() const override;
+
+		virtual void push(const byte_t* buffer, size_t count) override;
+
+		virtual void push(const std::vector<byte_t>& buffer) override;
+
+		virtual void pop() override;
+
+		stdx::string body_type() const
+		{
+			return U("identity");
+		}
+	private:
+		std::list<std::vector<byte_t>> m_data;
+	};
+
+	struct http_chunk_body :public stdx::http_response_body
+	{
+		using self_t = stdx::http_chunk_body;
+	public:
+		http_chunk_body();
+
+		http_chunk_body(const std::vector<byte_t>& data);
+
+		http_chunk_body(const std::initializer_list<std::vector<byte_t>>& data);
+
+		http_chunk_body(const stdx::string &trailer);
+
+		http_chunk_body(const std::vector<byte_t> &data,const stdx::string& trailer);
+
+		http_chunk_body(const std::initializer_list<std::vector<byte_t>>& data, const stdx::string& trailer);
+
+		http_chunk_body(const self_t& other);
+
+		http_chunk_body(self_t&& other) noexcept;
+
+		~http_chunk_body() = default;
+
+		self_t& operator=(const self_t& other);
+
+		self_t& operator=(self_t&& other) noexcept;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+
+		virtual bool empty() const override;
+
+		virtual std::vector<byte_t> data() const override;
+
+		virtual stdx::string data_as_string() const override;
+
+		virtual void push(const byte_t* buffer, size_t count) override;
+
+		virtual void push(const std::vector<byte_t>& buffer) override;
+
+		virtual void pop() override;
+
+		stdx::string& trailer();
+
+		const stdx::string& trailer() const;
+
+		stdx::string body_type() const
+		{
+			return U("chunk");
+		}
+	private:
+		std::list<std::vector<byte_t>> m_data;
+		stdx::string m_trailer;
+	};
 
 	class http_msg
 	{
@@ -753,20 +891,11 @@ namespace stdx
 			,m_form(std::make_shared<_Form>())
 		{}
 
-		http_request(const stdx::http_form_ptr &form)
-			: m_header(std::make_shared<stdx::http_request_header>())
-			, m_form(form)
-		{}
+		http_request(const stdx::http_form_ptr& form);
 
-		http_request(const header_t& header)
-			: m_header(header)
-			, m_form(std::make_shared<stdx::http_urlencoded_form>())
-		{}
+		http_request(const header_t& header);
 
-		http_request(const header_t& header, const stdx::http_form_ptr& form)
-			: m_header(header)
-			, m_form(form)
-		{}
+		http_request(const header_t& header, const stdx::http_form_ptr& form);
 
 		template<typename _Form, class = typename std::enable_if<stdx::is_base_on<_Form, stdx::http_form>::value>::type>
 		http_request(const header_t& header)
@@ -778,6 +907,22 @@ namespace stdx
 		http_request(const header_t& header,const std::shared_ptr<_Form> &form)
 			: m_header(header)
 			, m_form(form)
+		{}
+
+		http_request(stdx::string url);
+
+		http_request(stdx::http_method method, stdx::string url);
+
+		template<typename _Form, class = typename std::enable_if<stdx::is_base_on<_Form, stdx::http_form>::value>::type>
+		http_request(stdx::http_method method, stdx::string url, const std::shared_ptr<_Form>& form)
+			:m_header(std::make_shared<stdx::http_request_header>(method,url))
+			,m_form(form)
+		{}
+
+		template<typename _Form, class = typename std::enable_if<stdx::is_base_on<_Form, stdx::http_form>::value>::type>
+		http_request(stdx::http_method method, stdx::string url)
+			:m_header(std::make_shared<stdx::http_request_header>(method, url))
+			,m_form(std::make_shared<_Form>())
 		{}
 
 		~http_request() = default;
@@ -838,4 +983,81 @@ namespace stdx
 	extern stdx::http_form_ptr make_http_form(stdx::http_form_type type,const std::vector<unsigned char> &bytes,const stdx::string &boundary);
 
 	extern stdx::http_form_type get_http_form_type_and_boundary(const stdx::string &content_type,stdx::string &boundary);
+
+	class http_response:public stdx::http_msg
+	{
+		using header_t = std::shared_ptr<stdx::http_response_header>;
+		using body_t = stdx::http_response_body_ptr;
+	public:
+		http_response();
+
+		http_response(const stdx::http_response& other);
+
+		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
+		http_response()
+			:m_header(std::make_shared<stdx::http_request_header>())
+			,m_body(std::make_shared<_Body>())
+		{}
+
+		http_response(const body_t& body);
+
+		http_response(const header_t& header);
+
+		http_response(const header_t& header, const body_t& body);
+
+		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
+		http_response(const header_t &header)
+			:m_header(header)
+			,m_body(std::make_shared<_Body>())
+		{}
+
+		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
+		http_response(const header_t& header,const std::shared_ptr<_Body> &body)
+			: m_header(header)
+			, m_body(body)
+		{}
+
+		http_response(stdx::http_status_code_t status_code);
+
+		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
+		http_response(stdx::http_status_code_t status_code)
+			:m_header(std::make_shared<stdx::http_response_header>(status_code))
+			,m_body(std::make_shared<_Body>())
+		{}
+
+		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
+		http_response(stdx::http_status_code_t status_code,const std::shared_ptr<_Body> &body)
+			:m_header(std::make_shared<stdx::http_response_header>(status_code))
+			,m_body(body)
+		{}
+
+		~http_response() = default;
+
+		stdx::http_response& operator=(const stdx::http_response& other);
+
+		bool operator==(const stdx::http_response& other) const;
+
+		bool operator!=(const stdx::http_response& other) const;
+
+		stdx::http_response& response_header();
+
+		const stdx::http_response& response_header() const;
+
+		stdx::http_response_body& response_body();
+
+		const stdx::http_response_body& response_body() const;
+
+		virtual std::vector<byte_t> to_bytes() const override;
+
+		virtual stdx::http_header& header() override;
+
+		virtual const stdx::http_header& header() const override;
+
+		virtual stdx::http_body& body() override;
+
+		virtual const stdx::http_body& body() const override;
+	private:
+		header_t m_header;
+		body_t m_body;
+	};
 }

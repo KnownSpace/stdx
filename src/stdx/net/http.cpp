@@ -2070,6 +2070,31 @@ stdx::http_request::http_request(const stdx::http_request& other)
 	,m_form(other.m_form)
 {}
 
+stdx::http_request::http_request(const stdx::http_form_ptr& form)
+	: m_header(std::make_shared<stdx::http_request_header>())
+	, m_form(form)
+{}
+
+stdx::http_request::http_request(const header_t& header)
+	: m_header(header)
+	, m_form(std::make_shared<stdx::http_urlencoded_form>())
+{}
+
+stdx::http_request::http_request(const header_t& header, const stdx::http_form_ptr& form)
+	: m_header(header)
+	, m_form(form)
+{}
+
+stdx::http_request::http_request(stdx::string url)
+	: m_header(std::make_shared<stdx::http_request_header>(stdx::http_method::get, url))
+	, m_form(std::make_shared<stdx::http_urlencoded_form>())
+{}
+
+stdx::http_request::http_request(stdx::http_method method, stdx::string url)
+	: m_header(std::make_shared<stdx::http_request_header>(method, url))
+	, m_form(std::make_shared<stdx::http_urlencoded_form>())
+{}
+
 stdx::http_request& stdx::http_request::operator=(const stdx::http_request & other)
 {
 	m_header = other.m_header;
@@ -2356,4 +2381,266 @@ stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned cha
 		stdx::http_request req(_header);
 		return req;
 	}
+}
+
+stdx::http_identity_body::http_identity_body()
+	:m_data()
+{}
+
+stdx::http_identity_body::http_identity_body(const std::vector<byte_t>& data)
+	: m_data({data})
+{}
+
+stdx::http_identity_body::http_identity_body(const std::initializer_list<std::vector<byte_t>>& data)
+	:m_data(data)
+{}
+
+stdx::http_identity_body::http_identity_body(const self_t& other)
+	:m_data(other.m_data)
+{}
+
+stdx::http_identity_body::http_identity_body(self_t&& other) noexcept
+	:m_data(other.m_data)
+{}
+
+typename stdx::http_identity_body::self_t& stdx::http_identity_body::operator=(const self_t& other)
+{
+	m_data = other.m_data;
+	return *this;
+}
+
+typename stdx::http_identity_body::self_t& stdx::http_identity_body::operator=(self_t&& other) noexcept
+{
+	m_data = other.m_data;
+	return *this;
+}
+
+std::vector<typename stdx::http_identity_body::byte_t> stdx::http_identity_body::to_bytes() const
+{
+	std::vector<byte_t> vec;
+	if (!m_data.empty())
+	{
+		for (auto begin = m_data.cbegin(),end=m_data.cend();begin!=end;begin++)
+		{
+			for (auto data_begin=begin->cbegin(),data_end=begin->cend();data_begin != data_end;data_begin++)
+			{
+				vec.push_back(*data_begin);
+			}
+		}
+	}
+	return vec;
+}
+
+bool stdx::http_identity_body::empty() const
+{
+	if (!m_data.empty())
+	{
+		return m_data.front().empty();
+	}
+	return true;
+}
+
+std::vector<typename stdx::http_identity_body::byte_t> stdx::http_identity_body::data() const
+{
+	return to_bytes();
+}
+
+stdx::string stdx::http_identity_body::data_as_string() const
+{
+	std::vector<byte_t>&& bytes = data();
+	std::string str(bytes.begin(), bytes.end());
+	return stdx::string::from_u8_string(str);
+}
+
+void stdx::http_identity_body::push(const byte_t* buffer, size_t count)
+{
+	if (m_data.empty())
+	{
+		std::vector<byte_t> vec;
+		for (size_t i = 0; i < count; i++)
+		{
+			vec.push_back(buffer[i]);
+		}
+		m_data.push_back(vec);
+	}
+	else
+	{
+		auto pos = m_data.rbegin();
+		for (size_t i = 0; i < count; i++)
+		{
+			pos->push_back(buffer[i]);
+		}
+	}
+}
+
+void stdx::http_identity_body::push(const std::vector<byte_t>& buffer)
+{
+	if (!buffer.empty())
+	{
+		m_data.push_back(buffer);
+	}
+}
+
+void stdx::http_identity_body::pop()
+{
+	if (!m_data.empty())
+	{
+		m_data.pop_back();
+	}
+}
+
+stdx::http_chunk_body::http_chunk_body()
+	:m_data()
+	,m_trailer()
+{}
+
+stdx::http_chunk_body::http_chunk_body(const std::vector<byte_t>& data)
+	:m_data({data})
+	,m_trailer()
+{}
+
+stdx::http_chunk_body::http_chunk_body(const std::initializer_list<std::vector<byte_t>>& data)
+	:m_data(data)
+	,m_trailer()
+{}
+
+stdx::http_chunk_body::http_chunk_body(const stdx::string& trailer)
+	:m_data()
+	,m_trailer()
+{}
+
+stdx::http_chunk_body::http_chunk_body(const std::vector<byte_t>& data, const stdx::string& trailer)
+	:m_data({data})
+	,m_trailer(trailer)
+{}
+
+stdx::http_chunk_body::http_chunk_body(const std::initializer_list<std::vector<byte_t>>& data, const stdx::string& trailer)
+	:m_data(data)
+	,m_trailer(trailer)
+{}
+
+stdx::http_chunk_body::http_chunk_body(const self_t& other)
+	:m_data(other.m_data)
+	,m_trailer(other.m_trailer)
+{}
+
+stdx::http_chunk_body::http_chunk_body(self_t&& other) noexcept
+	:m_data(other.m_data)
+	,m_trailer(other.m_trailer)
+{}
+
+stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(const self_t& other)
+{
+	m_data = other.m_data;
+	m_trailer = other.trailer;
+	return *this;
+}
+
+stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(self_t&& other) noexcept
+{
+	m_data = other.m_data;
+	m_trailer = other.trailer;
+	return *this;
+}
+
+std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_bytes() const
+{
+	std::string builder;
+	for (auto begin = m_data.cbegin(),end = m_data.cend();begin!=end;begin++)
+	{
+		if (!begin->empty())
+		{
+			size_t size = begin->size();
+			char buf[17];
+			memset(buf, 0, 17);
+			::sprintf_s(buf, 16, "%X",size);
+			builder.append(buf);
+			builder.append("\r\n");
+			for (auto data_begin = begin->cbegin(),data_end = begin->cend();data_begin!=data_end;data_begin++)
+			{
+				builder.push_back((char)*data_begin);
+			}
+			builder.append("\r\n");
+		}
+	}
+	if (m_trailer.empty())
+	{
+		builder.append("0\r\n\r\n");
+	}
+	else
+	{
+		builder.append("0\r\n");
+		builder.append(m_trailer.to_u8_string());
+		builder.append("\r\n");
+	}
+	std::vector<byte_t> vec(builder.begin(),builder.end());
+	return vec;
+}
+
+bool stdx::http_chunk_body::empty() const
+{
+	if (!m_data.empty())
+	{
+		return m_data.front().empty();
+	}
+	return true;
+}
+
+std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::data() const
+{
+	std::vector<byte_t> vec;
+	if (!m_data.empty())
+	{
+		for (auto begin = m_data.cbegin(), end = m_data.cend(); begin != end; begin++)
+		{
+			for (auto data_begin = begin->cbegin(), data_end = begin->cend(); data_begin != data_end; data_begin++)
+			{
+				vec.push_back(*data_begin);
+			}
+		}
+	}
+	return vec;
+}
+
+stdx::string stdx::http_chunk_body::data_as_string() const
+{
+	std::vector<byte_t>&& bytes = data();
+	std::string str(bytes.begin(), bytes.end());
+	return stdx::string::from_u8_string(str);
+}
+
+void stdx::http_chunk_body::push(const byte_t* buffer, size_t count)
+{
+	std::vector<byte_t> vec;
+	for (size_t i = 0; i < count; i++)
+	{
+		vec.push_back(buffer[i]);
+	}
+	push(vec);
+}
+
+void stdx::http_chunk_body::push(const std::vector<byte_t>& buffer)
+{
+	if (!buffer.empty())
+	{
+		m_data.push_back(buffer);
+	}
+}
+
+void stdx::http_chunk_body::pop()
+{
+	if (!m_data.empty())
+	{
+		m_data.pop_back();
+	}
+}
+
+stdx::string& stdx::http_chunk_body::trailer()
+{
+	return m_trailer;
+}
+
+const stdx::string& stdx::http_chunk_body::trailer() const
+{
+	return m_trailer;
 }
