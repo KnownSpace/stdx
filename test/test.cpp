@@ -74,26 +74,14 @@ int main(int argc, char **argv)
 						stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
 					}
 				}
-				std::string str;
 				if (request.request_header().request_url() == U("/"))
 				{
-					stdx::http_response_header header(200);
-					if (request.request_header().cookies().empty())
-					{
-						stdx::http_cookie cookie(U("test"), U("test"));
-						cookie.expires() = stdx::datetime::now_utc();
-						stdx::time_span span;
-						span.minute = 5;
-						cookie.expires() += span;
-						cookie.set_enable_expires(true);
-						header.cookies().push_back(cookie);
-					}
-					header.add_header(U("Content-Type"), U("text/html"));
+					stdx::http_response response(200);
+					response.response_header().add_header(U("Content-Type"), U("text/html"));
 					std::string body = stdx::ansi_to_utf8(doc_content);
-					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
-					str = header.to_string().to_u8_string();
-					str.append("\r\n");
-					str.append(body);
+					response.response_header().add_header(U("Content-Length"), stdx::to_string(body.size()));
+					response.response_body().push((const unsigned char *)body.c_str(), body.size());
+					return response;
 				}
 				else if (request.request_header().request_url() == U("/test"))
 				{
@@ -107,43 +95,34 @@ int main(int argc, char **argv)
 						val = request.form().get(U("test")).val_as_string();
 					}
 					stdx::printf(U("Form Value:{0}\n"),val);
-					stdx::http_response_header header(200);
-					header.add_header(U("Content-Type"), U("text/html"));
+					stdx::http_response response(200);
+					response.response_header().add_header(U("Content-Type"), U("text/html"));
 					std::string body = stdx::ansi_to_utf8(doc_content);
-					header.add_header(U("Content-Length"), stdx::to_string(body.size()));
-					str = header.to_string().to_u8_string();
-					str.append("\r\n");
-					str.append(body);
+					response.response_header().add_header(U("Content-Length"), stdx::to_string(body.size()));
+					response.response_body().push((const unsigned char*)body.c_str(), body.size());
+					return response;
 				}
 				else
 				{
-					stdx::http_response_header header(404);
-					header.add_header(U("Content-Type"), U("text/html"));
-					str = header.to_string().to_u8_string();
-					str.append("\r\n");
-					std::string body = "<html><body><h1>Not Found</h1></body></html>";
-					str.append(body);
+					stdx::http_response response(404);
+					response.response_header().add_header(U("Content-Type"), U("text/html"));
+					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+					response.response_body().push(body);
+					return response;
 				}
-				tmp = request.to_bytes();
-				for (size_t i = 0; i < 614; i++)
-				{
-					if (e.buffer[i] != tmp[i])
-					{
-						stdx::printf(U("{0} {1}:{2}\n"),i,e.buffer[i],tmp[i]);
-					}
-				}
-				return str;
 			}
 			catch (const std::exception&err)
 			{
 				stdx::perrorf(U("Error:{0}\n"), err.what());
+				throw;
 			}
-			return std::string();
-		}).then([c](std::string str) mutable
+		}).then([c](stdx::http_response res) mutable
 		{
+			std::vector<unsigned char>&& bytes = res.to_bytes();
 			stdx::uint64_union u;
-			u.value = str.size();
-			auto t = c.send(str.c_str(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
+			u.value = bytes.size();
+			std::string str(bytes.begin(), bytes.end());
+			auto t = c.send((const char *)bytes.data(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
 			{
 				try
 				{

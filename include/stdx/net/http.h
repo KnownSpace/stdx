@@ -211,6 +211,13 @@ namespace stdx
 
 		stdx::http_header& add_header(const stdx::string& raw_string);
 
+		template<typename _Header,class = typename std::enable_if<stdx::have_to_string_function<_Header>::value>::type>
+		stdx::http_header& add_header(const _Header& header)
+		{
+			add_header(header.to_string());
+			return *this;
+		}
+
 		stdx::string& operator[](const stdx::string& name);
 		const stdx::string& operator[](const stdx::string& name) const;
 		stdx::string& operator[](stdx::string&& name);
@@ -756,7 +763,11 @@ namespace stdx
 
 		virtual void push(const std::vector<byte_t>& buffer) = 0;
 
-		virtual void pop();
+		virtual void push(const stdx::string& str) = 0;
+
+		virtual void pop() = 0;
+
+		virtual stdx::string body_type() const = 0;
 	};
 
 	using http_response_body_ptr = std::shared_ptr<stdx::http_response_body>;
@@ -795,10 +806,12 @@ namespace stdx
 
 		virtual void pop() override;
 
-		stdx::string body_type() const
+		virtual stdx::string body_type() const override
 		{
 			return U("identity");
 		}
+
+		virtual void push(const stdx::string& str) override;
 	private:
 		std::list<std::vector<byte_t>> m_data;
 	};
@@ -843,17 +856,17 @@ namespace stdx
 
 		virtual void pop() override;
 
-		stdx::string& trailer();
+		stdx::string& trailer() const;
 
-		const stdx::string& trailer() const;
-
-		stdx::string body_type() const
+		virtual stdx::string body_type() const override
 		{
-			return U("chunk");
+			return U("chunked");
 		}
+
+		virtual void push(const stdx::string& str) override;
 	private:
 		std::list<std::vector<byte_t>> m_data;
-		stdx::string m_trailer;
+		mutable stdx::string m_trailer;
 	};
 
 	class http_msg
@@ -964,13 +977,11 @@ namespace stdx
 			return form();
 		}
 
-		std::vector<byte_t> to_bytes();
-
 		virtual std::vector<byte_t> to_bytes() const override;
 
 		static stdx::http_request from_bytes(const std::vector<unsigned char> &bytes);
 	private:
-		header_t m_header;
+		mutable header_t m_header;
 		body_t m_form;
 	};
 
@@ -1037,11 +1048,14 @@ namespace stdx
 
 		bool operator==(const stdx::http_response& other) const;
 
-		bool operator!=(const stdx::http_response& other) const;
+		bool operator!=(const stdx::http_response& other) const
+		{
+			return !this->operator==(other);
+		}
 
-		stdx::http_response& response_header();
+		stdx::http_response_header& response_header();
 
-		const stdx::http_response& response_header() const;
+		const stdx::http_response_header& response_header() const;
 
 		stdx::http_response_body& response_body();
 
@@ -1057,7 +1071,7 @@ namespace stdx
 
 		virtual const stdx::http_body& body() const override;
 	private:
-		header_t m_header;
+		mutable header_t m_header;
 		body_t m_body;
 	};
 }

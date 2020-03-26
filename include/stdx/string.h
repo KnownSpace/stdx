@@ -634,6 +634,25 @@ namespace stdx
 	extern char _MapByte(const std::pair<char, char>& pair);
 
 	extern wchar_t _MapByte(const std::pair<wchar_t, wchar_t>& pair);
+
+	template<typename _T>
+	struct have_to_string_function
+	{
+	private:
+		class false_t;
+		template<typename _U>
+		static auto test(int)->decltype(stdx::declval<_U>().to_string());
+		template<typename _U>
+		static false_t test(...);
+	public:
+		constexpr static bool value = !std::is_same<false_t, decltype(test<_T>(1))>::value;
+	};
+
+	template<>
+	struct have_to_string_function<void>
+	{
+		constexpr static bool value = false;
+	};
 }
 
 namespace std

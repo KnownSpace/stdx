@@ -2052,12 +2052,36 @@ stdx::http_form_type stdx::make_http_form_type_by_string(const stdx::string& typ
 
 std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() const
 {
+	std::vector<byte_t>&& body_byte = m_form->to_bytes();
 	if (!m_header->exist(U("Content-Type")))
 	{
-		stdx::http_request rq(*this);
-		return rq.to_bytes();
+		if (m_form->form_type() == stdx::http_form_type::multipart)
+		{
+			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+			content_type.append(U("; boundary="));
+			const stdx::http_multipart_form& form = (const stdx::http_multipart_form&) * m_form;
+			content_type.append(form.boundary());
+			m_header->add_header(U("Content-Type"), content_type);
+		}
+		else
+		{
+			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+			m_header->add_header(U("Content-Type"), content_type);
+		}
 	}
-	return http_msg::to_bytes();
+	if (!m_header->exist(U("Content-Length")))
+	{
+		m_header->add_header(U("Content-Length"),stdx::to_string(body_byte.size()));
+	}
+	stdx::string&& header_string = m_header->to_string();
+	header_string.append(U("\r\n"));
+	std::string&& tmp = header_string.to_u8_string();
+	std::vector<byte_t> vector(tmp.cbegin(), tmp.cend());
+	for (auto begin = body_byte.begin(), end = body_byte.end(); begin != end; begin++)
+	{
+		vector.push_back(*begin);
+	}
+	return vector;
 }
 
 stdx::http_request::http_request()
@@ -2125,27 +2149,6 @@ stdx::http_form& stdx::http_request::form()
 const stdx::http_form& stdx::http_request::form() const
 {
 	return *m_form;
-}
-
-std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes()
-{
-	if (!m_header->exist(U("Content-Type")))
-	{
-		if (m_form->form_type() == stdx::http_form_type::multipart)
-		{
-			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
-			content_type.append(U("; boundary="));
-			const stdx::http_multipart_form& form = (const stdx::http_multipart_form&) * m_form;
-			content_type.append(form.boundary());
-			m_header->add_header(U("Content-Type"), content_type);
-		}
-		else
-		{
-			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
-			m_header->add_header(U("Content-Type"), content_type);
-		}
-	}
-	return http_msg::to_bytes();
 }
 
 stdx::http_urlencoded_form stdx::make_http_urlencoded_form(const std::vector<unsigned char>& bytes)
@@ -2481,6 +2484,16 @@ void stdx::http_identity_body::push(const std::vector<byte_t>& buffer)
 	}
 }
 
+void stdx::http_identity_body::push(const stdx::string& str)
+{
+	if (!str.empty())
+	{
+		std::string&& tmp = str.to_u8_string();
+		std::vector<byte_t> vector(tmp.begin(),tmp.end());
+		m_data.push_back(vector);
+	}
+}
+
 void stdx::http_identity_body::pop()
 {
 	if (!m_data.empty())
@@ -2532,14 +2545,14 @@ stdx::http_chunk_body::http_chunk_body(self_t&& other) noexcept
 stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(const self_t& other)
 {
 	m_data = other.m_data;
-	m_trailer = other.trailer;
+	m_trailer = other.m_trailer;
 	return *this;
 }
 
 stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(self_t&& other) noexcept
 {
 	m_data = other.m_data;
-	m_trailer = other.trailer;
+	m_trailer = other.m_trailer;
 	return *this;
 }
 
@@ -2627,6 +2640,16 @@ void stdx::http_chunk_body::push(const std::vector<byte_t>& buffer)
 	}
 }
 
+void stdx::http_chunk_body::push(const stdx::string& str)
+{
+	if (!str.empty())
+	{
+		std::string&& tmp = str.to_u8_string();
+		std::vector<byte_t> vector(tmp.begin(), tmp.end());
+		m_data.push_back(vector);
+	}
+}
+
 void stdx::http_chunk_body::pop()
 {
 	if (!m_data.empty())
@@ -2635,12 +2658,131 @@ void stdx::http_chunk_body::pop()
 	}
 }
 
-stdx::string& stdx::http_chunk_body::trailer()
+stdx::string& stdx::http_chunk_body::trailer() const
 {
 	return m_trailer;
 }
 
-const stdx::string& stdx::http_chunk_body::trailer() const
+stdx::http_response::http_response()
+	:m_header(std::make_shared<stdx::http_response_header>())
+	,m_body(std::make_shared<stdx::http_identity_body>())
+{}
+
+stdx::http_response::http_response(const stdx::http_response& other)
+	:m_header(other.m_header)
+	,m_body(other.m_body)
+{}
+
+stdx::http_response::http_response(const body_t& body)
+	:m_header(std::make_shared<stdx::http_response_header>())
+	,m_body(body)
+{}
+
+stdx::http_response::http_response(const header_t& header)
+	:m_header(header)
+	,m_body(std::make_shared<stdx::http_identity_body>())
+{}
+
+stdx::http_response::http_response(const header_t& header, const body_t& body)
+	:m_header(header)
+	,m_body(body)
+{}
+
+stdx::http_response::http_response(stdx::http_status_code_t status_code)
+	:m_header(std::make_shared<stdx::http_response_header>(status_code))
+	,m_body(std::make_shared<stdx::http_identity_body>())
+{}
+
+stdx::http_response& stdx::http_response::operator=(const stdx::http_response& other)
 {
-	return m_trailer;
+	m_header = other.m_header;
+	m_body = other.m_body;
+	return *this;
+}
+
+bool stdx::http_response::operator==(const stdx::http_response& other) const
+{
+	return (m_header == other.m_header)&&(m_body == other.m_body);
+}
+
+stdx::http_response_header& stdx::http_response::response_header()
+{
+	return *m_header;
+}
+
+const stdx::http_response_header& stdx::http_response::response_header() const
+{
+	return *m_header;
+}
+
+stdx::http_response_body& stdx::http_response::response_body()
+{
+	return *m_body;
+}
+
+const stdx::http_response_body& stdx::http_response::response_body() const
+{
+	return *m_body;
+}
+
+std::vector<typename stdx::http_response::byte_t> stdx::http_response::to_bytes() const
+{
+	std::vector<byte_t>&& body_byte = m_body->to_bytes();
+	if (m_body->body_type() != U("chunked"))
+	{
+		if (!m_header->exist(U("Content-Length")))
+		{
+			m_header->add_header(U("Content-Length"), stdx::to_string(body_byte.size()));
+		}
+	}
+	else
+	{
+		const stdx::http_chunk_body& chunk = (const stdx::http_chunk_body&) * m_body;
+		if (m_header->exist(U("Trailer")))
+		{
+			if (m_header->exist((*m_header)[U("Trailer")]))
+			{
+				if (chunk.trailer().empty())
+				{
+					chunk.trailer() = (*m_header)[(*m_header)[U("Trailer")]];
+				}
+				m_header->remove_header((*m_header)[U("Trailer")]);
+			}
+		}
+	}
+	if (m_body->body_type() != U("identity"))
+	{
+		if (!m_header->exist(U("Transfer-Encoding")))
+		{
+			m_header->add_header(U("Transfer-Encoding"), m_body->body_type());
+		}
+	}
+	std::string &&header_string = m_header->to_string().to_u8_string();
+	header_string.append("\r\n");
+	std::vector<byte_t> vector(header_string.begin(),header_string.end());
+	for (auto begin = body_byte.begin(),end=body_byte.end();begin!=end;begin++)
+	{
+		vector.push_back(*begin);
+	}
+	return vector;
+}
+
+stdx::http_header& stdx::http_response::header()
+{
+	return *m_header;
+}
+
+const stdx::http_header& stdx::http_response::header() const
+{
+	return *m_header;
+}
+
+stdx::http_body& stdx::http_response::body()
+{
+	return *m_body;
+}
+
+const stdx::http_body& stdx::http_response::body() const
+{
+	return *m_body;
 }
