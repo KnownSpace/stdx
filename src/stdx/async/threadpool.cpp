@@ -57,12 +57,11 @@ void stdx::_Threadpool::add_thread() noexcept
 			{
 				//如果10分钟后未通知
 				//退出线程
+				std::unique_lock<stdx::spin_lock> lock(count_lock);
 #ifdef DEBUG
 				printf("[Threadpool]线程池等待任务超时,清除线程\n");
 #endif // DEBUG
-				count_lock.lock();
 				*count = *count - 1;
-				count_lock.unlock();
 				return;
 			}
 			if (!(tasks->empty()))
@@ -72,31 +71,32 @@ void stdx::_Threadpool::add_thread() noexcept
 #endif // DEBUG
 				//如果任务列表不为空
 				//减去一个计数
-				count_lock.lock();
+				std::unique_lock<stdx::spin_lock> lock(count_lock);
 				* count = *count - 1;
-				count_lock.unlock();
+				lock.unlock();
 #ifdef DEBUG
 				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 #endif // DEBUG
 				//进入自旋锁
 				if (tasks->empty())
 				{
-					count_lock.lock();
+					lock.lock();
 					*count += 1;
-					count_lock.unlock();
 					continue;
 				}
 #ifdef DEBUG
 				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 				printf("[Threadpool]线程池已接收被投递的任务\n");
 #endif // DEBUG
-				//获取任务
-				runable_ptr t(tasks->front());
-				//从queue中pop
-				tasks->pop();
+
 				//执行任务
 				try
 				{
+					lock.lock();
+					runable_ptr t = std::move(tasks->front());
+					//从queue中pop
+					tasks->pop();
+					lock.unlock();
 					if (t)
 					{
 						t->run();
@@ -117,9 +117,9 @@ void stdx::_Threadpool::add_thread() noexcept
 #endif // DEBUG
 				//完成或终止后
 				//添加计数
-				count_lock.lock();
+				lock.lock();
 				*count = *count + 1;
-				count_lock.unlock();
+				lock.unlock();
 			}
 			else
 			{

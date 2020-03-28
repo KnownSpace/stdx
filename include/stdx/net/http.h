@@ -806,14 +806,14 @@ namespace stdx
 
 		virtual void pop() override;
 
-		virtual stdx::string body_type() const override
-		{
-			return U("identity");
-		}
+		virtual stdx::string body_type() const override;
+		
+		stdx::string& body_type();
 
 		virtual void push(const stdx::string& str) override;
 	private:
 		std::list<std::vector<byte_t>> m_data;
+		stdx::string m_body_type;
 	};
 
 	struct http_chunk_body :public stdx::http_response_body
@@ -995,6 +995,10 @@ namespace stdx
 
 	extern stdx::http_form_type get_http_form_type_and_boundary(const stdx::string &content_type,stdx::string &boundary);
 
+	extern stdx::http_chunk_body make_http_chunked_body(const std::vector<unsigned char> &data);
+
+	extern stdx::http_response_body_ptr make_http_response_body(const stdx::string &body_type,const std::vector<unsigned char> &bytes);
+
 	class http_response:public stdx::http_msg
 	{
 		using header_t = std::shared_ptr<stdx::http_response_header>;
@@ -1070,6 +1074,8 @@ namespace stdx
 		virtual stdx::http_body& body() override;
 
 		virtual const stdx::http_body& body() const override;
+
+		static stdx::http_response from_bytes(const std::vector<unsigned char>& bytes);
 	private:
 		mutable header_t m_header;
 		body_t m_body;

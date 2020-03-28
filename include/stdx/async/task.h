@@ -48,23 +48,23 @@ namespace stdx
 		{}
 
 		~task_result() = default;
-		task_result(const task_result<_T> &other)
+		task_result(const task_result<_T>& other)
 			:m_future(other.m_future)
 		{}
 
-		task_result(task_result<_T> &&other) noexcept
+		task_result(task_result<_T>&& other) noexcept
 			:m_future(std::move(other.m_future))
 		{}
 
-		task_result<_T> &operator=(const task_result<_T> &other)
+		task_result<_T>& operator=(const task_result<_T>& other)
 		{
 			m_future = other.m_future;
 			return *this;
 		}
 
-		const _T &get() const
+		const _T& get() const
 		{
-			
+
 			return m_future.get();
 		}
 	private:
@@ -81,15 +81,15 @@ namespace stdx
 		{}
 
 		~task_result() = default;
-		task_result(const task_result<void> &other)
+		task_result(const task_result<void>& other)
 			:m_future(other.m_future)
 		{}
 
-		task_result(task_result<void> &&other) noexcept
+		task_result(task_result<void>&& other) noexcept
 			:m_future(std::move(other.m_future))
 		{}
 
-		task_result<void> &operator=(const task_result<void> &other)
+		task_result<void>& operator=(const task_result<void>& other)
 		{
 			m_future = other.m_future;
 			return *this;
@@ -113,21 +113,21 @@ namespace stdx
 		{}
 
 		~task_result() = default;
-		task_result(const task_result<_T> &other)
+		task_result(const task_result<_T>& other)
 			:m_future(other.m_future)
 		{}
 
-		task_result(task_result<_T> &&other)
+		task_result(task_result<_T>&& other)
 			:m_future(std::move(other.m_future))
 		{}
 
-		task_result<_T> &operator=(const task_result<_T> &other)
+		task_result<_T>& operator=(const task_result<_T>& other)
 		{
 			m_future = other.m_future;
 			return *this;
 		}
 
-		_T &get() const
+		_T& get() const
 		{
 
 			return m_future.get();
@@ -144,7 +144,7 @@ namespace stdx
 	template<typename _T>
 	struct is_task
 	{
-		enum 
+		enum
 		{
 			value = 0
 		};
@@ -170,18 +170,18 @@ namespace stdx
 			:m_impl(nullptr)
 		{}
 
-		task(const task<_R> &other)
+		task(const task<_R>& other)
 			: m_impl(other.m_impl)
 		{}
 
 		template<typename _Fn, typename ..._Args
 			//checkers
-			, class = typename std::enable_if<stdx::is_callable<_Fn>::value 
+			, class = typename std::enable_if<stdx::is_callable<_Fn>::value
 			&&
-			(std::is_convertible<typename stdx::function_info<_Fn>::result, _R>::value|| std::is_same<typename stdx::value_type<typename stdx::function_info<_Fn>::result>, _R>::value)
+			(std::is_convertible<typename stdx::function_info<_Fn>::result, _R>::value || std::is_same<typename stdx::value_type<typename stdx::function_info<_Fn>::result>, _R>::value)
 			>::type
 		>
-		task(_Fn &&fn, _Args &&...args)
+			task(_Fn&& fn, _Args&&...args)
 			:m_impl(std::make_shared<_Task<_R>>(std::move(fn), args...))
 		{
 		}
@@ -190,7 +190,7 @@ namespace stdx
 			:m_impl(impl)
 		{}
 
-		task<_R> &operator=(const task<_R> &other)
+		task<_R>& operator=(const task<_R>& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
@@ -214,7 +214,7 @@ namespace stdx
 		}
 
 		template<typename _Fn, typename ..._Args>
-		static task<_R> start(_Fn &&fn, _Args &&...args)
+		static task<_R> start(_Fn&& fn, _Args&&...args)
 		{
 			auto t = task<_R>(std::move(fn), std::move(args)...);
 			t.run();
@@ -223,25 +223,25 @@ namespace stdx
 
 		template<typename _Fn, typename __R = typename stdx::function_info<_Fn>::result
 			//checkers
-			,class = typename std::enable_if<stdx::is_callable<_Fn>::value 
+			, class = typename std::enable_if<stdx::is_callable<_Fn>::value
 			&&
 			(
 				std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>, _R>::value
-				|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,stdx::task_result<_R>>::value
-				|| std::is_same<typename stdx::function_info<_Fn>::arguments::First,void>::value
+				|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>, stdx::task_result<_R>>::value
+				|| std::is_same<typename stdx::function_info<_Fn>::arguments::First, void>::value
 				||
+				(
+					stdx::is_task<_R>::value &&
 					(
-						stdx::is_task<_R>::value &&
-						(
-							std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,typename stdx::get_task_result<_R>>::value
-							|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>,typename stdx::task_result<typename stdx::get_task_result<_R>>>::value
+						std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>, typename stdx::get_task_result<_R>>::value
+						|| std::is_same<stdx::value_type<typename stdx::function_info<_Fn>::arguments::First>, typename stdx::task_result<typename stdx::get_task_result<_R>>>::value
 						)
 					)
-			) 
-			&& 
-			(std::is_same<__R,typename stdx::function_info<_Fn>::result>::value)>::type
+				)
+			&&
+			(std::is_same<__R, typename stdx::function_info<_Fn>::result>::value)>::type
 		>
-		stdx::task<__R> then(_Fn &&fn)
+			stdx::task<__R> then(_Fn&& fn)
 		{
 			stdx::task<__R> t((*m_impl).then(std::move(fn)));
 			return t;
@@ -273,7 +273,7 @@ namespace stdx
 			return (bool)m_impl;
 		}
 
-		bool operator==(const stdx::task<_R> &other) const
+		bool operator==(const stdx::task<_R>& other) const
 		{
 			return m_impl == other.m_impl;
 		}
@@ -284,7 +284,7 @@ namespace stdx
 	template<typename _T>
 	struct is_task<stdx::task<_T>>
 	{
-		enum 
+		enum
 		{
 			value = 1
 		};
@@ -309,7 +309,7 @@ namespace stdx
 	using task_ptr = std::shared_ptr<stdx::_Task<_T>>;
 
 	template<typename _T, typename _Fn, typename ..._Args>
-	inline task_ptr<_T> make_task_ptr(_Fn &&fn, _Args &&...args)
+	inline task_ptr<_T> make_task_ptr(_Fn&& fn, _Args&&...args)
 	{
 		return std::make_shared<_Task<_T>>(fn, args...);
 	}
@@ -320,13 +320,14 @@ namespace stdx
 	template<typename _t>
 	struct _TaskCompleter
 	{
-		static void call(stdx::runable_ptr<_t> call, promise_ptr<_t> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state)
+		static void call(stdx::runable_ptr<_t> call, promise_ptr<_t> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state,std::shared_future<_t> future)
 		{
 			try
 			{
 				//调用方法
 				//设置promise
 				promise->set_value(call->run());
+				future.wait();
 			}
 			catch (const std::exception&)
 			{
@@ -342,10 +343,12 @@ namespace stdx
 					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
+					future.wait();
 					return;
 				}
 				//解锁
 				lock.unlock();
+				future.wait();
 				return;
 			}
 			//加锁
@@ -371,7 +374,7 @@ namespace stdx
 	template<>
 	struct _TaskCompleter<void>
 	{
-		static void call(stdx::runable_ptr<void> call, promise_ptr<void> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state)
+		static void call(stdx::runable_ptr<void> call, promise_ptr<void> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state,std::shared_future<void> future)
 		{
 			try
 			{
@@ -379,6 +382,7 @@ namespace stdx
 				call->run();
 				//设置promise
 				promise->set_value();
+				future.wait();
 			}
 			catch (const std::exception&)
 			{
@@ -394,10 +398,12 @@ namespace stdx
 					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
+					future.wait();
 					return;
 				}
 				//解锁
 				lock.unlock();
+				future.wait();
 				return;
 			}
 			//加锁
@@ -427,7 +433,7 @@ namespace stdx
 	struct _TaskContinuationBuilder
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<Input> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			using arg_t = typename stdx::function_info<Fn>::arguments;
 			static_assert(is_arguments_type(Fn, stdx::task_result<Result>) || is_arguments_type(Fn, Result) || is_arguments_type(Fn, void), "the input function not be allowed");
@@ -440,13 +446,13 @@ namespace stdx
 	struct _TaskContinuationBuilder<Input, Result, void>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<Input> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> &future)
-			{
-				future.wait();
-				return fn();
-			}, fn, future);
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> future)
+				{
+					future.wait();
+					return fn();
+				}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -467,12 +473,12 @@ namespace stdx
 	struct _TaskContinuationBuilder<Input, Result, stdx::task_result<Input>>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<Input> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> &future)
-			{
-				return std::bind(fn, task_result<Input>(future))();
-			}, fn, future);
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> future)
+				{
+					return std::bind(fn, task_result<Input>(future))();
+				}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -496,13 +502,13 @@ namespace stdx
 	struct _TaskContinuationBuilder<void, Result, void>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<void> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<void> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<void> &future)
-			{
-				future.wait();
-				return fn();
-			}, fn, future);
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<void> future)
+				{
+					future.wait();
+					return fn();
+				}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -523,12 +529,12 @@ namespace stdx
 	struct _TaskContinuationBuilder<Input, Result, Input>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<Input> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<Input> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> &future)
-			{
-				return std::bind(fn, future.get())();
-			}, fn, future);
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> future)
+				{
+					return std::bind(fn, future.get())();
+				}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -549,31 +555,31 @@ namespace stdx
 	struct _TaskContinuationBuilder<stdx::task<Input>, Result, Input>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<stdx::task<Input>> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			promise_ptr<Input> promise = stdx::make_promise_ptr<Input>();
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> result)
-			{
-				fn(result.get());
-			}, fn, (std::shared_future<Input>)promise->get_future());
-			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<Input> input_promise)
-			{
-				try
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> result)
 				{
-					auto task = future.get();
-					auto x = task.then([input_promise, t](Input& r) mutable
+					fn(result.get());
+				}, fn, (std::shared_future<Input>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
+				{
+					try
 					{
-						input_promise->set_value(r);
+						auto task = future.get();
+						auto x = task.then([input_promise, t](Input r) mutable
+							{
+								input_promise->set_value(r);
+								t->run_on_this_thread();
+							});
+					}
+					catch (const std::exception&)
+					{
+						input_promise->set_exception(std::current_exception());
 						t->run_on_this_thread();
-					});
-				}
-				catch (const std::exception&)
-				{
-					input_promise->set_exception(std::current_exception());
-					t->run_on_this_thread();
-				}
+					}
 
-			}, t, future, promise);
+				}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -594,45 +600,45 @@ namespace stdx
 	struct _TaskContinuationBuilder<stdx::task<Input>, Result, stdx::task_result<Input>>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<stdx::task<Input>> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			promise_ptr<Input> promise = stdx::make_promise_ptr<Input>();
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<Input> result)
-			{
-				//使用future来制作task_result
-				fn(stdx::task_result<Input>(result));
-			}, fn, (std::shared_future<Input>)promise->get_future());
-			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<Input> input_promise)
-			{
-				try
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> result)
 				{
-					//获取task
-					auto task = future.get();
-					//延续task
-					auto x = task.then([input_promise, t](stdx::task_result<Input> &r) mutable
+					//使用future来制作task_result
+					fn(stdx::task_result<Input>(result));
+				}, fn, (std::shared_future<Input>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
+				{
+					try
 					{
-						try
-						{
-							//设置promise
-							input_promise->set_value(r.get());
-						}
-						catch (const std::exception&)
-						{
-							//出错则设置异常
-							input_promise->set_exception(std::current_exception());
-						}
+						//获取task
+						auto task = future.get();
+						//延续task
+						auto x = task.then([input_promise, t](stdx::task_result<Input> r) mutable
+							{
+								try
+								{
+									//设置promise
+									input_promise->set_value(r.get());
+								}
+								catch (const std::exception&)
+								{
+									//出错则设置异常
+									input_promise->set_exception(std::current_exception());
+								}
+								t->run_on_this_thread();
+							});
+					}
+					catch (const std::exception&)
+					{
+						//获取Task都已出错
+						//设置异常
+						input_promise->set_exception(std::current_exception());
 						t->run_on_this_thread();
-					});
-				}
-				catch (const std::exception &)
-				{
-					//获取Task都已出错
-					//设置异常
-					input_promise->set_exception(std::current_exception());
-					t->run_on_this_thread();
-				}
+					}
 
-			}, t, future, promise);
+				}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -653,23 +659,23 @@ namespace stdx
 	struct _TaskContinuationBuilder<stdx::task<void>, Result, void>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<void>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<stdx::task<void>> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			promise_ptr<stdx::task_result<void>> promise = stdx::make_promise_ptr<stdx::task_result<void>>();
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<stdx::task_result<void>> result)
-			{
-				result.wait();
-				fn();
-			}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
-			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> &future, promise_ptr<stdx::task_result<void>> input_promise)
-			{
-				auto task = future.get();
-				auto x = task.then([input_promise, t](stdx::task_result<void> &r) mutable
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<stdx::task_result<void>> result)
 				{
-					input_promise->set_value(r);
-					t->run_on_this_thread();
-				});
-			}, t, future, promise);
+					result.wait();
+					fn();
+				}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> future, promise_ptr<stdx::task_result<void>> input_promise)
+				{
+					auto task = future.get();
+					auto x = task.then([input_promise, t](stdx::task_result<void> r) mutable
+						{
+							input_promise->set_value(r);
+							t->run_on_this_thread();
+						});
+				}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -687,26 +693,26 @@ namespace stdx
 
 	//上一个Task返回新的Task,用户选择忽略的情况
 	template<typename Input, typename Result>
-	struct _TaskContinuationBuilder<stdx::task<Input>, Result,void>
+	struct _TaskContinuationBuilder<stdx::task<Input>, Result, void>
 	{
 		template<typename Fn>
-		static std::shared_ptr<_Task<Result>> build(Fn &&fn, std::shared_future<stdx::task<Input>> &future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<stdx::task<Input>> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			promise_ptr<void> promise = stdx::make_promise_ptr<void>();
-			auto t = stdx::make_task_ptr<Result>([](Fn &&fn, std::shared_future<void> result)
-			{
-				result.wait();
-				fn();
-			}, fn, (std::shared_future<void>)promise->get_future());
-			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> &future, promise_ptr<void> input_promise)
-			{
-				auto task = future.get();
-				auto x = task.then([input_promise, t]() mutable
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<void> result)
 				{
-					input_promise->set_value();
-					t->run_on_this_thread();
-				});
-			}, t, future, promise);
+					result.wait();
+					fn();
+				}, fn, (std::shared_future<void>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, stdx::shared_future_ptr<stdx::task<Input>> future, promise_ptr<void> input_promise)
+				{
+					auto task = future.get();
+					auto x = task.then([input_promise, t]() mutable
+						{
+							input_promise->set_value();
+							t->run_on_this_thread();
+						});
+				}, t, future, promise);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
 			{
@@ -731,10 +737,10 @@ namespace stdx
 		//构造函数
 
 		template<typename _Fn, typename ..._Args>
-		explicit _Task(_Fn &&f, _Args &&...args)
+		explicit _Task(_Fn&& f, _Args&&...args)
 			:m_action(stdx::make_runable<R>(std::move(f), args...))
 			, m_promise(std::make_shared<std::promise<R>>())
-			, m_future(m_promise->get_future())
+			, m_future(std::shared_future<R>(m_promise->get_future()))
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
 			, m_state(std::make_shared<task_state>(stdx::task_state::ready))
 			, m_lock()
@@ -742,10 +748,10 @@ namespace stdx
 		}
 
 		template<typename _Fn>
-		explicit _Task(_Fn &&f)
+		explicit _Task(_Fn&& f)
 			:m_action(stdx::make_runable<R>(std::move(f)))
 			, m_promise(std::make_shared<std::promise<R>>())
-			, m_future(m_promise->get_future())
+			, m_future(std::shared_future<R>(m_promise->get_future()))
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
 			, m_state(std::make_shared<task_state>(stdx::task_state::ready))
 			, m_lock()
@@ -753,7 +759,9 @@ namespace stdx
 		}
 
 		//析构函数
-		virtual ~_Task() = default;
+		virtual ~_Task()
+		{
+		}
 
 		//启动一个Task
 		virtual void run() noexcept override
@@ -780,38 +788,41 @@ namespace stdx
 				, promise_ptr<R> promise
 				, std::shared_ptr<std::shared_ptr<stdx::basic_task>>  next
 				, stdx::spin_lock lock
-				, state_ptr state)
+				, stdx::state_ptr state
+				, std::shared_future<R> future)
 			{
-				stdx::_TaskCompleter<R>::call(r, promise, next, lock, state);
+				stdx::_TaskCompleter<R>::call(r, promise, next, lock, state,future);
 			};
 			//放入线程池
-			stdx::threadpool::run(f, m_action, m_promise, m_next, m_lock, m_state);
+			stdx::threadpool::run(f, m_action, m_promise, m_next, m_lock, m_state,m_future);
 		}
 		virtual void run_on_this_thread() noexcept override
 		{
-		    m_lock.lock();
+			m_lock.lock();
 			if (!m_state)
 			{
 				m_lock.unlock();
 				return;
 			}
-		    if((*m_state) != stdx::task_state::running)
-		    {
-		        *m_state = stdx::task_state::running;
-		    }
-		    else
-		    {
-		        m_lock.unlock();
+			if ((*m_state) != stdx::task_state::running)
+			{
+				*m_state = stdx::task_state::running;
+			}
+			else
+			{
+				m_lock.unlock();
 				return;
-		    }
-		    m_lock.unlock();
+			}
+			m_lock.unlock();
 			try
 			{
-				stdx::_TaskCompleter<R>::call(m_action, m_promise, m_next, m_lock, m_state);
+				stdx::_TaskCompleter<R>::call(m_action, m_promise, m_next, m_lock, m_state,m_future);
 			}
-			catch (const std::exception&)
+			catch (const std::exception&err)
 			{
-
+#ifdef DEBUG
+				::printf("[Task Model]发生未处理的异常:%s",err.what());
+#endif // DEBUG
 			}
 		}
 
@@ -836,17 +847,17 @@ namespace stdx
 		}
 
 		template<typename _Fn, typename ..._Args>
-		static std::shared_ptr<_Task<R>> make(_Fn &&fn, _Args &&...args)
+		static std::shared_ptr<_Task<R>> make(_Fn&& fn, _Args&&...args)
 		{
 			return std::make_shared<_Task<R>>(fn, args...);
 		}
 
 		//延续Task
-		template<typename _Fn,typename _R = typename stdx::function_info<_Fn>::result>
-		std::shared_ptr<_Task<_R>> then(_Fn &&fn)
+		template<typename _Fn, typename _R = typename stdx::function_info<_Fn>::result>
+		std::shared_ptr<_Task<_R>> then(_Fn&& fn)
 		{
 			using args_tl = typename stdx::function_info<_Fn>::arguments;
-			std::shared_ptr<_Task<_R>> t = _TaskContinuationBuilder<R,_R,stdx::value_type<stdx::type_at<0,args_tl>>>::build(fn,m_future,m_state,m_lock,m_next);
+			std::shared_ptr<_Task<_R>> t = _TaskContinuationBuilder<R, _R, stdx::value_type<stdx::type_at<0, args_tl>>>::build(fn, m_future, m_state, m_lock, m_next);
 			return t;
 		}
 
@@ -854,26 +865,26 @@ namespace stdx
 		template<typename _R>
 		std::shared_ptr<_Task<void>> with(std::shared_ptr<_Task<_R>> other)
 		{
-			return then([other](stdx::task_result<void>&) 
-			{
-				other->lock();
-			});
+			return then([other](stdx::task_result<void>&)
+				{
+					other->lock();
+				});
 		}
 
 	protected:
 		stdx::runable_ptr<R> m_action;
-		promise_ptr<R> m_promise;
+		stdx::promise_ptr<R> m_promise;
 		std::shared_future<R> m_future;
 		std::shared_ptr<std::shared_ptr<stdx::basic_task>> m_next;
-		state_ptr m_state;
+		stdx::state_ptr m_state;
 		stdx::spin_lock m_lock;
-	};	
+	};
 
 	//启动一个Task
-	template<typename _Fn, typename _R = typename stdx::function_info<_Fn>::result, typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
-	inline stdx::task<_R> async(_Fn &&fn, _Args &&...args)
+	template<typename _Fn, typename _R = typename stdx::function_info<_Fn>::result, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+	inline stdx::task<_R> async(_Fn&& fn, _Args&&...args)
 	{
-		return task<_R>::start(fn,args...);
+		return task<_R>::start(fn, args...);
 	}
 
 #pragma region TaskCompleteEvent
@@ -884,35 +895,35 @@ namespace stdx
 		_TaskCompleteEvent()
 			:m_promise(stdx::make_promise_ptr<_R>())
 			, m_task([](promise_ptr<_R> promise)
-		{
-			return promise->get_future().get();
-		}, m_promise)
+				{
+					return promise->get_future().get();
+				}, m_promise)
 		{}
-		~_TaskCompleteEvent() = default;
-		void set_value(_R &&value)
-		{
-			m_promise->set_value(value);
-		}
-		void set_value(_R &value)
-		{
-			m_promise->set_value(value);
-		}
-		void set_exception(const std::exception_ptr &error)
-		{
-			m_promise->set_exception(error);
-		}
-		stdx::task<_R> get_task()
-		{
-			return m_task;
-		}
-		void run()
-		{
-			m_task.run();
-		}
-		void run_on_this_thread()
-		{
-			m_task.run_on_this_thread();
-		}
+				~_TaskCompleteEvent() = default;
+				void set_value(_R&& value)
+				{
+					m_promise->set_value(value);
+				}
+				void set_value(_R& value)
+				{
+					m_promise->set_value(value);
+				}
+				void set_exception(const std::exception_ptr& error)
+				{
+					m_promise->set_exception(error);
+				}
+				stdx::task<_R> get_task()
+				{
+					return m_task;
+				}
+				void run()
+				{
+					m_task.run();
+				}
+				void run_on_this_thread()
+				{
+					m_task.run_on_this_thread();
+				}
 	private:
 		promise_ptr<_R> m_promise;
 		stdx::task<_R> m_task;
@@ -925,33 +936,33 @@ namespace stdx
 		_TaskCompleteEvent()
 			:m_promise(stdx::make_promise_ptr<void>())
 			, m_task([](promise_ptr<void> promise)
-		{
-			
-			promise->get_future().get();
-		}, m_promise)
+				{
+
+					promise->get_future().get();
+				}, m_promise)
 		{
 		}
-		~_TaskCompleteEvent() = default;
-		void set_value()
-		{
-			m_promise->set_value();
-		}
-		void set_exception(const std::exception_ptr &error)
-		{
-			m_promise->set_exception(error);
-		}
-		stdx::task<void> get_task()
-		{
-			return m_task;
-		}
-		void run()
-		{
-			m_task.run();
-		}
-		void run_on_this_thread()
-		{
-			m_task.run_on_this_thread();
-		}
+				~_TaskCompleteEvent() = default;
+				void set_value()
+				{
+					m_promise->set_value();
+				}
+				void set_exception(const std::exception_ptr& error)
+				{
+					m_promise->set_exception(error);
+				}
+				stdx::task<void> get_task()
+				{
+					return m_task;
+				}
+				void run()
+				{
+					m_task.run();
+				}
+				void run_on_this_thread()
+				{
+					m_task.run_on_this_thread();
+				}
 	private:
 		promise_ptr<void> m_promise;
 		stdx::task<void> m_task;
@@ -965,32 +976,32 @@ namespace stdx
 		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<_R>>())
 		{}
-		task_completion_event(const task_completion_event<_R> &other)
+		task_completion_event(const task_completion_event<_R>& other)
 			:m_impl(other.m_impl)
 		{}
 		~task_completion_event() = default;
-		task_completion_event<_R> &operator=(const task_completion_event<_R> &other)
+		task_completion_event<_R>& operator=(const task_completion_event<_R>& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
 
-		bool operator==(const task_completion_event<_R> &other) const
+		bool operator==(const task_completion_event<_R>& other) const
 		{
 			return other.m_impl == m_impl;
 		}
 
-		void set_value(_R &&value)
+		void set_value(_R&& value)
 		{
 			m_impl->set_value(std::move(value));
 		}
 
-		void set_value(_R &value)
+		void set_value(_R& value)
 		{
 			m_impl->set_value(std::move(value));
 		}
 
-		void set_exception(const std::exception_ptr &error)
+		void set_exception(const std::exception_ptr& error)
 		{
 			m_impl->set_exception(error);
 		}
@@ -1018,16 +1029,16 @@ namespace stdx
 		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<void>>())
 		{}
-		task_completion_event(const task_completion_event<void> &other)
+		task_completion_event(const task_completion_event<void>& other)
 			:m_impl(other.m_impl)
 		{}
 		~task_completion_event() = default;
-		task_completion_event<void> &operator=(const task_completion_event<void> &other)
+		task_completion_event<void>& operator=(const task_completion_event<void>& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
-		bool operator==(const task_completion_event<void> &other) const
+		bool operator==(const task_completion_event<void>& other) const
 		{
 			return other.m_impl == m_impl;
 		}
@@ -1035,7 +1046,7 @@ namespace stdx
 		{
 			m_impl->set_value();
 		}
-		void set_exception(const std::exception_ptr &error)
+		void set_exception(const std::exception_ptr& error)
 		{
 			m_impl->set_exception(error);
 		}
@@ -1078,7 +1089,7 @@ namespace stdx
 			:m_impl(std::make_shared<_TaskFlag>())
 		{}
 
-		task_flag(const task_flag &other)
+		task_flag(const task_flag& other)
 			:m_impl(other.m_impl)
 		{}
 
@@ -1086,7 +1097,7 @@ namespace stdx
 
 		~task_flag() = default;
 
-		task_flag &operator=(const task_flag &other)
+		task_flag& operator=(const task_flag& other)
 		{
 			m_impl = other.m_impl;
 			return *this;

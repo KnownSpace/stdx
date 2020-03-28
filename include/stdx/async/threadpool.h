@@ -33,9 +33,11 @@ namespace stdx
 #ifdef DEBUG
 			::printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
-			m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
-			m_barrier.notify();
 			std::unique_lock<stdx::spin_lock> lock(m_count_lock);
+			m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
+			lock.unlock();
+			m_barrier.notify();
+			lock.lock();
 			if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
 			{
 #ifdef DEBUG

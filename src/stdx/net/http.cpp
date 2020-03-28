@@ -2364,7 +2364,8 @@ stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned cha
 		throw std::invalid_argument("invalid request data");
 	}
 	stdx::string&& header = stdx::string::from_u8_string(str.substr(0, pos));
-	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(stdx::http_request_header::from_string(header));
+	auto&& tmp = stdx::http_request_header::from_string(header);
+	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(tmp));
 
 	if ((pos+4)!=str.size())
 	{
@@ -2388,33 +2389,40 @@ stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned cha
 
 stdx::http_identity_body::http_identity_body()
 	:m_data()
+	,m_body_type(U("identity"))
 {}
 
 stdx::http_identity_body::http_identity_body(const std::vector<byte_t>& data)
 	: m_data({data})
+	, m_body_type(U("identity"))
 {}
 
 stdx::http_identity_body::http_identity_body(const std::initializer_list<std::vector<byte_t>>& data)
 	:m_data(data)
+	, m_body_type(U("identity"))
 {}
 
 stdx::http_identity_body::http_identity_body(const self_t& other)
 	:m_data(other.m_data)
+	, m_body_type(other.m_body_type)
 {}
 
 stdx::http_identity_body::http_identity_body(self_t&& other) noexcept
 	:m_data(other.m_data)
+	,m_body_type(other.m_body_type)
 {}
 
 typename stdx::http_identity_body::self_t& stdx::http_identity_body::operator=(const self_t& other)
 {
 	m_data = other.m_data;
+	m_body_type = other.m_body_type;
 	return *this;
 }
 
 typename stdx::http_identity_body::self_t& stdx::http_identity_body::operator=(self_t&& other) noexcept
 {
 	m_data = other.m_data;
+	m_body_type = other.m_body_type;
 	return *this;
 }
 
@@ -2502,6 +2510,16 @@ void stdx::http_identity_body::pop()
 	}
 }
 
+stdx::string stdx::http_identity_body::body_type() const
+{
+	return m_body_type;
+}
+
+stdx::string& stdx::http_identity_body::body_type()
+{
+	return m_body_type;
+}
+
 stdx::http_chunk_body::http_chunk_body()
 	:m_data()
 	,m_trailer()
@@ -2566,7 +2584,7 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_by
 			size_t size = begin->size();
 			char buf[17];
 			memset(buf, 0, 17);
-			::sprintf_s(buf, 16, "%X",size);
+			::sprintf_s(buf, 16, "%lX",size);
 			builder.append(buf);
 			builder.append("\r\n");
 			for (auto data_begin = begin->cbegin(),data_end = begin->cend();data_begin!=data_end;data_begin++)
@@ -2785,4 +2803,104 @@ stdx::http_body& stdx::http_response::body()
 const stdx::http_body& stdx::http_response::body() const
 {
 	return *m_body;
+}
+
+stdx::http_response_body_ptr stdx::make_http_response_body(const stdx::string& body_type, const std::vector<unsigned char>& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid response body data");
+	}
+	stdx::http_response_body_ptr body;
+	if (body_type == U("chunked"))
+	{
+		body = std::make_shared<stdx::http_chunk_body>(std::move(stdx::make_http_chunked_body(bytes)));
+	}
+	else
+	{
+		stdx::http_identity_body tmp;
+		tmp.body_type() = body_type;
+		tmp.push(bytes);
+		body = std::make_shared<stdx::http_identity_body>(std::move(tmp));
+	}
+	return body;
+}
+
+stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned char>& data)
+{
+	if (data.empty())
+	{
+		throw std::invalid_argument("invalid chunked data");
+	}
+	std::string str(data.cbegin(), data.cend());
+	stdx::http_chunk_body body;
+	std::list<std::string> list;
+	stdx::split_string(str, std::string("\r\n"),list);
+	if (list.empty())
+	{
+		throw std::invalid_argument("invalid chunked data");
+	}
+	if (list.size() % 2)
+	{
+		throw std::invalid_argument("invalid chunked data");
+	}
+	for (auto begin = list.begin(),end=list.end();begin!=end;begin++)
+	{
+		bool _end = false;
+		if (!begin->empty())
+		{
+			size_t size = 0;
+			sscanf_s(begin->c_str(), "%lX",&size);
+			if (size == 0)
+			{
+				_end = true;
+			}
+		}
+		begin++;
+		if (!begin->empty())
+		{
+			if (_end)
+			{
+				body.trailer() = stdx::string::from_u8_string(*begin);
+			}
+			else
+			{
+				body.push((const unsigned char*)begin->c_str(),begin->size());
+			}
+		}
+	}
+	return body;
+}
+
+stdx::http_response stdx::http_response::from_bytes(const std::vector<unsigned char>& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid response data");
+	}
+	std::string builder(bytes.cbegin(), bytes.cend());
+	size_t pos = builder.find("\r\n\r\n");
+	if (pos == std::string::npos)
+	{
+		throw std::invalid_argument("invalid response data");
+	}
+	std::string&& header_string = builder.substr(0, pos);
+	auto header = std::make_shared<stdx::http_response_header>(std::move(stdx::http_response_header::from_string(stdx::string::from_u8_string(header_string))));
+	if ((pos + 4) != builder.size())
+	{
+		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
+		stdx::string type = U("identity");
+		if (header->exist(U("Transfer-Encoding")))
+		{
+			type = (*header)[U("Transfer-Encoding")];
+		}
+		auto body = stdx::make_http_response_body(type,vec);
+		stdx::http_response res(header,body);
+		return res;
+	}
+	else
+	{
+		stdx::http_response res(header);
+		return res;
+	}
 }

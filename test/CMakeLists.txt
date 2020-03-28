@@ -4,7 +4,6 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/test test_src)
 message(${test_src})
 add_executable(test ${test_src})
 include_directories(${PROJECT_SOURCE_DIR}/include)
-
 target_link_libraries(test libstdx)
 
 if(UNIX)

@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 	{
 		try
 		{
-			auto e = r.get();
+			auto &&e = r.get();
 			doc_content = std::string(e.buffer, e.buffer.size());
 		}
 		catch (const std::exception &err)
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event &e) mutable
+		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event e) mutable
 		{
 			std::vector<unsigned char> tmp;
 			for (size_t i = 0; i < e.size; i++)
@@ -60,20 +60,20 @@ int main(int argc, char **argv)
 			try
 			{
 				
-				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
-				stdx::printf(U("Headers:\n"));
-				for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
-				{
-					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
-				}
-				if (!request.request_header().cookies().empty())
-				{
-					stdx::printf(U("Cookies:\n"));
-					for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
-					{
-						stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
-					}
-				}
+				//stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
+				//stdx::printf(U("Headers:\n"));
+				//for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
+				//{
+				//	stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
+				//}
+				//if (!request.request_header().cookies().empty())
+				//{
+				//	stdx::printf(U("Cookies:\n"));
+				//	for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
+				//	{
+				//		stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
+				//	}
+				//}
 				if (request.request_header().request_url() == U("/"))
 				{
 					stdx::http_response response(200);
@@ -122,18 +122,20 @@ int main(int argc, char **argv)
 			stdx::uint64_union u;
 			u.value = bytes.size();
 			std::string str(bytes.begin(), bytes.end());
-			auto t = c.send((const char *)bytes.data(), u.low).then([c](stdx::task_result<stdx::network_send_event>& r) mutable
+			auto t = c.send((const char*)bytes.data(), u.low);
+			return t;
+		})
+		.then([c](stdx::task_result<stdx::network_send_event> r) mutable
+		{
+			try
 			{
-				try
-				{
-					auto e = r.get();
-					stdx::printf(U("Send: {0} Bytes\n"), e.size);
-				}
-				catch (const std::exception&)
-				{
 
-				}
-			});
+				auto e = r.get();
+			}
+			catch (const std::exception& err)
+			{
+				stdx::perrorf(U("Error:{0}\n"), err.what());
+			}
 		});
 	}
 #pragma endregion
