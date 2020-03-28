@@ -2185,6 +2185,40 @@ stdx::http_urlencoded_form stdx::make_http_urlencoded_form(const std::vector<uns
 	return form;
 }
 
+stdx::http_urlencoded_form stdx::make_http_urlencoded_form(const std::string& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid urlencoded form data");
+	}
+	stdx::http_urlencoded_form form;
+	const std::string &str = bytes;
+	std::list<std::string> args;
+	stdx::split_string(str, std::string("&"), args);
+	for (auto begin = args.begin(), end = args.end(); begin != end; begin++)
+	{
+		if (!begin->empty())
+		{
+			size_t pos = begin->find('=');
+			if (pos != std::string::npos)
+			{
+				std::string&& name = begin->substr(0, pos);
+				std::string&& value = begin->substr(pos + 1, begin->size() - 1 - pos);
+				stdx::replace_string(value, std::string("+"), std::string(" "));
+				value = stdx::url_decode(value);
+				std::vector<unsigned char> vector(value.cbegin(), value.cend());
+				stdx::http_parameter arg(std::move(vector));
+				form.add(stdx::string::from_u8_string(name), arg);
+			}
+			else
+			{
+				throw std::invalid_argument("invalid urlencoded form data");
+			}
+		}
+	}
+	return form;
+}
+
 stdx::http_multipart_form stdx::make_http_multipart_form(const std::vector<unsigned char>& bytes, const stdx::string& boundary)
 {
 	if (bytes.empty())
@@ -2302,6 +2336,123 @@ stdx::http_multipart_form stdx::make_http_multipart_form(const std::vector<unsig
 	return form;
 }
 
+stdx::http_multipart_form stdx::make_http_multipart_form(const std::string& bytes, const stdx::string& boundary)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid multipart form data");
+	}
+	stdx::http_multipart_form form;
+	const std::string &str = bytes;
+	std::list<std::string> parts;
+	form.boundary() = boundary;
+	std::string&& bound = boundary.to_u8_string();
+	bound.insert(0, "--");
+	stdx::split_string(str, bound, parts);
+	for (auto begin = parts.begin(), end = parts.end(); begin != end; begin++)
+	{
+		if (!begin->empty())
+		{
+			if (*begin != "--" && *begin != "--\r\n")
+			{
+				size_t pos = begin->find("\r\n\r\n");
+				if (pos == std::string::npos)
+				{
+					throw std::invalid_argument("invalid multipart form data");
+				}
+				std::string&& header = begin->substr(0, pos);
+				std::string&& body = begin->substr(pos + 4, begin->size() - pos - 4);
+				body.pop_back();
+				body.pop_back();
+				std::list<std::string> headers;
+				stdx::split_string(header, std::string("\r\n"), headers);
+				stdx::http_parameter arg;
+				arg.set_map();
+				stdx::string name;
+				for (auto header_begin = headers.begin(), header_end = headers.end(); header_begin != header_end; header_begin++)
+				{
+					if (!header_begin->empty())
+					{
+						pos = header_begin->find(':');
+						if (pos == std::string::npos)
+						{
+							throw std::invalid_argument("invalid multipart form data");
+						}
+						header = header_begin->substr(0, pos);
+						std::string&& value = header_begin->substr(pos + 1, header_begin->size() - 1 - pos);
+						if (value.front() == ' ')
+						{
+							value.erase(0, 1);
+						}
+						if (header != "Content-Disposition")
+						{
+							if (header == "Content-Type")
+							{
+								arg.set_map_content_type(stdx::string::from_u8_string(value));
+							}
+							else if (header == "Content-Transfer-Encoding")
+							{
+								arg.set_map_encoding(stdx::string::from_u8_string(value));
+							}
+						}
+						else
+						{
+							std::list<std::string> values;
+							stdx::split_string(value, std::string(";"), values);
+							if (values.empty())
+							{
+								throw std::invalid_argument("invalid multipart form data");
+							}
+							for (auto value_begin = values.begin(), value_end = values.end(); value_begin != value_end; value_begin++)
+							{
+								if (value_begin->front() == ' ')
+								{
+									value_begin->erase(0, 1);
+								}
+								if (*value_begin != "form-data")
+								{
+									pos = value_begin->find('=');
+									if (pos == std::string::npos)
+									{
+										throw std::invalid_argument("invalid multipart form data");
+									}
+									std::string&& _name = value_begin->substr(0, pos);
+									std::string&& _value = value_begin->substr(pos + 1, value_begin->size() - pos - 1);
+									if (_value.front() == '\"')
+									{
+										_value.erase(0, 1);
+									}
+									if (_value.back() == '\"')
+									{
+										_value.pop_back();
+									}
+									if (_name == "name")
+									{
+										name = stdx::string::from_u8_string(_value);
+									}
+									else
+									{
+										std::vector<unsigned char> vector(_value.begin(), _value.end());
+										arg.valmap().emplace(stdx::string::from_u8_string(_name), vector);
+									}
+								}
+							}
+						}
+					}
+				}
+				if (name.empty())
+				{
+					throw std::invalid_argument("invalid multipart form data");
+				}
+				std::vector<unsigned char> bytes(body.begin(), body.end());
+				arg.set_map_body(bytes);
+				form.add(name, arg);
+			}
+		}
+	}
+	return form;
+}
+
 stdx::http_text_form stdx::make_http_text_form(const std::vector<unsigned char>& bytes)
 {
 	if (bytes.empty())
@@ -2310,6 +2461,18 @@ stdx::http_text_form stdx::make_http_text_form(const std::vector<unsigned char>&
 	}
 	stdx::http_text_form form;
 	form.add(U("value"), bytes);
+	return form;
+}
+
+stdx::http_text_form stdx::make_http_text_form(const std::string& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid text form data");
+	}
+	stdx::http_text_form form;
+	std::vector<unsigned char> vec(bytes.cbegin(), bytes.cend());
+	form.add(U("value"),vec);
 	return form;
 }
 
@@ -2323,6 +2486,24 @@ stdx::http_form_ptr stdx::make_http_form(stdx::http_form_type type, const std::v
 		break;
 	case stdx::http_form_type::multipart:
 		form = std::make_shared<stdx::http_multipart_form>(stdx::make_http_multipart_form(bytes,boundary));
+		break;
+	case stdx::http_form_type::text:
+		form = std::make_shared<stdx::http_text_form>(stdx::make_http_text_form(bytes));
+		break;
+	}
+	return form;
+}
+
+stdx::http_form_ptr stdx::make_http_form(stdx::http_form_type type, const std::string& bytes, const stdx::string& boundary)
+{
+	stdx::http_form_ptr form;
+	switch (type)
+	{
+	case stdx::http_form_type::urlencoded:
+		form = std::make_shared<stdx::http_urlencoded_form>(stdx::make_http_urlencoded_form(bytes));
+		break;
+	case stdx::http_form_type::multipart:
+		form = std::make_shared<stdx::http_multipart_form>(stdx::make_http_multipart_form(bytes, boundary));
 		break;
 	case stdx::http_form_type::text:
 		form = std::make_shared<stdx::http_text_form>(stdx::make_http_text_form(bytes));
@@ -2368,6 +2549,38 @@ stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned cha
 	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(tmp));
 
 	if ((pos+4)!=str.size())
+	{
+		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
+		stdx::string boundary(U(""));
+		stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
+		if (_header->exist(U("Content-Type")))
+		{
+			form_type = stdx::get_http_form_type_and_boundary(_header->operator[](U("Content-Type")), boundary);
+		}
+		auto _form = stdx::make_http_form(form_type, vec, boundary);
+		stdx::http_request req(_header, _form);
+		return req;
+	}
+	else
+	{
+		stdx::http_request req(_header);
+		return req;
+	}
+}
+
+stdx::http_request stdx::http_request::from_bytes(const std::string& bytes)
+{
+	const std::string &str = bytes;
+	size_t pos = str.find("\r\n\r\n");
+	if (pos == std::string::npos)
+	{
+		throw std::invalid_argument("invalid request data");
+	}
+	stdx::string&& header = stdx::string::from_u8_string(str.substr(0, pos));
+	auto&& tmp = stdx::http_request_header::from_string(header);
+	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(tmp));
+
+	if ((pos + 4) != str.size())
 	{
 		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
 		stdx::string boundary(U(""));
@@ -2574,6 +2787,18 @@ stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(self_t&& other) 
 	return *this;
 }
 
+template<bool _Cond>
+void _GetHexFromSize(char* buf,size_t size)
+{
+	::sprintf_s(buf, 16, "%lX", size);
+}
+
+template<>
+void _GetHexFromSize<false>(char* buf, size_t size)
+{
+	::sprintf_s(buf, 16, "%X", size);
+}
+
 std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_bytes() const
 {
 	std::string builder;
@@ -2584,14 +2809,7 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_by
 			size_t size = begin->size();
 			char buf[17];
 			memset(buf, 0, 17);
-			if (sizeof(void*)==8)
-			{
-				::sprintf_s(buf, 16, "%lX", size);
-			}
-			else
-			{
-				::sprintf_s(buf, 16, "%X", size);
-			}
+			_GetHexFromSize<(sizeof(void*) == 8)>(buf,size);
 			builder.append(buf);
 			builder.append("\r\n");
 			for (auto data_begin = begin->cbegin(),data_end = begin->cend();data_begin!=data_end;data_begin++)
@@ -2833,6 +3051,39 @@ stdx::http_response_body_ptr stdx::make_http_response_body(const stdx::string& b
 	return body;
 }
 
+stdx::http_response_body_ptr stdx::make_http_response_body(const stdx::string& body_type, const std::string& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid response body data");
+	}
+	stdx::http_response_body_ptr body;
+	if (body_type == U("chunked"))
+	{
+		body = std::make_shared<stdx::http_chunk_body>(std::move(stdx::make_http_chunked_body(bytes)));
+	}
+	else
+	{
+		stdx::http_identity_body tmp;
+		tmp.body_type() = body_type;
+		tmp.push((const unsigned char*)bytes.c_str(),bytes.size());
+		body = std::make_shared<stdx::http_identity_body>(std::move(tmp));
+	}
+	return body;
+}
+
+template<bool _Cond>
+void _GetSizeFromHex(const char* buf, size_t* ptr)
+{
+	sscanf_s(buf, "%lX", ptr);
+}
+
+template<>
+void _GetSizeFromHex<false>(const char* buf, size_t* ptr)
+{
+	sscanf_s(buf, "%X", ptr);
+}
+
 stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned char>& data)
 {
 	if (data.empty())
@@ -2857,7 +3108,53 @@ stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned ch
 		if (!begin->empty())
 		{
 			size_t size = 0;
-			if (sizeof(void*)==8)
+			_GetSizeFromHex<(sizeof(void*) == 8)>(begin->c_str(), &size);
+			if (size == 0)
+			{
+				_end = true;
+			}
+		}
+		begin++;
+		if (!begin->empty())
+		{
+			if (_end)
+			{
+				body.trailer() = stdx::string::from_u8_string(*begin);
+			}
+			else
+			{
+				body.push((const unsigned char*)begin->c_str(),begin->size());
+			}
+		}
+	}
+	return body;
+}
+
+stdx::http_chunk_body stdx::make_http_chunked_body(const std::string& data)
+{
+	if (data.empty())
+	{
+		throw std::invalid_argument("invalid chunked data");
+	}
+	const std::string &str = data;
+	stdx::http_chunk_body body;
+	std::list<std::string> list;
+	stdx::split_string(str, std::string("\r\n"), list);
+	if (list.empty())
+	{
+		throw std::invalid_argument("invalid chunked data");
+	}
+	if (list.size() % 2)
+	{
+		throw std::invalid_argument("invalid chunked data");
+	}
+	for (auto begin = list.begin(), end = list.end(); begin != end; begin++)
+	{
+		bool _end = false;
+		if (!begin->empty())
+		{
+			size_t size = 0;
+			if (sizeof(void*) == 8)
 			{
 				sscanf_s(begin->c_str(), "%lX", &size);
 			}
@@ -2879,7 +3176,7 @@ stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned ch
 			}
 			else
 			{
-				body.push((const unsigned char*)begin->c_str(),begin->size());
+				body.push((const unsigned char*)begin->c_str(), begin->size());
 			}
 		}
 	}
@@ -2910,6 +3207,39 @@ stdx::http_response stdx::http_response::from_bytes(const std::vector<unsigned c
 		}
 		auto body = stdx::make_http_response_body(type,vec);
 		stdx::http_response res(header,body);
+		return res;
+	}
+	else
+	{
+		stdx::http_response res(header);
+		return res;
+	}
+}
+
+stdx::http_response stdx::http_response::from_bytes(const std::string& bytes)
+{
+	if (bytes.empty())
+	{
+		throw std::invalid_argument("invalid response data");
+	}
+	const std::string &builder = bytes;
+	size_t pos = builder.find("\r\n\r\n");
+	if (pos == std::string::npos)
+	{
+		throw std::invalid_argument("invalid response data");
+	}
+	std::string&& header_string = builder.substr(0, pos);
+	auto header = std::make_shared<stdx::http_response_header>(std::move(stdx::http_response_header::from_string(stdx::string::from_u8_string(header_string))));
+	if ((pos + 4) != builder.size())
+	{
+		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
+		stdx::string type = U("identity");
+		if (header->exist(U("Transfer-Encoding")))
+		{
+			type = (*header)[U("Transfer-Encoding")];
+		}
+		auto body = stdx::make_http_response_body(type, vec);
+		stdx::http_response res(header, body);
 		return res;
 	}
 	else

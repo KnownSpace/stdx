@@ -980,6 +980,8 @@ namespace stdx
 		virtual std::vector<byte_t> to_bytes() const override;
 
 		static stdx::http_request from_bytes(const std::vector<unsigned char> &bytes);
+
+		static stdx::http_request from_bytes(const std::string& bytes);
 	private:
 		mutable header_t m_header;
 		body_t m_form;
@@ -991,13 +993,25 @@ namespace stdx
 
 	extern stdx::http_text_form make_http_text_form(const std::vector<unsigned char>& bytes);
 
+	extern stdx::http_urlencoded_form make_http_urlencoded_form(const std::string& bytes);
+
+	extern stdx::http_multipart_form make_http_multipart_form(const std::string& bytes, const stdx::string& boundary);
+
+	extern stdx::http_text_form make_http_text_form(const std::string& bytes);
+
 	extern stdx::http_form_ptr make_http_form(stdx::http_form_type type,const std::vector<unsigned char> &bytes,const stdx::string &boundary);
+
+	extern stdx::http_form_ptr make_http_form(stdx::http_form_type type, const std::string& bytes, const stdx::string& boundary);
 
 	extern stdx::http_form_type get_http_form_type_and_boundary(const stdx::string &content_type,stdx::string &boundary);
 
 	extern stdx::http_chunk_body make_http_chunked_body(const std::vector<unsigned char> &data);
 
+	extern stdx::http_chunk_body make_http_chunked_body(const std::string& data);
+
 	extern stdx::http_response_body_ptr make_http_response_body(const stdx::string &body_type,const std::vector<unsigned char> &bytes);
+
+	extern stdx::http_response_body_ptr make_http_response_body(const stdx::string& body_type, const std::string& bytes);
 
 	class http_response:public stdx::http_msg
 	{
@@ -1076,6 +1090,8 @@ namespace stdx
 		virtual const stdx::http_body& body() const override;
 
 		static stdx::http_response from_bytes(const std::vector<unsigned char>& bytes);
+
+		static stdx::http_response from_bytes(const std::string &bytes);
 	private:
 		mutable header_t m_header;
 		body_t m_body;

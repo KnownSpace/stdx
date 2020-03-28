@@ -51,29 +51,24 @@ int main(int argc, char **argv)
 		auto c = s.accept();
 		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event e) mutable
 		{
-			std::vector<unsigned char> tmp;
-			for (size_t i = 0; i < e.size; i++)
-			{
-				tmp.push_back((unsigned char)e.buffer[i]);
-			}
-			stdx::http_request &&request = stdx::http_request::from_bytes(tmp);
+			std::string tmp(e.buffer,e.size);
 			try
 			{
-				
-				//stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
-				//stdx::printf(U("Headers:\n"));
-				//for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
-				//{
-				//	stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
-				//}
-				//if (!request.request_header().cookies().empty())
-				//{
-				//	stdx::printf(U("Cookies:\n"));
-				//	for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
-				//	{
-				//		stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
-				//	}
-				//}
+				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
+				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
+				stdx::printf(U("Headers:\n"));
+				for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
+				{
+					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
+				}
+				if (!request.request_header().cookies().empty())
+				{
+					stdx::printf(U("Cookies:\n"));
+					for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
+					{
+						stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
+					}
+				}
 				if (request.request_header().request_url() == U("/"))
 				{
 					stdx::http_response response(200);
@@ -114,7 +109,6 @@ int main(int argc, char **argv)
 			catch (const std::exception&err)
 			{
 				stdx::perrorf(U("Error:{0}\n"), err.what());
-				//throw;
 			}
 		}).then([c](stdx::http_response res) mutable
 		{
@@ -128,7 +122,6 @@ int main(int argc, char **argv)
 		{
 			try
 			{
-
 				auto e = r.get();
 			}
 			catch (const std::exception& err)
