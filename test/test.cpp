@@ -114,14 +114,13 @@ int main(int argc, char **argv)
 			catch (const std::exception&err)
 			{
 				stdx::perrorf(U("Error:{0}\n"), err.what());
-				throw;
+				//throw;
 			}
 		}).then([c](stdx::http_response res) mutable
 		{
 			std::vector<unsigned char>&& bytes = res.to_bytes();
 			stdx::uint64_union u;
 			u.value = bytes.size();
-			std::string str(bytes.begin(), bytes.end());
 			auto t = c.send((const char*)bytes.data(), u.low);
 			return t;
 		})

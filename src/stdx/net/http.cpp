@@ -2584,7 +2584,14 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_by
 			size_t size = begin->size();
 			char buf[17];
 			memset(buf, 0, 17);
-			::sprintf_s(buf, 16, "%lX",size);
+			if (sizeof(void*)==8)
+			{
+				::sprintf_s(buf, 16, "%lX", size);
+			}
+			else
+			{
+				::sprintf_s(buf, 16, "%X", size);
+			}
 			builder.append(buf);
 			builder.append("\r\n");
 			for (auto data_begin = begin->cbegin(),data_end = begin->cend();data_begin!=data_end;data_begin++)
@@ -2850,7 +2857,14 @@ stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned ch
 		if (!begin->empty())
 		{
 			size_t size = 0;
-			sscanf_s(begin->c_str(), "%lX",&size);
+			if (sizeof(void*)==8)
+			{
+				sscanf_s(begin->c_str(), "%lX", &size);
+			}
+			else
+			{
+				sscanf_s(begin->c_str(), "%X", &size);
+			}
 			if (size == 0)
 			{
 				_end = true;

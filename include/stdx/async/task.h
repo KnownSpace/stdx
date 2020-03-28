@@ -759,9 +759,7 @@ namespace stdx
 		}
 
 		//析构函数
-		virtual ~_Task()
-		{
-		}
+		virtual ~_Task() = default;
 
 		//启动一个Task
 		virtual void run() noexcept override
