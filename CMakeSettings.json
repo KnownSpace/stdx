@@ -71,7 +71,8 @@
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "linux_x64" ],
       "variables": [],
-      "intelliSenseMode": "linux-gcc-x64"
+      "intelliSenseMode": "linux-gcc-x64",
+      "remoteCopyUseCompilerDefaults": true
     },
     {
       "name": "Linux-Release",

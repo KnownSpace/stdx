@@ -701,7 +701,7 @@ stdx::datetime stdx::datetime::now()
 	ftime(&tp);
 	tm t;
 	localtime_r(&(tp.time),&t);
-	stdx::datatime tmp(tm);
+	stdx::datetime tmp(t);
 	tmp.m_millisecond = tp.millitm;
 	return tmp;
 #endif
@@ -726,10 +726,10 @@ stdx::datetime stdx::datetime::now_utc()
 	ftime(&tp);
 	tm t;
 	localtime_r(&(tp.time), &t);
-	stdx::datatime tmp(tm);
+	stdx::datetime tmp(t);
 	tmp.m_millisecond = tp.millitm;
 	stdx::time_span span;
-	span.minute = tp.imezonel;
+	span.minute = tp.timezone;
 	tmp += span;
 	return tmp;
 #endif

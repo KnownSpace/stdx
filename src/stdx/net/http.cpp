@@ -138,7 +138,8 @@ stdx::string stdx::http_cookie::to_set_cookie_string() const
 	{
 		str.append(U("; "));
 		str.append(U("Max-Age="));
-		str.append(stdx::to_string(m_max_age));
+		const unsigned long long int& tmp = m_max_age;
+		str.append(stdx::to_string(tmp));
 	}
 	else
 	{
@@ -196,7 +197,8 @@ stdx::string stdx::http_cookie::to_set_cookie_string_without_header() const
 	{
 		str.append(U("; "));
 		str.append(U("Max-Age="));
-		str.append(stdx::to_string(m_max_age));
+		const unsigned long long int& tmp = m_max_age;
+		str.append(stdx::to_string(tmp));
 	}
 	else
 	{
@@ -403,25 +405,29 @@ stdx::string stdx::http_cache_control::to_string() const
 	{
 		str.append(U(", "));
 		str.append(U("max-age="));
-		str.append(stdx::to_string(m_max_age));
+		const unsigned long long int& tmp = m_max_age;
+		str.append(stdx::to_string(tmp));
 	}
 	if (m_max_stale != 0)
 	{
 		str.append(U(", "));
 		str.append(U("max-stale="));
-		str.append(stdx::to_string(m_max_stale));
+		const unsigned long long int& tmp = m_max_stale;
+		str.append(stdx::to_string(tmp));
 	}
 	if (m_min_fresh != 0)
 	{
 		str.append(U(", "));
 		str.append(U("min-fresh="));
-		str.append(stdx::to_string(m_min_fresh));
+		const unsigned long long int& tmp = m_min_fresh;
+		str.append(stdx::to_string(tmp));
 	}
 	if (m_s_max_age != 0)
 	{
 		str.append(U(", "));
 		str.append(U("s-maxage="));
-		str.append(stdx::to_string(m_s_max_age));
+		const unsigned long long int& tmp = m_s_max_age;
+		str.append(stdx::to_string(tmp));
 	}
 	return str;
 }
@@ -434,25 +440,29 @@ stdx::string stdx::http_cache_control::to_string_without_header() const
 	{
 		str.append(U(", "));
 		str.append(U("max-age="));
-		str.append(stdx::to_string(m_max_age));
+		const unsigned long long int& tmp = m_max_age;
+		str.append(stdx::to_string(tmp));
 	}
 	if (m_max_stale != 0)
 	{
 		str.append(U(", "));
 		str.append(U("max-stale="));
-		str.append(stdx::to_string(m_max_stale));
+		const unsigned long long int& tmp = m_max_stale;
+		str.append(stdx::to_string(tmp));
 	}
 	if (m_min_fresh != 0)
 	{
 		str.append(U(", "));
 		str.append(U("min-fresh="));
-		str.append(stdx::to_string(m_min_fresh));
+		const unsigned long long int& tmp = m_min_fresh;
+		str.append(stdx::to_string(tmp));
 	}
 	if (m_s_max_age != 0)
 	{
 		str.append(U(", "));
 		str.append(U("s-maxage="));
-		str.append(stdx::to_string(m_s_max_age));
+		const unsigned long long int& tmp = m_s_max_age;
+		str.append(stdx::to_string(tmp));
 	}
 	return str;
 }
@@ -2071,7 +2081,8 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 	}
 	if (!m_header->exist(U("Content-Length")))
 	{
-		m_header->add_header(U("Content-Length"),stdx::to_string(body_byte.size()));
+		const unsigned long long int& tmp = body_byte.size();
+		m_header->add_header(U("Content-Length"),stdx::to_string(tmp));
 	}
 	stdx::string&& header_string = m_header->to_string();
 	header_string.append(U("\r\n"));
@@ -2790,13 +2801,21 @@ stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(self_t&& other) 
 template<bool _Cond>
 void _GetHexFromSize(char* buf,size_t size)
 {
+#ifdef WIN32
 	::sprintf_s(buf, 16, "%lX", size);
+#else
+	::sprintf(buf,"%lX", size);
+#endif
 }
 
 template<>
 void _GetHexFromSize<false>(char* buf, size_t size)
 {
+#ifdef WIN32
 	::sprintf_s(buf, 16, "%X", size);
+#else
+	::sprintf(buf, "%X", size);
+#endif
 }
 
 std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_bytes() const
@@ -2975,7 +2994,8 @@ std::vector<typename stdx::http_response::byte_t> stdx::http_response::to_bytes(
 	{
 		if (!m_header->exist(U("Content-Length")))
 		{
-			m_header->add_header(U("Content-Length"), stdx::to_string(body_byte.size()));
+			const unsigned long long int& tmp = body_byte.size();
+			m_header->add_header(U("Content-Length"), stdx::to_string(tmp));
 		}
 	}
 	else
@@ -3075,13 +3095,21 @@ stdx::http_response_body_ptr stdx::make_http_response_body(const stdx::string& b
 template<bool _Cond>
 void _GetSizeFromHex(const char* buf, size_t* ptr)
 {
+#ifdef WIN32
 	sscanf_s(buf, "%lX", ptr);
+#else
+	sscanf(buf, "%lX", ptr);
+#endif
 }
 
 template<>
 void _GetSizeFromHex<false>(const char* buf, size_t* ptr)
 {
+#ifdef WIN32
 	sscanf_s(buf, "%X", ptr);
+#else
+	sscanf(buf, "%X", ptr);
+#endif
 }
 
 stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned char>& data)
@@ -3154,14 +3182,7 @@ stdx::http_chunk_body stdx::make_http_chunked_body(const std::string& data)
 		if (!begin->empty())
 		{
 			size_t size = 0;
-			if (sizeof(void*) == 8)
-			{
-				sscanf_s(begin->c_str(), "%lX", &size);
-			}
-			else
-			{
-				sscanf_s(begin->c_str(), "%X", &size);
-			}
+			_GetSizeFromHex<(sizeof(void*) == 8)>(begin->c_str(), &size);
 			if (size == 0)
 			{
 				_end = true;

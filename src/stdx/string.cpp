@@ -527,7 +527,7 @@ std::istream& operator>>(std::istream& in, stdx::string& str)
 }
 #endif
 
-stdx::string stdx::to_string(int val)
+stdx::string stdx::to_string(const int &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -536,7 +536,7 @@ stdx::string stdx::to_string(int val)
 #endif
 }
 
-stdx::string stdx::to_string(long long int val)
+stdx::string stdx::to_string(const long long int &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -545,7 +545,7 @@ stdx::string stdx::to_string(long long int val)
 #endif
 }
 
-stdx::string stdx::to_string(double val)
+stdx::string stdx::to_string(const double &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -554,7 +554,7 @@ stdx::string stdx::to_string(double val)
 #endif
 }
 
-stdx::string stdx::to_string(long double val)
+stdx::string stdx::to_string(const long double &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -563,7 +563,7 @@ stdx::string stdx::to_string(long double val)
 #endif
 }
 
-stdx::string stdx::to_string(unsigned int val)
+stdx::string stdx::to_string(const unsigned int &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -572,7 +572,7 @@ stdx::string stdx::to_string(unsigned int val)
 #endif
 }
 
-stdx::string stdx::to_string(unsigned long long int val)
+stdx::string stdx::to_string(const unsigned long long int &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -979,7 +979,7 @@ void stdx::_FormatString(stdx::string& format_string, std::initializer_list<stdx
 {
 	auto begin = args.begin();
 	stdx::string str(U("{0}"));
-	for (size_t i = 0, size = args.size(); i < size; i++)
+	for (uint32_t i = 0, size = args.size(); i < size; i++)
 	{
 		if (i != 0)
 		{

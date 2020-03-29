@@ -956,6 +956,7 @@ bool stdx::big_int::operator>(int8_t v) const
 			return false;
 		}
 	}
+	return false;
 }
 
 bool stdx::big_int::operator>(int16_t v) const
@@ -2244,6 +2245,7 @@ bool stdx::big_int::_BitSubstract(byte_t* buffer, const size_t& buffer_size)
 			return false;
 		}
 	}
+	return false;
 }
 
 bool stdx::big_int::_BitSubstract(const std::vector<byte_t>& other)

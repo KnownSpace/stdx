@@ -48,14 +48,14 @@ void stdx::_Logger::debug(const char* str)
 {
 	time_t now = time(NULL);
 	char buf[26];
-	ctime_s(buf, sizeof(buf), &now);
+	ctime_r(&now,buf);
 	printf("\033[1m\033[40;37m[DEBUG][%s]%s\033[39;49;0m\n",buf,str);
 }
 void stdx::_Logger::info(const char* str)
 { 
 	time_t now = time(NULL);
 	char buf[26];
-	ctime_s(buf, sizeof(buf), &now);
+	ctime_r(&now, buf);
 	printf("\033[1m\033[40;32m[INFO][%s]%s\033[39;49;0m\n",buf, str);
 }
 
@@ -63,7 +63,7 @@ void stdx::_Logger::warn(const char* str)
 {
 	time_t now = time(NULL);
 	char buf[26];
-	ctime_s(buf, sizeof(buf), &now);
+	ctime_r(&now, buf);
 	printf("\033[1m\033[40;33m[WARN][%s]%s\033[39;49;0m\n",buf, str);
 }
 
@@ -71,7 +71,7 @@ void stdx::_Logger::error(const char* str)
 {
 	time_t now = time(NULL);
 	char buf[26];
-	ctime_s(buf, sizeof(buf), &now);
+	ctime_r(&now, buf);
 	fprintf(stderr,"\033[1m\033[40;31m[ERROR][%s]%s\033[39;49;0m\n", buf,str);
 }
 #endif

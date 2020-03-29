@@ -17,8 +17,8 @@ int main(int argc, char **argv)
 		stdx::perrorf(U("Error:File {0} does not exist"),doc.path());
 		return -1;
 	}
-	std::string doc_content;
 	auto stream = doc.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
+	std::string doc_content;
 	stream.read_to_end(0).then([&doc_content](stdx::task_result<stdx::file_read_event> r) mutable
 	{
 		try
@@ -74,7 +74,8 @@ int main(int argc, char **argv)
 					stdx::http_response response(200);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
 					std::string body = stdx::ansi_to_utf8(doc_content);
-					response.response_header().add_header(U("Content-Length"), stdx::to_string(body.size()));
+					const unsigned long long int& tmp = body.size();
+					response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
 					response.response_body().push((const unsigned char *)body.c_str(), body.size());
 					return response;
 				}
@@ -93,7 +94,8 @@ int main(int argc, char **argv)
 					stdx::http_response response(200);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
 					std::string body = stdx::ansi_to_utf8(doc_content);
-					response.response_header().add_header(U("Content-Length"), stdx::to_string(body.size()));
+					const unsigned long long int& tmp = body.size();
+					response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
 					response.response_body().push((const unsigned char*)body.c_str(), body.size());
 					return response;
 				}

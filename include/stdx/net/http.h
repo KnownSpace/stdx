@@ -4,7 +4,7 @@
 #include <stdx/datetime.h>
 #include <unordered_map>
 #include <stdx/nullable.h>
-
+#include <vector>
 namespace stdx
 {
 	enum class http_method

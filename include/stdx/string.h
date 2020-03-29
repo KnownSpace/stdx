@@ -607,12 +607,12 @@ namespace stdx
 #endif
 	};
 
-	extern stdx::string to_string(int val);
-	extern stdx::string to_string(long long int val);
-	extern stdx::string to_string(double val);
-	extern stdx::string to_string(long double val);
-	extern stdx::string to_string(unsigned int val);
-	extern stdx::string to_string(unsigned long long int val);
+	extern stdx::string to_string(const int &val);
+	extern stdx::string to_string(const long long int &val);
+	extern stdx::string to_string(const double &val);
+	extern stdx::string to_string(const long double &val);
+	extern stdx::string to_string(const unsigned int &val);
+	extern stdx::string to_string(const unsigned long long int &val);
 	extern stdx::string to_string(const typename stdx::string::char_t *str);
 	extern const stdx::string &to_string(const stdx::string &val);
 	extern stdx::string to_string(const std::string& val);
@@ -622,13 +622,15 @@ namespace stdx
 	extern stdx::string to_string(const std::wstring &val);
 	extern stdx::string to_string(const char* str);
 #endif
+	extern void _FormatString(stdx::string& format_string, std::initializer_list<stdx::string>&& args);
+
 	template<typename ..._Args>
 	void format_string(stdx::string& format_string, _Args&&...args)
 	{
 		_FormatString(format_string, std::move(std::initializer_list<stdx::string>{stdx::to_string(args)...}));
 	}
 
-	extern void _FormatString(stdx::string &format_string,std::initializer_list<stdx::string> &&args);
+
 
 	//将两个HEX映射为字符
 	extern char _MapByte(const std::pair<char, char>& pair);
