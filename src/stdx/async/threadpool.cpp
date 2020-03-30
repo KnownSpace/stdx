@@ -7,11 +7,11 @@ uint32_t stdx::suggested_threads_number()
 	uint32_t cores = cpu_cores();
 	if (cores < 8)
 	{
-		return cores*2;
+		return cores*2+2;
 	}
 	else
 	{
-		return 16;
+		return 18;
 	}
 }
 
@@ -20,6 +20,7 @@ uint32_t stdx::suggested_threads_number()
 stdx::_Threadpool::_Threadpool() noexcept
 	:m_free_count(std::make_shared<uint32_t>())
 	, m_count_lock()
+	, m_queue_lock()
 	, m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable_ptr>>())
 	, m_barrier()
@@ -45,9 +46,9 @@ void stdx::_Threadpool::add_thread() noexcept
 {
 #ifdef DEBUG
 	printf("[Threadpool]正在创建新线程\n");
-#endif // DEBUG
+#endif
 	//创建线程
-	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock, std::shared_ptr<bool> alive)
+	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock,stdx::spin_lock queue_lock, std::shared_ptr<bool> alive)
 	{
 		//如果存活
 		while (*alive)
@@ -59,44 +60,38 @@ void stdx::_Threadpool::add_thread() noexcept
 				//退出线程
 				std::unique_lock<stdx::spin_lock> lock(count_lock);
 #ifdef DEBUG
-				printf("[Threadpool]线程池等待任务超时,清除线程\n");
-#endif // DEBUG
+				::printf("[Threadpool]线程池等待任务超时,清除线程\n");
+#endif
 				*count = *count - 1;
 				return;
 			}
 			if (!(tasks->empty()))
 			{
 #ifdef DEBUG
-				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif // DEBUG
+				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
+#endif
 				//如果任务列表不为空
 				//减去一个计数
 				std::unique_lock<stdx::spin_lock> lock(count_lock);
 				* count = *count - 1;
+#ifdef DEBUG
+				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
+#endif
 				lock.unlock();
-#ifdef DEBUG
-				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif // DEBUG
-				//进入自旋锁
-				if (tasks->empty())
-				{
-					lock.lock();
-					*count += 1;
-					continue;
-				}
-#ifdef DEBUG
-				printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-				printf("[Threadpool]线程池已接收被投递的任务\n");
-#endif // DEBUG
-
 				//执行任务
 				try
 				{
-					lock.lock();
+					std::unique_lock<stdx::spin_lock> _lock(queue_lock);
+#ifdef DEBUG
+					::printf("[Threadpool]线程池正在获取任务\n");
+#endif
 					runable_ptr t = std::move(tasks->front());
 					//从queue中pop
 					tasks->pop();
-					lock.unlock();
+					_lock.unlock();
+#ifdef DEBUG
+					::printf("[Threadpool]线程池获取任务成功\n");
+#endif
 					if (t)
 					{
 						t->run();
@@ -106,15 +101,15 @@ void stdx::_Threadpool::add_thread() noexcept
 				{
 					//忽略出现的错误
 #ifdef DEBUG
-					fprintf(stderr, "[Threadpool]执行任务的过程中出错,%s\n",err.what());
-#endif // DEBUG
+					::fprintf(stderr, "[Threadpool]执行任务的过程中出错,%s\n",err.what());
+#endif
 				}
 				catch (...)
 				{
 				}
 #ifdef DEBUG
-				printf("[Threadpool]当前剩余未处理任务数:%zu\n",tasks->size());
-#endif // DEBUG
+				::printf("[Threadpool]当前剩余未处理任务数:%zu\n",tasks->size());
+#endif
 				//完成或终止后
 				//添加计数
 				lock.lock();
@@ -126,7 +121,7 @@ void stdx::_Threadpool::add_thread() noexcept
 				continue;
 			}
 		}
-	}, m_task_queue, m_barrier, m_free_count, m_count_lock, m_alive);
+	}, m_task_queue, m_barrier, m_free_count, m_count_lock,m_queue_lock, m_alive);
 	//分离线程
 	t.detach();
 }

@@ -278,8 +278,22 @@ namespace stdx
 		_IOContext *get(int64_t &res)
 		{
 			io_event ev;
-			if (io_getevents(m_ctxid, 1, 1, &ev, NULL) == 0)
+			int r = io_getevents(m_ctxid, 1, 1, &ev, NULL);
+			if (r < 1)
 			{
+#ifdef DEBUG
+				if (r < 0)
+				{
+					try
+					{
+						_ThrowLinuxError
+					}
+					catch (const std::exception &err)
+					{
+						::printf("[Native AIO]发生意外错误:%s", err.what());
+					}
+				}
+#endif
 				return nullptr;
 			}
 			res = ev.res;
@@ -359,7 +373,8 @@ namespace stdx
 	{
 	public:
 		_Reactor()
-			:m_map()
+			:/*m_lock()*/
+			m_map()
 			,m_poll()
 		{}
 		~_Reactor()=default;
@@ -403,6 +418,7 @@ namespace stdx
 			return ev_queue();
 		}
 	private:
+		//stdx::spin_lock m_lock;
 		std::unordered_map<int,ev_queue> m_map;
 		stdx::epoll m_poll;
 	};

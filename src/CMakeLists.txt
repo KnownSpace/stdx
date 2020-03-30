@@ -31,6 +31,7 @@ endif()
 if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
 	add_definitions(-DWIN32)
 	message(STATUS "Current platform: Windows ")
+	target_compile_options(libstdx  PUBLIC "/MT$<$<STREQUAL:$<CONFIGURATION>,Debug>:d>")
 endif()
 
 #定义DEBUG符号
@@ -45,6 +46,7 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 else()
 	if(UNIX)
 		set_target_properties(libstdx PROPERTIES OUTPUT_NAME "stdx")
+	else()
 	endif()
 endif()
 

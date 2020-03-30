@@ -10,28 +10,28 @@ int main(int argc, char **argv)
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
-	stdx::file_io_service file_io_service;
-	stdx::file doc(file_io_service,U("./index.html"));
-	if (!doc.exist())
-	{
-		stdx::perrorf(U("Error:File {0} does not exist"),doc.path());
-		return -1;
-	}
-	auto stream = doc.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
-	std::string doc_content;
-	stream.read_to_end(0).then([&doc_content](stdx::task_result<stdx::file_read_event> r) mutable
-	{
-		try
-		{
-			auto &&e = r.get();
-			doc_content = std::string(e.buffer, e.buffer.size());
-		}
-		catch (const std::exception &err)
-		{
-			stdx::perrorf(U("Error:{0}"),err.what());
-			std::terminate();
-		}
-	}).wait();
+	//stdx::file_io_service file_io_service;
+	//stdx::file doc(file_io_service,U("./index.html"));
+	//if (!doc.exist())
+	//{
+	//	stdx::perrorf(U("Error:File {0} does not exist"),doc.path());
+	//	return -1;
+	//}
+	std::string doc_content ="<html><body>Hello</body></html>";
+	//auto stream = doc.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
+	//stream.read_to_end(0).then([&doc_content](stdx::task_result<stdx::file_read_event> r) mutable
+	//{
+	//	try
+	//	{
+	//		auto &&e = r.get();
+	//		doc_content = std::string(e.buffer, e.buffer.size());
+	//	}
+	//	catch (const std::exception &err)
+	//	{
+	//		stdx::perrorf(U("Error:{0}"),err.what());
+	//		std::terminate();
+	//	}
+	//}).wait();
 	stdx::network_io_service service;
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
@@ -55,20 +55,20 @@ int main(int argc, char **argv)
 			try
 			{
 				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
-				stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
-				stdx::printf(U("Headers:\n"));
-				for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
-				{
-					stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
-				}
-				if (!request.request_header().cookies().empty())
-				{
-					stdx::printf(U("Cookies:\n"));
-					for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
-					{
-						stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
-					}
-				}
+				//stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
+				//stdx::printf(U("Headers:\n"));
+				//for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
+				//{
+				//	stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
+				//}
+				//if (!request.request_header().cookies().empty())
+				//{
+				//	stdx::printf(U("Cookies:\n"));
+				//	for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
+				//	{
+				//		stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
+				//	}
+				//}
 				if (request.request_header().request_url() == U("/"))
 				{
 					stdx::http_response response(200);

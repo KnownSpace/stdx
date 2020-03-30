@@ -122,18 +122,24 @@ void stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const in
 }
 void stdx::_Reactor::bind(int fd)
 {
+	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator == std::end(m_map))
 	{
+		int flag = fcntl(fd, F_GETFL, 0);
+		fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+		//_lock.unlock();
 		m_map.emplace(fd, std::move(make()));
 	}
 }
 
 void stdx::_Reactor::unbind(int fd)
 {
+	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
+		//_lock.unlock();
 		m_map.erase(iterator);
 	}
 }
@@ -141,9 +147,11 @@ void stdx::_Reactor::unbind(int fd)
 void stdx::_Reactor::push(int fd, epoll_event & ev)
 {
 	ev.events |= stdx::epoll_events::once;
+	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
+		//_lock.unlock();
 		std::lock_guard<stdx::spin_lock> lock(iterator->second.m_lock);
 		if (iterator->second.m_queue.empty() && (!iterator->second.m_existed))
 		{
@@ -157,26 +165,33 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	}
 	else
 	{
-		throw std::invalid_argument("invalid argument: fd");
+		//_lock.unlock();
+		bind(fd);
+		push(fd, ev);
+		//throw std::invalid_argument("invalid argument: fd");
 	}
 }
 
 void stdx::_Reactor::loop(int fd)
 {
+	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		std::unique_lock<stdx::spin_lock> lock();
+		//_lock.unlock();
+		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
 		if (!iterator->second.m_queue.empty())
 		{
 			auto ev = iterator->second.m_queue.front();
-			m_poll.update_event(fd, &ev);
 			iterator->second.m_queue.pop();
+			lock.unlock();
+			m_poll.update_event(fd, &ev);
 		}
 		else
 		{
-			m_poll.del_event(fd);
 			iterator->second.m_existed = false;
+			m_poll.del_event(fd);
+			lock.unlock();
 		}
 	}
 }

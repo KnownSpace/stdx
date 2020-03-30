@@ -33,18 +33,18 @@ namespace stdx
 #ifdef DEBUG
 			::printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
-			std::unique_lock<stdx::spin_lock> lock(m_count_lock);
+			std::unique_lock<stdx::spin_lock> lock(m_queue_lock);
 			m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
 			lock.unlock();
 			m_barrier.notify();
-			lock.lock();
+			std::unique_lock<stdx::spin_lock> _lock(m_count_lock);
 			if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
 			{
 #ifdef DEBUG
 				::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
 				*m_free_count = *m_free_count + 1;
-				lock.unlock();
+				_lock.unlock();
 				add_thread();
 				return;
 			}
@@ -53,6 +53,7 @@ namespace stdx
 	private:
 		std::shared_ptr<uint32_t> m_free_count;
 		stdx::spin_lock m_count_lock;
+		stdx::spin_lock m_queue_lock;
 		std::shared_ptr<bool> m_alive;
 		std::shared_ptr<std::queue<runable_ptr>> m_task_queue;
 		stdx::semaphore m_barrier;

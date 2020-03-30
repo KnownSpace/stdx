@@ -84,11 +84,6 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 	{
 		_ThrowLinuxError
 	}
-	if (protocol == stdx::forward_protocol(stdx::protocol::tcp))
-	{
-		/* int flag = fcntl(sock, F_GETFL, 0);
-		 fcntl(sock, F_SETFL, flag | O_NONBLOCK);*/
-	}
 #endif
 	return sock;
 }
@@ -737,7 +732,7 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 #ifdef DEBUG
 	 ::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
-#endif // WIN32
+#endif
 
 }
 
@@ -868,17 +863,37 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 								stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
 								ssize_t r = 0;
+#ifdef DEBUG
+								::printf("[Epoll]IO操作准备中\n");
+#endif // DEBUG
 								if (context->code == stdx::network_io_context_code::recv)
 								{
-									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL);
+#ifdef DEBUG
+									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n",context->size);
+#endif // DEBUG
+									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL|MSG_DONTWAIT);
+									if (r == 0)
+									{
+										return;
+									}
 								}
 								else if (context->code == stdx::network_io_context_code::recvfrom)
 								{
 									sockaddr_in addr;
 									socklen_t addr_size = sizeof(sockaddr_in);
-									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL, (sockaddr*)&addr, &addr_size);
+#ifdef DEBUG
+									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
+#endif // DEBUG
+									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
+									if (r == 0)
+									{
+										return;
+									}
 									context->addr = stdx::ipv4_addr(addr);
 								}
+#ifdef DEBUG
+								::printf("[Epoll]IO操作已完成");
+#endif // DEBUG
 								auto* callback = context->callback;
 								std::exception_ptr err(nullptr);
 								try
