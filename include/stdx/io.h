@@ -518,12 +518,13 @@ namespace stdx
 	template<typename ..._Args>
 	void plogf(const stdx::string& format, const _Args&...args)
 	{
-		_Plogf(stdout, std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+		stdx::string _format(format);
+		_Plogf(std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 
 	template<typename ..._Args>
 	void plogf(stdx::string&& format, const _Args&...args)
 	{
-		_Plogf(stdout, std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+		_Plogf(std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 }
