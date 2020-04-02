@@ -1015,3 +1015,12 @@ namespace stdx
 	extern stdx::socket open_udpsocket(const stdx::network_io_service& io_service);
 #endif // _STDX_HAS_SOCKET
 }
+
+#ifdef WIN32
+#undef _ThrowWinError
+#undef _ThrowWSAError
+#endif
+
+#ifdef LINUX
+#undef _ThrowLinuxError
+#endif // LINUX

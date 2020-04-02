@@ -617,7 +617,6 @@ namespace stdx
 	extern const stdx::string &to_string(const stdx::string &val);
 	extern stdx::string to_string(const std::string& val);
 	extern stdx::string to_string(const typename stdx::string::char_t ch);
-	extern stdx::string to_string(const char* str);
 #ifdef WIN32
 	extern stdx::string to_string(const std::wstring &val);
 	extern stdx::string to_string(const char* str);

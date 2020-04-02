@@ -111,6 +111,11 @@ int main(int argc, char **argv)
 			catch (const std::exception&err)
 			{
 				stdx::perrorf(U("Error:{0}\n"), err.what());
+				stdx::http_response response(502);
+				response.response_header().add_header(U("Content-Type"), U("text/html"));
+				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
+				response.response_body().push(body);
+				return response;
 			}
 		}).then([c](stdx::http_response res) mutable
 		{

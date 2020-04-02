@@ -115,9 +115,15 @@ void stdx::_Threadpool::add_thread() noexcept
 				lock.lock();
 				*count = *count + 1;
 				lock.unlock();
+#ifdef DEBUG
+				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
+#endif
 			}
 			else
 			{
+#ifdef DEBUG
+				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
+#endif
 				continue;
 			}
 		}

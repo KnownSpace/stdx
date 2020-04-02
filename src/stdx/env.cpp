@@ -7,7 +7,7 @@ void stdx::little_endian_to_big_endian(char* buffer, size_t n)
 		return;
 	}
 	size_t begin(0),end(n-1);
-	while (begin!=end)
+	while (begin<end)
 	{
 		char tmp(buffer[end]);
 		buffer[end] = buffer[begin];

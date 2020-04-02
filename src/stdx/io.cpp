@@ -1,5 +1,6 @@
 ﻿#include <stdx/io.h>
 #include <iostream>
+#include <stdx/datetime.h>
 
 #ifdef LINUX
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
@@ -122,24 +123,23 @@ void stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const in
 }
 void stdx::_Reactor::bind(int fd)
 {
-	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
+	std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator == std::end(m_map))
 	{
+		m_map.emplace(fd, std::move(make()));
+		_lock.unlock();
 		int flag = fcntl(fd, F_GETFL, 0);
 		fcntl(fd, F_SETFL, flag | O_NONBLOCK);
-		//_lock.unlock();
-		m_map.emplace(fd, std::move(make()));
 	}
 }
 
 void stdx::_Reactor::unbind(int fd)
 {
-	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
+	std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		//_lock.unlock();
 		m_map.erase(iterator);
 	}
 }
@@ -147,11 +147,11 @@ void stdx::_Reactor::unbind(int fd)
 void stdx::_Reactor::push(int fd, epoll_event & ev)
 {
 	ev.events |= stdx::epoll_events::once;
-	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
+	std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		//_lock.unlock();
+		_lock.unlock();
 		std::lock_guard<stdx::spin_lock> lock(iterator->second.m_lock);
 		if (iterator->second.m_queue.empty() && (!iterator->second.m_existed))
 		{
@@ -165,7 +165,7 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	}
 	else
 	{
-		//_lock.unlock();
+		_lock.unlock();
 		bind(fd);
 		push(fd, ev);
 		//throw std::invalid_argument("invalid argument: fd");
@@ -174,11 +174,11 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 
 void stdx::_Reactor::loop(int fd)
 {
-	//std::unique_lock<stdx::spin_lock> _lock(m_lock);
+	std::unique_lock<stdx::spin_lock> _lock(m_lock);
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		//_lock.unlock();
+		_lock.unlock();
 		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
 		if (!iterator->second.m_queue.empty())
 		{
@@ -232,5 +232,18 @@ void stdx::_Fprintf(FILE *stream,stdx::string&& format, std::initializer_list<st
 	fputws(format.c_str(),stream);
 #else
 	fputs(format.c_str(),stream);
+#endif
+}
+
+void stdx::_Plogf(stdx::string&& format, std::initializer_list<stdx::string>&& list)
+{
+	stdx::datetime &&now = stdx::datetime::now();
+	stdx::string &&str = now.to_string(U("[%year-%mon-%day %hour:%min:%sec]"));
+	str.append(format);
+	stdx::_FormatString(str, std::move(list));
+#ifdef WIN32
+	fputws(str.c_str(), stdout);
+#else
+	fputs(str.c_str(), stdout);
 #endif
 }

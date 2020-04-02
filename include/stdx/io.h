@@ -373,8 +373,8 @@ namespace stdx
 	{
 	public:
 		_Reactor()
-			:/*m_lock()*/
-			m_map()
+			:m_lock()
+			,m_map()
 			,m_poll()
 		{}
 		~_Reactor()=default;
@@ -418,7 +418,7 @@ namespace stdx
 			return ev_queue();
 		}
 	private:
-		//stdx::spin_lock m_lock;
+		stdx::spin_lock m_lock;
 		std::unordered_map<int,ev_queue> m_map;
 		stdx::epoll m_poll;
 	};
@@ -487,6 +487,8 @@ namespace stdx
 
 	void _Fprintf(FILE *stream,stdx::string&& format, std::initializer_list<stdx::string>&& list);
 
+	void _Plogf(stdx::string&& format, std::initializer_list<stdx::string>&& list);
+
 	template<typename ..._Args>
 	void printf(const stdx::string& format, const _Args&...args)
 	{
@@ -511,5 +513,17 @@ namespace stdx
 	void perrorf(stdx::string&& format, const _Args&...args)
 	{
 		_Fprintf(stderr, std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+	}
+
+	template<typename ..._Args>
+	void plogf(const stdx::string& format, const _Args&...args)
+	{
+		_Plogf(stdout, std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+	}
+
+	template<typename ..._Args>
+	void plogf(stdx::string&& format, const _Args&...args)
+	{
+		_Plogf(stdout, std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 }

@@ -1,5 +1,5 @@
 ﻿#include <stdx/net/socket.h>
-
+#include <stdx/finally.h>
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						LPVOID _MSG;\
@@ -840,7 +840,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					catch (const std::exception&)
 					{
 					}
-					delete call;
+					stdx::finally fin([call]() 
+					{
+							delete call;
+					});
 				}
 			}, m_iocp, m_alive);
 	}
@@ -916,7 +919,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								{
 
 								}
-								delete callback;
+								stdx::finally fin([callback]()
+								{
+									delete callback;
+								});
 							});
 					}
 					catch (const std::exception&)
