@@ -129,8 +129,8 @@ void stdx::_Reactor::bind(int fd)
 	{
 		m_map.emplace(fd, std::move(make()));
 		_lock.unlock();
-		int flag = fcntl(fd, F_GETFL, 0);
-		fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+		//int flag = fcntl(fd, F_GETFL, 0);
+		//fcntl(fd, F_SETFL, flag | O_NONBLOCK);
 	}
 }
 
@@ -165,10 +165,10 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	}
 	else
 	{
-		_lock.unlock();
-		bind(fd);
-		push(fd, ev);
-		//throw std::invalid_argument("invalid argument: fd");
+		//_lock.unlock();
+		//bind(fd);
+		//push(fd, ev);
+		throw std::invalid_argument("invalid argument: fd");
 	}
 }
 

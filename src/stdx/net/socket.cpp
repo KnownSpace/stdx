@@ -865,6 +865,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								::printf("[Epoll]检测到IO请求\n");
 #endif // DEBUG
 								stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
+								if (context == nullptr)
+								{
+									return;
+								}
 								ssize_t r = 0;
 #ifdef DEBUG
 								::printf("[Epoll]IO操作准备中\n");
@@ -874,11 +878,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef DEBUG
 									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n",context->size);
 #endif // DEBUG
-									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL|MSG_DONTWAIT);
-									if (r == 0)
-									{
-										return;
-									}
+									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL);
 								}
 								else if (context->code == stdx::network_io_context_code::recvfrom)
 								{
@@ -887,11 +887,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef DEBUG
 									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
 #endif // DEBUG
-									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
-									if (r == 0)
-									{
-										return;
-									}
+									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL, (sockaddr*)&addr, &addr_size);
 									context->addr = stdx::ipv4_addr(addr);
 								}
 #ifdef DEBUG
@@ -906,9 +902,12 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 										_ThrowLinuxError
 									}
 								}
-								catch (const std::exception&)
+								catch (const std::exception &ex)
 								{
 									err = std::current_exception();
+#ifdef DEBUG
+									::printf("[Epoll]IO操作出错");
+#endif // DEBUG
 								}
 								context->size = (size_t)r;
 								try
