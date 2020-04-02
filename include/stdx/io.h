@@ -278,7 +278,10 @@ namespace stdx
 		_IOContext *get(int64_t &res)
 		{
 			io_event ev;
-			int r = io_getevents(m_ctxid, 1, 1, &ev, NULL);
+			timespec tm;
+			tm.tv_nsec = 0;
+			tm.tv_sec = 600;
+			int r = io_getevents(m_ctxid, 1, 1, &ev, &tm);
 			if (r < 1)
 			{
 #ifdef DEBUG

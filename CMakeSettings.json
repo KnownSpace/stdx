@@ -51,7 +51,7 @@
     {
       "name": "Linux-Debug",
       "generator": "Unix Makefiles",
-      "remoteMachineName": "${defaultRemoteMachineName}",
+      "remoteMachineName": "1889718238;localhost (username=nature, port=22, authentication=Password)",
       "configurationType": "Debug",
       "remoteCMakeListsRoot": "/var/tmp/src/${workspaceHash}/${name}",
       "cmakeExecutable": "/usr/bin/cmake",

@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
 	{
-		stdx::ipv4_addr addr(U("127.0.0.1"), 8080);
+		stdx::ipv4_addr addr(U("0.0.0.0"), 28155);
 		s.bind(addr);
 		stdx::printf(U("Listen: {0}:{1}\n"),addr.ip(),addr.port());
 	}
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		auto t = c.recv(1024).then([c,doc_content](stdx::network_recv_event e) mutable
+		auto t = c.recv(4096).then([c,doc_content](stdx::network_recv_event e) mutable
 		{
 			std::string tmp(e.buffer,e.size);
 			try
