@@ -5,6 +5,7 @@
 #ifndef STDX_CHUNK_SIZE
 #define STDX_CHUNK_SIZE 4096
 #endif
+#include <stdx/async/spin_lock.h>
 
 
 namespace stdx
@@ -15,22 +16,48 @@ namespace stdx
 		memory_node* next;
 	};
 
-	struct memory_pool
+	struct gobal_memory_pool
 	{
 	public:
-		memory_pool() noexcept;
-		memory_pool(const stdx::memory_pool&) = delete;
-		memory_pool(stdx::memory_pool&&) = delete;
-		~memory_pool() noexcept;
+		gobal_memory_pool() noexcept;
+		gobal_memory_pool(const stdx::gobal_memory_pool&) = delete;
+		gobal_memory_pool(stdx::gobal_memory_pool&&) = delete;
+		~gobal_memory_pool() noexcept;
+		void* alloc(size_t n) noexcept;
+		stdx::memory_node* alloc_node(size_t n) noexcept;
+		void dealloc(void* p) noexcept;
+	private:
+		stdx::spin_lock m_lock;
+		stdx::memory_node* m_begin;
+		size_t m_size;
+
+		void* get_from_list(size_t n);
+
+		stdx::memory_node* get_node_from_list(size_t n);
+	};
+
+	struct thread_memory_pool
+	{
+	public:
+		thread_memory_pool() noexcept;
+		thread_memory_pool(const stdx::thread_memory_pool&) = delete;
+		thread_memory_pool(stdx::thread_memory_pool&&) = delete;
+		~thread_memory_pool() noexcept;
 		void* alloc(size_t n) noexcept;
 		void dealloc(void *p) noexcept;
 	private:
-		memory_node* m_begin;
+		stdx::memory_node* m_begin;
+
+		void* get_from_list(size_t n);
 	};
 
-	extern thread_local memory_pool _MemoryPool;
+	extern stdx::gobal_memory_pool _GobalMemoryPool;
 
-	extern void* malloc(size_t n);
+	extern thread_local stdx::thread_memory_pool _ThreadMemoryPool;
 
-	extern void free(void *p);
+	extern void* _malloc(size_t n);
+
+	extern void _free(void *p);
+
+	extern void* _calloc(size_t n, size_t m);
 }

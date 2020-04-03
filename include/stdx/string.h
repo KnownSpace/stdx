@@ -97,7 +97,7 @@ namespace stdx
 	{
 		using char_t = typename _String::value_type;
 		DWORD size = WideCharToMultiByte(stdx::code_page::utf8, NULL, src.c_str(), -1, NULL, 0, NULL, FALSE);
-		char* buf = (char*)calloc(size, sizeof(char));
+		char* buf = (char*)::calloc(size, sizeof(char));
 		if (buf == nullptr)
 		{
 			throw std::bad_alloc();
@@ -107,7 +107,7 @@ namespace stdx
 			_ThrowWinError
 		}
 		_String des = (char_t*)buf;
-		free(buf);
+		::free(buf);
 		return des;
 	}
 
@@ -116,7 +116,7 @@ namespace stdx
 	{
 		using char_t = typename _String::value_type;
 		DWORD size = WideCharToMultiByte(stdx::code_page::ansi, NULL, src.c_str(), -1, NULL, 0, NULL, FALSE);
-		char* buf = (char*)calloc(size, sizeof(char));
+		char* buf = (char*)::calloc(size, sizeof(char));
 		if (buf == nullptr)
 		{
 			throw std::bad_alloc();
@@ -126,7 +126,7 @@ namespace stdx
 			_ThrowWinError
 		}
 		_String des = (char_t*)buf;
-		free(buf);
+		::free(buf);
 		return des;
 	}
 
@@ -135,7 +135,7 @@ namespace stdx
 	{
 		using uchar_t = typename _UnicodeString::value_type;
 		DWORD size = MultiByteToWideChar(stdx::code_page::utf8, NULL, src.c_str(), -1, NULL, 0);
-		wchar_t* buf = (wchar_t*)calloc(size, sizeof(wchar_t));
+		wchar_t* buf = (wchar_t*)::calloc(size, sizeof(wchar_t));
 		if (buf == nullptr)
 		{
 			throw std::bad_alloc();
@@ -145,7 +145,7 @@ namespace stdx
 			_ThrowWinError
 		}
 		_UnicodeString des = (uchar_t*)buf;
-		free(buf);
+		::::free(buf);
 		return des;
 	}
 
@@ -161,7 +161,7 @@ namespace stdx
 	{
 		using uchar_t = typename _UnicodeString::value_type;
 		DWORD size = MultiByteToWideChar(stdx::code_page::ansi, NULL, src.c_str(), -1, NULL, 0);
-		wchar_t* buf = (wchar_t*)calloc(size, sizeof(wchar_t));
+		wchar_t* buf = (wchar_t*)::calloc(size, sizeof(wchar_t));
 		if (buf == nullptr)
 		{
 			throw std::bad_alloc();
@@ -171,7 +171,7 @@ namespace stdx
 			_ThrowWinError
 		}
 		_UnicodeString des = (uchar_t*)buf;
-		free(buf);
+		::free(buf);
 		return des;
 	}
 
@@ -208,12 +208,12 @@ namespace stdx
 		iconv_t conv = iconv_open("UTF-8", "UCS-2LE");
 		char* buf = (char*)src.c_str();
 		size_t size = src.size() * 2;
-		char* out = (char*)calloc(size, sizeof(char));
+		char* out = (char*)::calloc(size, sizeof(char));
 		char* p = out;
 		iconv(conv, &buf, &size, &out, &size);
 		iconv_close(conv);
 		_String des = (char_t*)p;
-		free(p);
+		::free(p);
 		return des;
 	}
 
@@ -228,12 +228,12 @@ namespace stdx
 		}
 		char* buf = (char*)src.c_str();
 		size_t size = src.size() * 2;
-		char* out = (char*)calloc(size, sizeof(char));
+		char* out = (char*)::calloc(size, sizeof(char));
 		char* p = out;
 		iconv(conv, &buf, &size, &out, &size);
 		iconv_close(conv);
 		_String des = (char_t*)p;
-		free(p);
+		::free(p);
 		return des;
 	}
 
@@ -245,11 +245,11 @@ namespace stdx
 		size_t size = src.size();
 		size_t out_size = size + (size % 2);
 		char* buf = (char*)src.c_str();
-		char* out = (char*)calloc(out_size, sizeof(char));
+		char* out = (char*)::calloc(out_size, sizeof(char));
 		char* p = out;
 		iconv(conv, &buf, &size, &out, &out_size);
 		_UnicodeString des = (uchar_t*)p;
-		free(p);
+		::free(p);
 		iconv_close(conv);
 		return des;
 	}
@@ -260,17 +260,17 @@ namespace stdx
 		iconv_t conv = iconv_open(ANSI_CODE, "UTF-8");
 		char* buf = (char*)src.c_str();
 		size_t size = src.size();
-		char* out = (char*)calloc(size, sizeof(char));
+		char* out = (char*)::calloc(size, sizeof(char));
 		char* p = out;
 		if (iconv(conv, &buf, &size, &out, &size) == -1);
 		{
-			free(out);
+			::free(out);
 			iconv_close(conv);
 			_ThrowLinuxError
 		}
 		iconv_close(conv);
 		_String des = (char_t*)p;
-		free(p);
+		::free(p);
 		return des;
 	}
 	template<typename _UnicodeString = stdx::unicode_string, typename _String, class = typename  std::enable_if<stdx::is_basic_string<_String>::value && stdx::is_basic_string<_UnicodeString>::value>::type>
@@ -281,12 +281,12 @@ namespace stdx
 		char* buf = (char*)src.c_str();
 		size_t size = src.size();
 		size_t out_size = size + (size % 2);
-		char* out = (char*)calloc(out_size, sizeof(char));
+		char* out = (char*)::calloc(out_size, sizeof(char));
 		char* p = out;
 		iconv(conv, &buf, &size, &out, &out_size);
 		iconv_close(conv);
 		_UnicodeString des = (uchar_t*)p;
-		free(p);
+		::free(p);
 		return des;
 	}
 
@@ -301,12 +301,12 @@ namespace stdx
 		}
 		char* buf = (char*)src.c_str();
 		size_t size = src.size();
-		char* out = (char*)calloc(size, sizeof(char));
+		char* out = (char*)::calloc(size, sizeof(char));
 		char* p = out;
 		iconv(conv, &buf, &size, &out, &size);
 		iconv_close(conv);
 		_String des = (char_t*)p;
-		free(p);
+		::free(p);
 		return des;
 	}
 

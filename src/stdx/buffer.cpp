@@ -1,5 +1,6 @@
 #include <stdx/buffer.h>
 #include <string.h>
+#include <stdx/memory.h>
 
 stdx::_Buffer::_Buffer()
 	:m_size(0)
@@ -15,13 +16,13 @@ stdx::_Buffer::~_Buffer()
 {
 	if (m_data && (m_size !=0))
 	{
-		free(m_data);
+		stdx::_free(m_data);
 	}
 }
 
 void stdx::_Buffer::init(const size_t &size)
 {
-	char* data = (char*)::calloc(size, sizeof(char));
+	char* data = (char*)stdx::_calloc(size, sizeof(char));
 	if (data == nullptr)
 	{
 		throw std::bad_alloc();
@@ -81,16 +82,14 @@ void stdx::_Buffer::realloc(const size_t & size)
 	}
 	if (size > m_size)
 	{
-		char* tmp = (char*)::realloc(m_data, m_size);
+		char* tmp = (char*)stdx::_calloc(m_size,sizeof(char));
 		if (tmp == nullptr)
 		{
 			throw std::bad_alloc();
 		}
-		if (tmp != m_data)
-		{
-			memcpy(tmp, m_data, m_size);
-			m_data = tmp;
-		}
+		memcpy(tmp, m_data, m_size);
+		stdx::_free(tmp);
+		m_data = tmp;
 		m_size = size;
 	}
 }

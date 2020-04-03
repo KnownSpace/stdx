@@ -5,31 +5,51 @@
 #include <stdx/traits/convertable.h>
 #include <stdx/net/socket.h>
 #include <stdx/memory.h>
+#include <list>
 int main(int argc, char **argv)
 {
 	setlocale(LC_ALL, "chs");
-	size_t count = 1000000;
-	stdx::stop_watcher watch;
-	watch.begin();
-	for (size_t i = 0; i < count; i++)
-	{
-		char* p = (char*)stdx::malloc(4096);
-		strcpy(p, "HelloWorld");
-		stdx::free(p);
-	}
-	watch.end();
-	stdx::printf(U("Memory Pool:{0}\n"),watch.time());
-	watch.clean();
-	watch.begin();
-	for (size_t i = 0; i < count; i++)
-	{
-		char* p = (char*)::malloc(4096);
-		strcpy(p, "HelloWorld");
-		::free(p);
-	}
-	watch.end();
-	stdx::printf(U("Malloc:{0}\n"), watch.time());
-//#define ENABLE_WEB
+	//size_t count = 200000;
+	//std::list<char*> list;
+	//stdx::stop_watcher watch;
+	//watch.begin();
+	//for (size_t i = 0; i < count; i++)
+	//{
+	//	char* p = (char*)::::malloc(4096);
+	//	list.push_back(p);
+	//}
+	//watch.end();
+	//stdx::printf(U("::malloc:{0}\n"), watch.time());
+	//watch.clean();
+
+	//watch.begin();
+	//for (auto begin = list.begin(), end = list.end(); begin != end; begin++)
+	//{
+	//	::free(*begin);
+	//}
+	//watch.end();
+	//stdx::printf(U("Free:{0}\n"), watch.time());
+	//watch.clean();
+
+	//list = std::list<char*>();
+	//watch.begin();
+	//for (size_t i = 0; i < count; i++)
+	//{
+	//	char* p = (char*)stdx::::malloc(4096);
+	//	list.push_back(p);
+	//}
+	//watch.end();
+	//stdx::printf(U("Memory Pool ::malloc:{0}\n"),watch.time());
+	//watch.clean();
+
+	//watch.begin();
+	//for (auto begin = list.begin(), end = list.end(); begin != end; begin++)
+	//{
+	//	stdx::free(*begin);
+	//}
+	//watch.end();
+	//stdx::printf(U("Memory Pool Free:{0}\n"), watch.time());
+#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	//stdx::file_io_service file_io_service;
