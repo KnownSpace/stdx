@@ -262,11 +262,11 @@ namespace stdx
 			return m_impl->is_complete();
 		}
 
-		template<typename __R>
-		task<void> with(task<__R> other)
-		{
-			return task<void>(m_impl->with(other.m_impl));
-		}
+		//template<typename __R>
+		//task<void> with(task<__R> other)
+		//{
+		//	return task<void>(m_impl->with(other.m_impl));
+		//}
 
 		operator bool() const
 		{
@@ -860,14 +860,14 @@ namespace stdx
 		}
 
 		//合并Task
-		template<typename _R>
-		std::shared_ptr<_Task<void>> with(std::shared_ptr<_Task<_R>> other)
-		{
-			return then([other](stdx::task_result<void>&)
-				{
-					other->lock();
-				});
-		}
+		//template<typename _R>
+		//std::shared_ptr<_Task<void>> with(std::shared_ptr<_Task<_R>> other)
+		//{
+		//	return then([other](stdx::task_result<void>&)
+		//		{
+		//			other->lock();
+		//		});
+		//}
 
 	protected:
 		stdx::runable_ptr<R> m_action;
@@ -999,18 +999,26 @@ namespace stdx
 			m_impl->set_value(std::move(value));
 		}
 
+		void set_value(const _R& value)
+		{
+			m_impl->set_value(std::move(value));
+		}
+
 		void set_exception(const std::exception_ptr& error)
 		{
 			m_impl->set_exception(error);
 		}
+
 		stdx::task<_R> get_task()
 		{
 			return m_impl->get_task();
 		}
+
 		void run()
 		{
 			m_impl->run();
 		}
+
 		void run_on_this_thread()
 		{
 			m_impl->run_on_this_thread();
@@ -1121,4 +1129,21 @@ namespace stdx
 	};
 #pragma endregion
 
+	template<typename _T,typename ..._Args>
+	stdx::task<_T> complete_task(_Args&&...args)
+	{
+		stdx::task_completion_event<_T> ev;
+		ev.set_value(args...);
+		ev.run_on_this_thread();
+		return ev.get_task();
+	}
+
+	template<>
+	stdx::task<void> complete_task<void>()
+	{
+		stdx::task_completion_event<void> ev;
+		ev.set_value();
+		ev.run_on_this_thread();
+		return ev.get_task();
+	}
 }
