@@ -4,10 +4,32 @@
 #include <stdx/net/http.h>
 #include <stdx/traits/convertable.h>
 #include <stdx/net/socket.h>
+#include <stdx/memory.h>
 int main(int argc, char **argv)
 {
 	setlocale(LC_ALL, "chs");
-#define ENABLE_WEB
+	size_t count = 1000000;
+	stdx::stop_watcher watch;
+	watch.begin();
+	for (size_t i = 0; i < count; i++)
+	{
+		char* p = (char*)stdx::malloc(4096);
+		strcpy(p, "HelloWorld");
+		stdx::free(p);
+	}
+	watch.end();
+	stdx::printf(U("Memory Pool:{0}\n"),watch.time());
+	watch.clean();
+	watch.begin();
+	for (size_t i = 0; i < count; i++)
+	{
+		char* p = (char*)::malloc(4096);
+		strcpy(p, "HelloWorld");
+		::free(p);
+	}
+	watch.end();
+	stdx::printf(U("Malloc:{0}\n"), watch.time());
+//#define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	//stdx::file_io_service file_io_service;
@@ -36,7 +58,7 @@ int main(int argc, char **argv)
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
 	{
-		stdx::ipv4_addr addr(U("0.0.0.0"), 28155);
+		stdx::ipv4_addr addr(U("0.0.0.0"), 8080);
 		s.bind(addr);
 		stdx::printf(U("Listen: {0}:{1}\n"),addr.ip(),addr.port());
 	}
@@ -49,94 +71,61 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		auto c = s.accept();
-		auto t = c.recv(4096).then([c,doc_content](stdx::network_recv_event e) mutable
-		{
-			std::string tmp(e.buffer,e.size);
-			try
+		auto t = c.recv(4096).then([c, doc_content](stdx::network_recv_event e) mutable
 			{
-				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
-				//stdx::printf(U("HTTP-Version:{0}\nUrl:{1}\nMethod:{2}\n"),stdx::http_version_string(request.header().version()), request.request_header().request_url(),stdx::http_method_string(request.request_header().method()));
-				//stdx::printf(U("Headers:\n"));
-				//for (auto begin = request.request_header().begin(),end=request.request_header().end();begin!=end;begin++)
-				//{
-				//	stdx::printf(U("	{0}:{1}\n"),begin->first,begin->second);
-				//}
-				//if (!request.request_header().cookies().empty())
-				//{
-				//	stdx::printf(U("Cookies:\n"));
-				//	for (auto begin = request.request_header().cookies().begin(),end= request.request_header().cookies().end();begin!=end;begin++)
-				//	{
-				//		stdx::printf(U("	{0}:{1}\n"),begin->name(),begin->value());
-				//	}
-				//}
-				if (request.request_header().request_url() == U("/"))
+				std::string tmp(e.buffer, e.size);
+				try
 				{
-					stdx::http_response response(200);
-					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					std::string body = stdx::ansi_to_utf8(doc_content);
-					const unsigned long long int& tmp = body.size();
-					response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
-					response.response_body().push((const unsigned char *)body.c_str(), body.size());
-					return response;
-				}
-				else if (request.request_header().request_url() == U("/test"))
-				{
-					stdx::string val;
-					if (request.form().form_type() == stdx::http_form_type::multipart )
+					stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
+					if (request.request_header().request_url() == U("/"))
 					{
-						val = request.form().get(U("test")).map_body_as_string();
+						stdx::http_response response(200);
+						response.response_header().add_header(U("Content-Type"), U("text/html"));
+						std::string body = stdx::ansi_to_utf8(doc_content);
+						const unsigned long long int& tmp = body.size();
+						response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
+						response.response_body().push((const unsigned char*)body.c_str(), body.size());
+						return response;
 					}
 					else
 					{
-						val = request.form().get(U("test")).val_as_string();
+						stdx::http_response response(404);
+						response.response_header().add_header(U("Content-Type"), U("text/html"));
+						stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+						response.response_body().push(body);
+						return response;
 					}
-					stdx::printf(U("Form Value:{0}\n"),val);
-					stdx::http_response response(200);
-					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					std::string body = stdx::ansi_to_utf8(doc_content);
-					const unsigned long long int& tmp = body.size();
-					response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
-					response.response_body().push((const unsigned char*)body.c_str(), body.size());
-					return response;
 				}
-				else
+				catch (const std::exception& err)
 				{
-					stdx::http_response response(404);
+					stdx::perrorf(U("Error:{0}\n"), err.what());
+					stdx::http_response response(502);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+					stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
 					response.response_body().push(body);
 					return response;
 				}
-			}
-			catch (const std::exception&err)
+			}).then([c](stdx::http_response res) mutable
+				{
+					std::vector<unsigned char>&& bytes = res.to_bytes();
+					stdx::uint64_union u;
+					u.value = bytes.size();
+					auto t = c.send((const char*)bytes.data(), u.low);
+					return t;
+			})
+			.then([c](stdx::task_result<stdx::network_send_event> r) mutable
 			{
-				stdx::perrorf(U("Error:{0}\n"), err.what());
-				stdx::http_response response(502);
-				response.response_header().add_header(U("Content-Type"), U("text/html"));
-				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
-				response.response_body().push(body);
-				return response;
-			}
-		}).then([c](stdx::http_response res) mutable
-		{
-			std::vector<unsigned char>&& bytes = res.to_bytes();
-			stdx::uint64_union u;
-			u.value = bytes.size();
-			auto t = c.send((const char*)bytes.data(), u.low);
-			return t;
-		})
-		.then([c](stdx::task_result<stdx::network_send_event> r) mutable
-		{
-			try
-			{
-				auto e = r.get();
-			}
-			catch (const std::exception& err)
-			{
-				stdx::perrorf(U("Error:{0}\n"), err.what());
-			}
-		});
+				try
+				{
+					auto e = r.get();
+				}
+				catch (const std::exception& err)
+				{
+						stdx::perrorf(U("Error:{0}\n"), err.what());
+				}
+			});
 	}
+	std::cin.get();
 #pragma endregion
 #endif
 	return 0;

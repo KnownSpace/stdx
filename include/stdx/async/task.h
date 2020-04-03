@@ -1130,7 +1130,7 @@ namespace stdx
 #pragma endregion
 
 	template<typename _T,typename ..._Args>
-	stdx::task<_T> complete_task(_Args&&...args)
+	inline stdx::task<_T> complete_task(_Args&&...args)
 	{
 		stdx::task_completion_event<_T> ev;
 		ev.set_value(args...);
@@ -1139,7 +1139,7 @@ namespace stdx
 	}
 
 	template<>
-	stdx::task<void> complete_task<void>()
+	inline stdx::task<void> complete_task<void>()
 	{
 		stdx::task_completion_event<void> ev;
 		ev.set_value();

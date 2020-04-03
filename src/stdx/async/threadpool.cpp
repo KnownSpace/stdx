@@ -5,14 +5,18 @@ const stdx::threadpool::impl_t stdx::threadpool::m_impl = std::make_shared <stdx
 uint32_t stdx::suggested_threads_number()
 {
 	uint32_t cores = cpu_cores();
+#ifdef STDX_NOT_LIMITED_CPU_USING
+	return cores * 2 + 2;
+#else
 	if (cores < 8)
 	{
-		return cores*2+2;
+		return cores * 2 + 2;
 	}
 	else
 	{
 		return 18;
 	}
+#endif // STDX_NOT_LIMITED_CPU_USING
 }
 
 //构造函数
