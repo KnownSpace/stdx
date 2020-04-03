@@ -69,7 +69,7 @@ void* stdx::gobal_memory_pool::get_from_list(size_t n)
 		return nullptr;
 	}
 	void* tmp = (char*)p + sizeof(stdx::memory_node);
-	return nullptr;
+	return tmp;
 }
 
 stdx::memory_node* stdx::gobal_memory_pool::alloc_node(size_t n) noexcept
@@ -215,15 +215,37 @@ void* stdx::thread_memory_pool::alloc(size_t n) noexcept
 	}
 	else
 	{
-		auto *node = m_begin;
-		m_begin = m_begin->next;
+		auto *node = get_from_list(n);
+		if(node == nullptr)
+		{
+			return nullptr;
+		}
 		return (char*)node + sizeof(stdx::memory_node);
 	}
 }
 
 void stdx::thread_memory_pool::dealloc(void* p) noexcept
 {
-	stdx::_GobalMemoryPool.dealloc(p);
+	if(m_begin == nullptr)
+	{
+		if(p != nullptr)
+		{
+			stdx::memory_node *node = (char*)p-sizeof(stdx::memory_node);
+			if(nodr->size > STDX_CHUNK_SIZE)
+			{
+				::free(node);
+				return;
+			}
+			else
+			{
+				m_begin = node;
+			}
+		}
+	}
+	else
+	{
+		stdx::_GobalMemoryPool.dealloc(p);
+	}
 }
 
 //void* stdx::memory_pool::alloc(size_t n) noexcept
