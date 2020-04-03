@@ -230,8 +230,9 @@ void stdx::thread_memory_pool::dealloc(void* p) noexcept
 	{
 		if(p != nullptr)
 		{
-			stdx::memory_node *node = (char*)p-sizeof(stdx::memory_node);
-			if(nodr->size > STDX_CHUNK_SIZE)
+			p = (char*)p-sizeof(stdx::memory_node);
+			stdx::memory_node *node = (stdx::memory_node*)p;
+			if(node->size > STDX_CHUNK_SIZE)
 			{
 				::free(node);
 				return;
