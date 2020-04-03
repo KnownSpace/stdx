@@ -672,7 +672,7 @@ stdx::string stdx::datetime::to_string(typename stdx::string::char_t* format) co
 	{
 		stdx::string tmp(U("0"));
 		tmp.append(stdx::to_string(m_second));
-		str.replace(U("sec"), tmp);
+		str.replace(U("%sec"), tmp);
 	}
 	else
 	{
