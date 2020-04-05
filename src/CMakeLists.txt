@@ -67,3 +67,7 @@ if(UNIX)
  		 target_link_libraries(libstdx  PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
 	endif()
 endif()
+
+if(UNIX)
+	set(CMAKE_CXX_FLAGS "-ldl")
+endif()
