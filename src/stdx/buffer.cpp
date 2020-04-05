@@ -15,13 +15,13 @@ stdx::_Buffer::~_Buffer()
 {
 	if (m_data && (m_size != 0))
 	{
-		je_free(m_data);
+		free(m_data);
 	}
 }
 
 void stdx::_Buffer::init(const size_t& size)
 {
-	char* data = (char*)::je_calloc(size, sizeof(char));
+	char* data = (char*)::calloc(size, sizeof(char));
 	if (data == nullptr)
 	{
 		throw std::bad_alloc();

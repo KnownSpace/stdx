@@ -3,8 +3,7 @@
 //所有的Class(除实现Class外,例如:_XxYy)都是引用类型
 //所有的Struct(除另外说明外)都是值类型
 #include <type_traits>
-#define JEMALLOC_EXPORT
-#include <jemalloc/jemalloc.h>
+
 #ifndef WIN32
 #ifndef LINUX
 
@@ -21,7 +20,14 @@
 #endif 
 #endif
 
-
+#ifdef WIN32
+#define JEMALLOC_EXPORT
+#define malloc je_malloc
+#define calloc je_calloc
+#define free je_free
+#define posix_memalign je_posix_memalign
+#endif
+#include <jemalloc/jemalloc.h>
 #include <stdint.h>
 #include <inttypes.h>
 
