@@ -1,6 +1,5 @@
 #include <stdx/buffer.h>
 #include <string.h>
-#include <stdx/memory.h>
 
 stdx::_Buffer::_Buffer()
 	:m_size(0)
@@ -14,15 +13,15 @@ stdx::_Buffer::_Buffer(size_t size, char* data)
 
 stdx::_Buffer::~_Buffer()
 {
-	if (m_data && (m_size !=0))
+	if (m_data && (m_size != 0))
 	{
-		stdx::_free(m_data);
+		je_free(m_data);
 	}
 }
 
-void stdx::_Buffer::init(const size_t &size)
+void stdx::_Buffer::init(const size_t& size)
 {
-	char* data = (char*)stdx::_calloc(size, sizeof(char));
+	char* data = (char*)::je_calloc(size, sizeof(char));
 	if (data == nullptr)
 	{
 		throw std::bad_alloc();
@@ -31,7 +30,7 @@ void stdx::_Buffer::init(const size_t &size)
 	init(data, size);
 }
 
-void stdx::_Buffer::init(char * data, const size_t & size)
+void stdx::_Buffer::init(char* data, const size_t& size)
 {
 	if (data != nullptr && size != 0)
 	{
@@ -44,7 +43,7 @@ void stdx::_Buffer::init(char * data, const size_t & size)
 	}
 }
 
-char &stdx::_Buffer::operator[](const size_t &i)
+char& stdx::_Buffer::operator[](const size_t& i)
 {
 	if (i >= m_size)
 	{
@@ -57,7 +56,7 @@ char &stdx::_Buffer::operator[](const size_t &i)
 	return *(m_data + i);
 }
 
-char  stdx::_Buffer::operator[](const size_t & i) const
+char  stdx::_Buffer::operator[](const size_t& i) const
 {
 	if (i >= m_size)
 	{
@@ -70,7 +69,7 @@ char  stdx::_Buffer::operator[](const size_t & i) const
 	return *(m_data + i);
 }
 
-void stdx::_Buffer::realloc(const size_t & size)
+void stdx::_Buffer::realloc(const size_t& size)
 {
 	if (size == 0)
 	{
@@ -82,14 +81,16 @@ void stdx::_Buffer::realloc(const size_t & size)
 	}
 	if (size > m_size)
 	{
-		char* tmp = (char*)stdx::_calloc(m_size,sizeof(char));
+		char* tmp = (char*)::realloc(m_data, m_size);
 		if (tmp == nullptr)
 		{
 			throw std::bad_alloc();
 		}
-		memcpy(tmp, m_data, m_size);
-		stdx::_free(tmp);
-		m_data = tmp;
+		if (tmp != m_data)
+		{
+			memcpy(tmp, m_data, m_size);
+			m_data = tmp;
+		}
 		m_size = size;
 	}
 }
@@ -103,7 +104,7 @@ void stdx::_Buffer::set_zero()
 	memset(m_data, 0, m_size);
 }
 
-void stdx::_Buffer::copy_from(const stdx::_Buffer &other)
+void stdx::_Buffer::copy_from(const stdx::_Buffer& other)
 {
 	auto new_size = other.size();
 	if (new_size > m_size)
@@ -113,10 +114,10 @@ void stdx::_Buffer::copy_from(const stdx::_Buffer &other)
 	memcpy(m_data, other, new_size);
 }
 
-char *stdx::_Buffer::to_raw()
+char* stdx::_Buffer::to_raw()
 {
 	m_size = 0;
-	char *buf = m_data;
+	char* buf = m_data;
 	m_data = nullptr;
 	return buf;
 }

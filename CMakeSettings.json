@@ -10,7 +10,13 @@
       "cmakeCommandArgs": "",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
-      "variables": []
+      "variables": [
+        {
+          "name": "JEMALLOC_PATH",
+          "value": "D:\\Workspace\\stdx\\lib\\x86",
+          "type": "STRING"
+        }
+      ]
     },
     {
       "name": "x64-Debug",
@@ -22,7 +28,13 @@
       "cmakeCommandArgs": "",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
-      "variables": []
+      "variables": [
+        {
+          "name": "JEMALLOC_PATH",
+          "value": "D:\\Workspace\\stdx\\lib\\x64",
+          "type": "STRING"
+        }
+      ]
     },
     {
       "name": "x86-Release",
@@ -34,7 +46,13 @@
       "cmakeCommandArgs": "",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
-      "variables": []
+      "variables": [
+        {
+          "name": "JEMALLOC_PATH",
+          "value": "D:\\Workspace\\stdx\\lib\\x86",
+          "type": "STRING"
+        }
+      ]
     },
     {
       "name": "x64-Release",
@@ -46,7 +64,13 @@
       "cmakeCommandArgs": "",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
-      "variables": []
+      "variables": [
+        {
+          "name": "JEMALLOC_PATH",
+          "value": "D:\\Workspace\\stdx\\lib\\x64",
+          "type": "STRING"
+        }
+      ]
     },
     {
       "name": "Linux-Debug",

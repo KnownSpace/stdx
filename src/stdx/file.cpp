@@ -72,7 +72,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 	context->eof = false;
 	context->file = file;
 	context->offset = offset;
-	context->buffer = (char*)::calloc(size,sizeof(char));
+	context->buffer = (char*)::je_calloc(size,sizeof(char));
 	if (context->buffer == nullptr)
 	{
 		delete context;
@@ -84,7 +84,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		free(context->buffer);
+		je_free(context->buffer);
 		delete context;
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
@@ -93,7 +93,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 	{
 		if (error)
 		{
-			free(context_ptr->buffer);
+			je_free(context_ptr->buffer);
 			callback(file_read_event(), error);
 			delete context_ptr;
 			return;
@@ -140,7 +140,7 @@ void stdx::_FileIOService::read_file(HANDLE file, DWORD size, const uint64_t &of
 #ifdef DEBUG
 			::printf("[File IO Service]IO操作投递失败\n");
 #endif // DEBUG
-			free(context->buffer);
+			je_free(context->buffer);
 			delete call;
 			delete context;
 			callback(stdx::file_read_event(), std::current_exception());
@@ -167,7 +167,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 	context_ptr->m_ol.OffsetHigh = li.height;
 	context_ptr->size = 0;
 	context_ptr->offset = 0;
-	char* buf = (char*)::calloc(size, sizeof(char));
+	char* buf = (char*)::je_calloc(size, sizeof(char));
 	if (buf == nullptr)
 	{
 		delete context_ptr;
@@ -179,13 +179,13 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 	if (call == nullptr)
 	{
 		delete context_ptr;
-		free(buf);
+		je_free(buf);
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
 	*call = [callback,buf](file_io_context *context_ptr, std::exception_ptr error)
 	{
-		::free(buf);
+		::je_free(buf);
 		if (error)
 		{
 			delete context_ptr;
@@ -208,7 +208,7 @@ void stdx::_FileIOService::write_file(HANDLE file, const char *buffer, const DWO
 #ifdef DEBUG
 			::printf("[File IO Service]IO操作投递失败\n");
 #endif // DEBUG
-			free(context_ptr->buffer);
+			je_free(context_ptr->buffer);
 			delete call;
 			delete context_ptr;
 			callback(stdx::file_write_event(), std::current_exception());
@@ -312,7 +312,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const DWORD &size, con
 {
 	if (!m_io_service)
 	{
-		throw std::logic_error("this io service has been free");
+		throw std::logic_error("this io service has been je_free");
 	}
 	stdx::task_completion_event<stdx::file_read_event> ce;
 	m_io_service.read_file(m_file, size,
@@ -337,7 +337,7 @@ stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, 
 {
 	if (!m_io_service)
 	{
-		throw std::logic_error("this io service has been free");
+		throw std::logic_error("this io service has been je_free");
 	}
 	stdx::task_completion_event<stdx::file_write_event> ce;
 	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
@@ -511,19 +511,19 @@ void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offs
 	{
 		r_size += (512 - tmp);
 	}
-	char *buffer = (char*)calloc(r_size, sizeof(char));
+	char *buffer = (char*)je_calloc(r_size, sizeof(char));
 	if (buffer == nullptr)
 	{
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	posix_memalign((void**)&buffer, 512, r_size);
+	je_posix_memalign((void**)&buffer, 512, r_size);
 	memset(buffer, 0, r_size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
-		free(buffer);
+		je_free(buffer);
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
@@ -535,7 +535,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offs
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		free(buffer);
+		je_free(buffer);
 		delete ptr;
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
@@ -544,7 +544,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offs
 	{
 		if (error)
 		{
-			free(context_ptr->buffer);
+			je_free(context_ptr->buffer);
 			callback(file_read_event(), error);
 			delete context_ptr;
 			return;
@@ -568,7 +568,7 @@ void stdx::_FileIOService::read_file(int file,size_t size, const uint64_t & offs
 	}
 	catch (const std::exception&)
 	{
-		free(buffer);
+		je_free(buffer);
 		delete call;
 		delete ptr;
 		callback(file_read_event(), std::current_exception());
@@ -583,20 +583,20 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	{
 		r_size += (512 - tmp);
 	}
-	char *buf = (char*)calloc(r_size, sizeof(char));
+	char *buf = (char*)je_calloc(r_size, sizeof(char));
 	if (buf == nullptr)
 	{
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	posix_memalign((void**)&buf, 512, r_size);
+	je_posix_memalign((void**)&buf, 512, r_size);
 	memset(buf, 0, r_size);
 	memcpy(buf, buffer, size);
 	auto context = m_aiocp.get_context();
 	file_io_context *ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
-		free(buf);
+		je_free(buf);
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
@@ -608,7 +608,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	std::function<void(file_io_context*, std::exception_ptr)> *call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		free(buf);
+		je_free(buf);
 		delete ptr;
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
@@ -617,7 +617,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	{
 		if (context_ptr->buffer != nullptr)
 		{
-			free(context_ptr->buffer);
+			je_free(context_ptr->buffer);
 		}
 		if (error)
 		{
@@ -644,7 +644,7 @@ void stdx::_FileIOService::write_file(int file, const char * buffer,size_t size,
 	}
 	catch (const std::exception&)
 	{
-		free(buf);
+		je_free(buf);
 		delete call;
 		delete ptr;
 		callback(file_write_event(), std::current_exception());
@@ -739,7 +739,7 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const size_t & size, c
 {
 	if (!m_io_service)
 	{
-		throw std::logic_error("this io service has been free");
+		throw std::logic_error("this io service has been je_free");
 	}
 	stdx::task_completion_event<stdx::file_read_event> ce;
 	m_io_service.read_file(m_file, size, offset, [ce](file_read_event context, std::exception_ptr error) mutable
@@ -762,7 +762,7 @@ stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, 
 {
 	if (!m_io_service)
 	{
-		throw std::logic_error("this io service has been free");
+		throw std::logic_error("this io service has been je_free");
 	}
 	stdx::task_completion_event<stdx::file_write_event> ce;
 	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
@@ -851,7 +851,7 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 		.then([path]() 
 		{
 #ifdef WIN32
-			wchar_t *buf = (wchar_t*)calloc(MAX_PATH, sizeof(wchar_t));
+			wchar_t *buf = (wchar_t*)je_calloc(MAX_PATH, sizeof(wchar_t));
 			if (buf==nullptr)
 			{
 				_FullpathNameFlag.unlock();
@@ -860,15 +860,15 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 			if (!GetFullPathNameW(path.c_str(), MAX_PATH, buf, nullptr))
 			{
 				_FullpathNameFlag.unlock();
-				free(buf);
+				je_free(buf);
 				_ThrowWinError
 			}
 			_FullpathNameFlag.unlock();
 			stdx::string str(buf);
-			free(buf);
+			je_free(buf);
 			return str;
 #else
-			char *buf = (char*)calloc(MAX_PATH,sizeof(char));
+			char *buf = (char*)je_calloc(MAX_PATH,sizeof(char));
 			if (!buf)
 			{
 				throw std::bad_alloc();
@@ -876,12 +876,12 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 			if(::realpath(path.c_str(),buf) == nullptr)
 			{
 				_FullpathNameFlag.unlock();
-				free(buf);
+				je_free(buf);
 				_ThrowLinuxError
 			}
 			_FullpathNameFlag.unlock();
 			stdx::string str(buf);
-			free(buf);
+			je_free(buf);
 			return str;
 #endif
 		});

@@ -1,6 +1,6 @@
 ﻿#include <stdx/async/threadpool.h>
 
-const stdx::threadpool::impl_t stdx::threadpool::m_impl = std::make_shared <stdx::_Threadpool>();
+stdx::threadpool::impl_t stdx::threadpool::m_impl;
 
 uint32_t stdx::suggested_threads_number()
 {

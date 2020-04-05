@@ -64,21 +64,20 @@ namespace stdx
 		//初始化线程池
 		void init_threads() noexcept;
 	};
-	using threadpool_ptr = std::shared_ptr<stdx::_Threadpool>;
 	//线程池静态类
 	class threadpool
 	{
 	public:
 		~threadpool() = default;
-		using impl_t = std::shared_ptr<stdx::_Threadpool>;
+		using impl_t = stdx::_Threadpool;
 		//执行任务
 		template<typename _Fn,typename ..._Args>
 		static void run(_Fn &&fn,_Args &&...args) noexcept
 		{
-			m_impl->run(std::move(fn),args...);
+			m_impl.run(std::move(fn),args...);
 		}
 	private:
 		threadpool() = default;
-		const static impl_t m_impl;
+		static impl_t m_impl;
 	};
 }

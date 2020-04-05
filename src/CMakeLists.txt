@@ -13,6 +13,10 @@ add_library(libstdx STATIC ${src} ${async_src} ${net_src})
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
+find_package(Jemalloc)
+include_directories(${JEMALLOC_INCLUDE_DIRS})
+target_link_libraries(libstdx PUBLIC ${JEMALLOC_LIBRARIES})
+
 #判断位数
 if(CMAKE_CL_64)
 	#64位
