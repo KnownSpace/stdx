@@ -4,7 +4,7 @@
 
 #ifdef LINUX
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
+						throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
 
 int stdx::io_setup(unsigned nr_events, aio_context_t* ctx_idp)
 {

@@ -2655,6 +2655,12 @@ std::vector<typename stdx::http_identity_body::byte_t> stdx::http_identity_body:
 	std::vector<byte_t> vec;
 	if (!m_data.empty())
 	{
+		size_t size = vec.size();
+		for (auto begin = m_data.cbegin(), end = m_data.cend(); begin != end; begin++)
+		{
+			size += begin->size();
+		}
+		vec.reserve(size);
 		for (auto begin = m_data.cbegin(),end=m_data.cend();begin!=end;begin++)
 		{
 			for (auto data_begin=begin->cbegin(),data_end=begin->cend();data_begin != data_end;data_begin++)
@@ -2692,6 +2698,7 @@ void stdx::http_identity_body::push(const byte_t* buffer, size_t count)
 	if (m_data.empty())
 	{
 		std::vector<byte_t> vec;
+		vec.reserve(count);
 		for (size_t i = 0; i < count; i++)
 		{
 			vec.push_back(buffer[i]);
@@ -2701,6 +2708,7 @@ void stdx::http_identity_body::push(const byte_t* buffer, size_t count)
 	else
 	{
 		auto pos = m_data.rbegin();
+		pos->reserve(pos->size() + count);
 		for (size_t i = 0; i < count; i++)
 		{
 			pos->push_back(buffer[i]);
@@ -2848,7 +2856,7 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_by
 		builder.append(m_trailer.to_u8_string());
 		builder.append("\r\n");
 	}
-	std::vector<byte_t> vec(builder.begin(),builder.end());
+	std::vector<byte_t> vec(std::make_move_iterator(builder.begin()), std::make_move_iterator(builder.end()));
 	return vec;
 }
 
@@ -2866,6 +2874,12 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::data(
 	std::vector<byte_t> vec;
 	if (!m_data.empty())
 	{
+		size_t size = 0;
+		for (auto begin = m_data.cbegin(), end = m_data.cend(); begin != end; begin++)
+		{
+			size += begin->size();
+		}
+		vec.reserve(size);
 		for (auto begin = m_data.cbegin(), end = m_data.cend(); begin != end; begin++)
 		{
 			for (auto data_begin = begin->cbegin(), data_end = begin->cend(); data_begin != data_end; data_begin++)
@@ -2887,6 +2901,7 @@ stdx::string stdx::http_chunk_body::data_as_string() const
 void stdx::http_chunk_body::push(const byte_t* buffer, size_t count)
 {
 	std::vector<byte_t> vec;
+	vec.reserve(count);
 	for (size_t i = 0; i < count; i++)
 	{
 		vec.push_back(buffer[i]);
@@ -2907,7 +2922,7 @@ void stdx::http_chunk_body::push(const stdx::string& str)
 	if (!str.empty())
 	{
 		std::string&& tmp = str.to_u8_string();
-		std::vector<byte_t> vector(tmp.begin(), tmp.end());
+		std::vector<byte_t> vector(std::make_move_iterator(tmp.begin()), std::make_move_iterator(tmp.end()));
 		m_data.push_back(vector);
 	}
 }
@@ -3022,7 +3037,8 @@ std::vector<typename stdx::http_response::byte_t> stdx::http_response::to_bytes(
 	}
 	std::string &&header_string = m_header->to_string().to_u8_string();
 	header_string.append("\r\n");
-	std::vector<byte_t> vector(header_string.begin(),header_string.end());
+	std::vector<byte_t> vector(std::make_move_iterator(header_string.begin()), std::make_move_iterator(header_string.end()));
+	vector.reserve(vector.size() + body_byte.size());
 	for (auto begin = body_byte.begin(),end=body_byte.end();begin!=end;begin++)
 	{
 		vector.push_back(*begin);

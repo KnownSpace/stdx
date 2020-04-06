@@ -9,6 +9,6 @@ find_package(Jemalloc)
 include_directories(${JEMALLOC_INCLUDE_DIRS})
 target_link_libraries(teststdx PUBLIC ${JEMALLOC_LIBRARIES} libstdx)
 
-if(UNIX)
-	set(CMAKE_CXX_FLAGS "-ldl")
+if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
+	target_link_libraries(teststdx PUBLIC dl)
 endif()

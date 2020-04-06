@@ -2,6 +2,7 @@
 #include <stdx/env.h>
 #include <string>
 #include <list>
+#include <vector>
 
 namespace stdx
 {
@@ -654,6 +655,30 @@ namespace stdx
 	{
 		constexpr static bool value = false;
 	};
+
+	inline std::string vector_to_string(std::vector<char>&& vec)
+	{
+		std::string str(std::make_move_iterator(vec.begin()), std::make_move_iterator(vec.end()));
+		return str;
+	}
+
+	inline std::string vector_to_string(std::vector<unsigned char>&& vec)
+	{
+		std::string str(std::make_move_iterator(vec.begin()), std::make_move_iterator(vec.end()));
+		return str;
+	}
+
+	inline std::vector<char> string_to_vector(std::string&& str)
+	{
+		std::vector<char> vec(std::make_move_iterator(str.begin()), std::make_move_iterator(str.end()));
+		return vec;
+	}
+
+	inline std::vector<unsigned char> string_to_bytes(std::string&& str)
+	{
+		std::vector<unsigned char> vec(std::make_move_iterator(str.begin()), std::make_move_iterator(str.end()));
+		return vec;
+	}
 }
 
 namespace std

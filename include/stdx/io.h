@@ -4,6 +4,7 @@
 #include <string>
 #include <stdx/buffer.h>
 #include <stdio.h>
+#include <stdx/async/threadpool.h>
 #ifdef WIN32
 
 //定义抛出Windows错误宏
@@ -44,7 +45,7 @@ namespace stdx
 		delete_copy(_IOCP<_IOContext>);
 		void bind(const HANDLE &file_handle)
 		{
-			if (CreateIoCompletionPort(file_handle, m_iocp, (ULONG_PTR)file_handle, 0) == NULL)
+			if (CreateIoCompletionPort(file_handle, m_iocp, (ULONG_PTR)file_handle, cpu_cores() * 2 + 2) == NULL)
 			{
 				_ThrowWinError
 			}

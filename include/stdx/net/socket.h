@@ -394,7 +394,10 @@ namespace stdx
 			recv = 0,
 			recvfrom = 1,
 			send = 2,
-			sendto = 3
+			sendto = 3,
+			accept = 4,
+			connect = 5,
+			sendfile = 6
 		};
 	};
 #endif
@@ -497,37 +500,45 @@ namespace stdx
 	};
 #endif // LINUX
 
+	struct network_accept_event
+	{
+		network_accept_event()
 #ifdef WIN32
-	//struct network_accept_event
-//{
-//	network_accept_event() = default;
-//	~network_accept_event() = default;
-//	network_accept_event(const network_accept_event &other)
-//		:accept(other.accept)
-//		,buffer(other.buffer)
-//		,size(other.size)
-//		,addr(other.addr)
-//	{}
-//	network_accept_event &operator=(const network_accept_event &other)
-//	{
-//		accept = other.accept;
-//		buffer = other.buffer;
-//		size = other.size;
-//		addr = other.addr;
-//		return *this;
-//	}
-//	network_accept_event(network_io_context *ptr)
-//		:accept(ptr->target_socket)
-//		,buffer(ptr->buffer.len-((sizeof(sockaddr)+16)*2),(ptr->buffer.buf+(sizeof(sockaddr)+16)*2))
-//		,size(ptr->size)
-//		,addr(ptr->addr)
-//	{}
-//	SOCKET accept;
-//	stdx::buffer buffer;
-//	size_t size;
-//	ipv4_addr addr;
-//};
+			:accept(INVALID_SOCKET)
+#else
+			:accept(-1)
 #endif
+			, addr()
+		{}
+		~network_accept_event() = default;
+		network_accept_event(const network_accept_event& other)
+			:accept(other.accept)
+			, addr(other.addr)
+		{}
+
+		network_accept_event(network_accept_event&& other) noexcept
+			:accept(other.accept)
+			, addr(other.addr)
+		{}
+
+		network_accept_event& operator=(const network_accept_event& other)
+		{
+			accept = other.accept;
+			addr = other.addr;
+			return *this;
+		}
+
+		network_accept_event(network_io_context* ptr)
+			:accept(ptr->target_socket)
+			, addr(ptr->addr)
+		{}
+#ifdef WIN32
+		SOCKET accept;
+#else
+		int accept;
+#endif // WIN32
+		ipv4_addr addr;
+	};
 	
 	class _NetworkIOService
 	{
@@ -582,98 +593,34 @@ namespace stdx
 		ipv4_addr get_remote_addr(socket_t sock) const;
 #ifdef WIN32
 
-		//void _GetAcceptEx(SOCKET s, LPFN_ACCEPTEX *ptr)
-		//{
-		//	GUID id = WSAID_ACCEPTEX;
-		//	DWORD buf;
-		//	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_ACCEPTEX), &buf, NULL, NULL)==SOCKET_ERROR)
-		//	{
-		//		_ThrowWSAError
-		//	}
-		//}
-		//void _GetAcceptExSockaddr(SOCKET s, LPFN_GETACCEPTEXSOCKADDRS *ptr)
-		//{
-		//	GUID id = WSAID_GETACCEPTEXSOCKADDRS;
-		//	DWORD buf;
-		//	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_GETACCEPTEXSOCKADDRS), &buf, NULL, NULL)==SOCKET_ERROR)
-		//	{
-		//		_ThrowWSAError
-		//	}
-		//}
-		//ipv4_addr _GetSocketAddrEx(SOCKET sock,void *buffer,const size_t &size)
-		//{
-		//	if (!get_addr_ex)
-		//	{
-		//		_GetAcceptExSockaddr(sock,&get_addr_ex);
-		//	}
-		//	ipv4_addr local;
-		//	ipv4_addr remote;
-		//	auto local_ptr = (sockaddr*)local;
-		//	auto remote_ptr = (sockaddr*)remote;
-		//	DWORD len = sizeof(sockaddr);
-		//	get_addr_ex(buffer, size, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,&local_ptr,(int*)&len,&remote_ptr,(int*)&len);
-		//	return remote;
-		//}
-		//void _AcceptEx(SOCKET sock,const size_t &buffer_size,std::function<void(network_accept_event,std::exception_ptr)> &&callback,DWORD addr_family= stdx::addr_family::ip,DWORD socket_type=stdx::socket_type::stream,DWORD protocol = stdx::protocol::tcp)
-		//{
-		//	if (!accept_ex)
-		//	{
-		//		_GetAcceptEx(sock, &accept_ex);
-		//	}
-		//	network_io_context *context = new network_io_context;
-		//	context->target_socket = WSASocket(addr_family, socket_type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
-		//	context->buffer.len = buffer_size+ ((sizeof(sockaddr_in) + 16) * 2);
-		//	context->buffer.buf = (char*)std::calloc(sizeof(char), context->buffer.len);
-		//	context->this_socket = sock;
-		//	auto *call = new std::function <void(network_io_context*, std::exception_ptr)>;
-		//	*call = [callback,this,buffer_size](network_io_context *context_ptr, std::exception_ptr error)
-		//	{
-		//		if (error)
-		//		{
-		//			std::free(context_ptr->buffer.buf);
-		//			delete context_ptr;
-		//			callback(network_accept_event(), error);
-		//			return;
-		//		}
-		//		context_ptr->addr = _GetSocketAddrEx(context_ptr->this_socket,(void*)context_ptr->buffer.buf,buffer_size);
-		//		network_accept_event context(context_ptr);
-		//		delete context_ptr;
-		//		callback(context, nullptr);
-		//	};
-		//	if (!accept_ex(sock,context->target_socket,context->buffer.buf,buffer_size, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,&(context->size),&(context->m_ol)))
-		//	{
-		//		_ThrowWSAError
-		//	}
-		//	stdx::threadpool::run([](iocp_t iocp)
-		//	{
-		//		auto *context_ptr = iocp.get();
-		//		std::exception_ptr error(nullptr);
-		//		try
-		//		{
-		//			DWORD flag = 0;
-		//			if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), false, &flag))
-		//			{
-		//				//在这里出错
-		//				_ThrowWSAError
-		//			}
-		//		}
-		//		catch (const std::exception&)
-		//		{
-		//			error = std::current_exception();
-		//		}
-		//		auto *call = context_ptr->callback;
-		//		try
-		//		{
-		//			(*call)(context_ptr, error);
-		//		}
-		//		catch (const std::exception&)
-		//		{
-		//		}
-		//		delete call;
-		//	}, m_iocp);
-		//}
-#endif
+		static void _GetAcceptEx(SOCKET s, LPFN_ACCEPTEX *ptr)
+		{
+			GUID id = WSAID_ACCEPTEX;
+			DWORD buf;
+			if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_ACCEPTEX), &buf, NULL, NULL)==SOCKET_ERROR)
+			{
+				_ThrowWSAError
+			}
+		}
 
+		static void _GetAcceptExSockaddr(SOCKET s, LPFN_GETACCEPTEXSOCKADDRS *ptr)
+		{
+			GUID id = WSAID_GETACCEPTEXSOCKADDRS;
+			DWORD buf;
+			if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_GETACCEPTEXSOCKADDRS), &buf, NULL, NULL)==SOCKET_ERROR)
+			{
+				_ThrowWSAError
+			}
+		}
+
+		void init_accept_ex(SOCKET s);
+#endif
+		void accept_ex(socket_t sock, std::function<void(network_accept_event, std::exception_ptr)> callback);
+#ifdef WIN32
+	public:
+		static LPFN_ACCEPTEX m_accept_ex;
+		static LPFN_GETACCEPTEXSOCKADDRS m_get_addr_ex;
+#endif
 	private:
 #ifdef WIN32
 		iocp_t m_iocp;
@@ -683,8 +630,7 @@ namespace stdx
 #endif
 		std::shared_ptr<bool> m_alive;
 #ifdef WIN32
-		//static LPFN_ACCEPTEX accept_ex;
-		//static LPFN_GETACCEPTEXSOCKADDRS get_addr_ex;
+		std::mutex m_mutex;
 #endif 
 		void init_threadpoll() noexcept;
 	};
@@ -746,6 +692,12 @@ namespace stdx
 		{
 			m_impl->connect(sock, addr);
 		}
+
+		void accept_ex(socket_t sock, std::function<void(network_accept_event, std::exception_ptr)> &&callback)
+		{
+			return m_impl->accept_ex(sock,callback);
+		}
+
 
 		socket_t accept(socket_t sock, ipv4_addr& addr)
 		{
@@ -857,6 +809,8 @@ namespace stdx
 			return m_io_service.accept(m_handle);
 		}
 
+		stdx::task<stdx::network_accept_event> accept_ex();
+
 		void close();
 
 		void connect(ipv4_addr& addr)
@@ -880,14 +834,17 @@ namespace stdx
 		}
 
 		//直到call返回true停止
-		void recv_utill(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call);
+		void recv_until(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call);
 
-		void recv_utill_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler);
+		void recv_until_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler);
 
+		io_service_t get_io_service() const;
 	private:
 		io_service_t m_io_service;
 		socket_t m_handle;
 	};
+
+	struct network_connected_event;
 
 	class socket
 	{
@@ -897,6 +854,10 @@ namespace stdx
 		using file_handle_t = _NetworkIOService::file_handle_t;
 		using io_service_t = network_io_service;
 	public:
+
+		socket()
+			:m_impl(nullptr)
+		{}
 
 		socket(const io_service_t& io_service)
 			:m_impl(std::make_shared<_Socket>(io_service))
@@ -940,6 +901,8 @@ namespace stdx
 			socket_t s = m_impl->accept();
 			return socket(m_impl->io_service(), s);
 		}
+
+		stdx::task<network_connected_event> accept_ex();
 
 		void close()
 		{
@@ -987,15 +950,19 @@ namespace stdx
 		}
 
 		//直到call返回true停止
-		void recv_utill(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)>  call)
+		void recv_until(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)>  call)
 		{
-			return m_impl->recv_utill(size, call);
+			return m_impl->recv_until(size, call);
 		}
 
-		void recv_utill_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
+		void recv_until_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->recv_utill_error(size, call, err_handler);
+			return m_impl->recv_until_error(size, call, err_handler);
 		}
+
+		void accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call);
+
+		void accept_until_error(std::function<void(stdx::network_connected_event)> call,std::function<void(std::exception_ptr)> err_handler);
 
 		bool operator==(const stdx::socket& other) const
 		{
@@ -1007,6 +974,38 @@ namespace stdx
 		socket(const io_service_t& io_service, socket_t s)
 			:m_impl(std::make_shared<_Socket>(io_service, s))
 		{}
+	};
+
+	struct network_connected_event
+	{
+
+		network_connected_event() = default;
+
+		network_connected_event(stdx::socket _connection, const stdx::ipv4_addr& _addr)
+			:connection(_connection)
+			, addr(_addr)
+		{}
+
+		~network_connected_event() = default;
+
+		network_connected_event(const network_connected_event& other)
+			:connection(other.connection)
+			, addr(other.addr)
+		{}
+
+		network_connected_event(network_connected_event&& other) noexcept
+			:connection(other.connection)
+			, addr(other.addr)
+		{}
+
+		network_connected_event& operator=(const network_connected_event& other)
+		{
+			connection = other.connection;
+			addr = other.addr;
+			return *this;
+		}
+		stdx::socket connection;
+		ipv4_addr addr;
 	};
 
 	extern stdx::socket open_socket(const stdx::network_io_service& io_service, const int& addr_family, const int& sock_type, const int& protocol);

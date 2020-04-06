@@ -26,6 +26,11 @@ namespace stdx
 		//删除复制构造函数
 		_Threadpool(const _Threadpool&) = delete;
 
+		static uint32_t expand_number_of_threads();
+
+
+		void expand(uint32_t number_of_threads);
+
 		//执行任务
 		template<typename _Fn, typename ..._Args>
 		void run(_Fn &&task, _Args &&...args) noexcept
@@ -37,18 +42,24 @@ namespace stdx
 			m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
 			lock.unlock();
 			m_barrier.notify();
-			std::unique_lock<stdx::spin_lock> _lock(m_count_lock);
 			if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
 			{
+				std::unique_lock<stdx::spin_lock> _lock(m_count_lock);
+				if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
+				{
 #ifdef DEBUG
-				::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
+					::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
-				*m_free_count = *m_free_count + 1;
-				_lock.unlock();
-				add_thread();
-				return;
+					uint32_t num = expand_number_of_threads();
+					*m_free_count = *m_free_count + num;
+					_lock.unlock();
+					expand(num);
+					return;
+				}
 			}
 		}
+
+		void join_handle();
 
 	private:
 		std::shared_ptr<uint32_t> m_free_count;
@@ -75,6 +86,10 @@ namespace stdx
 		static void run(_Fn &&fn,_Args &&...args) noexcept
 		{
 			m_impl.run(std::move(fn),args...);
+		}
+		static void join_handle()
+		{
+			m_impl.join_handle();
 		}
 	private:
 		threadpool() = default;

@@ -2,7 +2,6 @@
 //类库遵循以下约定
 //所有的Class(除实现Class外,例如:_XxYy)都是引用类型
 //所有的Struct(除另外说明外)都是值类型
-#include <type_traits>
 
 #ifndef WIN32
 #ifndef LINUX
@@ -22,12 +21,21 @@
 
 #ifdef WIN32
 #define JEMALLOC_EXPORT
-#define malloc je_malloc
-#define calloc je_calloc
-#define free je_free
-#define posix_memalign je_posix_memalign
 #endif
 #include <jemalloc/jemalloc.h>
+#include <new>
+namespace stdx
+{
+	extern void *malloc(size_t size);
+	extern void free(void* p);
+	extern void* calloc(size_t count, size_t size);
+	extern int posix_memalign(void **mem,size_t align, size_t size);
+	extern void* realloc(void* p, size_t size);
+}
+//extern void* operator new(size_t size, const std::nothrow_t& nothrow_value) noexcept;
+//extern void operator delete(void* p, const std::nothrow_t& nothrow_value) noexcept;
+
+#include <type_traits>
 #include <stdint.h>
 #include <inttypes.h>
 

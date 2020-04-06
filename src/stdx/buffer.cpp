@@ -15,13 +15,13 @@ stdx::_Buffer::~_Buffer()
 {
 	if (m_data && (m_size != 0))
 	{
-		free(m_data);
+		stdx::free(m_data);
 	}
 }
 
 void stdx::_Buffer::init(const size_t& size)
 {
-	char* data = (char*)::calloc(size, sizeof(char));
+	char* data = (char*)stdx::calloc(size, sizeof(char));
 	if (data == nullptr)
 	{
 		throw std::bad_alloc();
@@ -81,7 +81,7 @@ void stdx::_Buffer::realloc(const size_t& size)
 	}
 	if (size > m_size)
 	{
-		char* tmp = (char*)::realloc(m_data, m_size);
+		char* tmp = (char*)stdx::realloc(m_data, m_size);
 		if (tmp == nullptr)
 		{
 			throw std::bad_alloc();
