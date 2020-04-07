@@ -28,6 +28,7 @@ namespace stdx
 
 		static uint32_t expand_number_of_threads();
 
+		bool need_expand() const;
 
 		void expand(uint32_t number_of_threads);
 
@@ -39,32 +40,31 @@ namespace stdx
 			::printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
 			std::unique_lock<stdx::spin_lock> lock(m_queue_lock);
-			m_task_queue->push(stdx::make_runable<void>(std::move(task), args...));
+			m_task_queue->push(stdx::make_runable<void>(std::move(task),args...));
 			lock.unlock();
 			m_barrier.notify();
-			if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
-			{
-				std::unique_lock<stdx::spin_lock> _lock(m_count_lock);
-				if (((*m_free_count) == 0) || (m_task_queue->size() > (*m_free_count)))
-				{
 #ifdef DEBUG
-					::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
+			::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
-					uint32_t num = expand_number_of_threads();
-					*m_free_count = *m_free_count + num;
-					_lock.unlock();
-					expand(num);
-					return;
-				}
+			std::unique_lock<stdx::spin_lock> _lock(m_count_lock);
+			lock.lock();
+			if (need_expand())
+			{
+				uint32_t num = expand_number_of_threads();
+				*m_free_count = *m_free_count + num;
+				lock.unlock();
+				_lock.unlock();
+				expand(num);
 			}
 		}
 
 		void join_handle();
 
 	private:
+		std::shared_ptr<uint32_t> m_alive_count;
 		std::shared_ptr<uint32_t> m_free_count;
-		stdx::spin_lock m_count_lock;
-		stdx::spin_lock m_queue_lock;
+		mutable stdx::spin_lock m_count_lock;
+		mutable stdx::spin_lock m_queue_lock;
 		std::shared_ptr<bool> m_alive;
 		std::shared_ptr<std::queue<runable_ptr>> m_task_queue;
 		stdx::semaphore m_barrier;

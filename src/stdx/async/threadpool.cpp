@@ -1,4 +1,5 @@
 ﻿#include <stdx/async/threadpool.h>
+#include <stdx/finally.h>
 
 stdx::threadpool::impl_t stdx::threadpool::m_impl;
 
@@ -8,13 +9,17 @@ uint32_t stdx::suggested_threads_number()
 #ifdef STDX_NOT_LIMITED_CPU_USING
 	return cores * 2 + 2;
 #else
-	if (cores < 8)
+	if (cores < 3)
+	{
+		return cores;
+	}
+	if (cores < 9)
 	{
 		return cores * 2 + 2;
 	}
 	else
 	{
-		return 18;
+		return 20;
 	}
 #endif // STDX_NOT_LIMITED_CPU_USING
 }
@@ -22,7 +27,8 @@ uint32_t stdx::suggested_threads_number()
 //构造函数
 
 stdx::_Threadpool::_Threadpool() noexcept
-	:m_free_count(std::make_shared<uint32_t>())
+	:m_alive_count(std::make_shared<uint32_t>(0))
+	,m_free_count(std::make_shared<uint32_t>(0))
 	, m_count_lock()
 	, m_queue_lock()
 	, m_alive(std::make_shared<bool>(true))
@@ -59,6 +65,20 @@ uint32_t stdx::_Threadpool::expand_number_of_threads()
 	return 20;
 }
 
+bool stdx::_Threadpool::need_expand() const
+{
+	uint32_t limited = cpu_cores()*10;
+	if (*m_alive_count > limited)
+	{
+		return false;
+	}
+	if (*m_free_count < m_task_queue->size())
+	{
+		return true;
+	}
+	return false;
+}
+
 void stdx::_Threadpool::expand(uint32_t number_of_threads)
 {
 	for (size_t i = 0; i < number_of_threads; i++)
@@ -69,8 +89,18 @@ void stdx::_Threadpool::expand(uint32_t number_of_threads)
 
 void stdx::_Threadpool::join_handle()
 {
-	auto handle = [](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock, stdx::spin_lock queue_lock, std::shared_ptr<bool> alive)
+	std::unique_lock<stdx::spin_lock> lock(m_count_lock);
+	*m_alive_count += 1;
+	lock.unlock();
+	auto handle = [](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock, stdx::spin_lock queue_lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
 	{
+
+		stdx::finally fin([count_lock, alive_count]() mutable
+		{
+			std::unique_lock<stdx::spin_lock> lock(count_lock);
+			*alive_count -= 1;
+		});
+
 		//如果存活
 		while (*alive)
 		{
@@ -149,7 +179,7 @@ void stdx::_Threadpool::join_handle()
 			}
 		}
 	};
-	handle(m_task_queue, m_barrier, m_free_count, m_count_lock, m_queue_lock, m_alive);
+	handle(m_task_queue, m_barrier, m_free_count, m_count_lock, m_queue_lock, m_alive,m_alive_count);
 }
 
 //添加线程
@@ -158,9 +188,17 @@ void stdx::_Threadpool::add_thread() noexcept
 #ifdef DEBUG
 	printf("[Threadpool]正在创建新线程\n");
 #endif
+	std::unique_lock<stdx::spin_lock> lock(m_count_lock);
+	*m_alive_count += 1;
+	lock.unlock();
 	//创建线程
-	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock,stdx::spin_lock queue_lock, std::shared_ptr<bool> alive)
+	std::thread t([](std::shared_ptr<std::queue<runable_ptr>> tasks, stdx::semaphore semaphore, std::shared_ptr<uint32_t> count, stdx::spin_lock count_lock,stdx::spin_lock queue_lock, std::shared_ptr<bool> alive,std::shared_ptr<uint32_t> alive_count)
 	{
+		stdx::finally fin([count_lock,alive_count]() mutable
+		{
+				std::unique_lock<stdx::spin_lock> lock(count_lock);
+				*alive_count -= 1;
+		});
 		//如果存活
 		while (*alive)
 		{
@@ -238,7 +276,7 @@ void stdx::_Threadpool::add_thread() noexcept
 				continue;
 			}
 		}
-	}, m_task_queue, m_barrier, m_free_count, m_count_lock,m_queue_lock, m_alive);
+	}, m_task_queue, m_barrier, m_free_count, m_count_lock,m_queue_lock, m_alive,m_alive_count);
 	//分离线程
 	t.detach();
 }
