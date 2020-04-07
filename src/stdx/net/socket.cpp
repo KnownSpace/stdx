@@ -51,6 +51,7 @@ stdx::_WSAStarter stdx::_wsastarter;
 #ifdef WIN32
 LPFN_ACCEPTEX stdx::_NetworkIOService::m_accept_ex = nullptr;
 LPFN_GETACCEPTEXSOCKADDRS stdx::_NetworkIOService::m_get_addr_ex = nullptr;
+std::once_flag stdx::_NetworkIOService::m_once_flag;
 #endif
 
 stdx::_NetworkIOService::_NetworkIOService()
@@ -60,9 +61,6 @@ stdx::_NetworkIOService::_NetworkIOService()
 	: m_reactor()
 #endif
 	, m_alive(std::make_shared<bool>(true))
-#ifdef WIN32
-	, m_mutex()
-#endif
 {
 	init_threadpoll();
 }
@@ -81,18 +79,15 @@ stdx::_NetworkIOService::~_NetworkIOService()
 #ifdef WIN32
 void stdx::_NetworkIOService::init_accept_ex(SOCKET s)
 {
-	if (m_accept_ex == nullptr && m_get_addr_ex == nullptr)
+	std::call_once(m_once_flag, [s]() mutable
 	{
-		std::unique_lock<std::mutex> lock(m_mutex);
 #ifdef DEBUG
 		::printf("[Network IO Service]初始化AcceptEx\n");
 #endif // DEBUG
-		if (m_accept_ex == nullptr && m_get_addr_ex == nullptr)
-		{
-			_GetAcceptEx(s, &m_accept_ex);
-			_GetAcceptExSockaddr(s, &m_get_addr_ex);
-		}
-	}
+		_GetAcceptEx(s, &m_accept_ex);
+		_GetAcceptExSockaddr(s, &m_get_addr_ex);
+
+	});
 }
 #endif // WIN32
 

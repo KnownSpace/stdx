@@ -620,6 +620,7 @@ namespace stdx
 	public:
 		static LPFN_ACCEPTEX m_accept_ex;
 		static LPFN_GETACCEPTEXSOCKADDRS m_get_addr_ex;
+		static std::once_flag m_once_flag;
 #endif
 	private:
 #ifdef WIN32
@@ -629,9 +630,6 @@ namespace stdx
 		stdx::reactor m_reactor;
 #endif
 		std::shared_ptr<bool> m_alive;
-#ifdef WIN32
-		std::mutex m_mutex;
-#endif 
 		void init_threadpoll() noexcept;
 	};
 
