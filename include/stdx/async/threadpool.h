@@ -39,20 +39,18 @@ namespace stdx
 #ifdef DEBUG
 			::printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
-			std::unique_lock<stdx::spin_lock> lock(m_queue_lock);
-			m_task_queue->push(stdx::make_runable<void>(std::move(task),args...));
-			lock.unlock();
-			m_barrier.notify();
+			auto t = stdx::make_runable<void>(std::move(task), args...);
 #ifdef DEBUG
 			::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
-			std::unique_lock<stdx::spin_lock> _lock(m_count_lock);
-			lock.lock();
+			std::unique_lock<std::mutex> _lock(*m_mutex);
+			m_task_queue->push(t);
+			m_cv->notify_one();
 			if (need_expand())
 			{
 				uint32_t num = expand_number_of_threads();
-				*m_free_count = *m_free_count + num;
-				lock.unlock();
+				*m_free_count += num;
+				*m_alive_count += num;
 				_lock.unlock();
 				expand(num);
 			}
@@ -63,12 +61,12 @@ namespace stdx
 	private:
 		std::shared_ptr<uint32_t> m_alive_count;
 		std::shared_ptr<uint32_t> m_free_count;
-		mutable stdx::spin_lock m_count_lock;
-		mutable stdx::spin_lock m_queue_lock;
 		std::shared_ptr<bool> m_alive;
+		mutable stdx::spin_lock m_lock;
 		std::shared_ptr<std::queue<runable_ptr>> m_task_queue;
-		stdx::semaphore m_barrier;
-
+		std::shared_ptr<std::condition_variable> m_cv;
+		std::shared_ptr<std::mutex> m_mutex;
+		static uint32_t m_cpu_cores;
 		//添加线程
 		void add_thread() noexcept;
 		

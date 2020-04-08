@@ -2,7 +2,7 @@
 
 void stdx::_Semaphore::wait()
 {
-	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	std::unique_lock<lock_t> lock(m_lock);
 	m_cv.wait(lock, [this]() mutable
 	{
 			return m_notify_count != 0;
@@ -12,7 +12,7 @@ void stdx::_Semaphore::wait()
 
 void stdx::_Semaphore::notify()
 {
-	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	std::unique_lock<lock_t> lock(m_lock);
 	m_notify_count += 1;
 	m_cv.notify_one();
 }

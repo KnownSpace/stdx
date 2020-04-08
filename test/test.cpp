@@ -65,7 +65,6 @@ void handle_client(stdx::network_connected_event ev,std::string doc_content)
 }
 int main(int argc, char **argv)
 {
-	
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
