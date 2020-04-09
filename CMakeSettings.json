@@ -75,7 +75,7 @@
     {
       "name": "Linux-Debug",
       "generator": "Unix Makefiles",
-      "remoteMachineName": "1889718238;localhost (username=nature, port=22, authentication=Password)",
+      "remoteMachineName": "-1304476608;192.168.199.128 (username=natural, port=22, authentication=Password)",
       "configurationType": "Debug",
       "remoteCMakeListsRoot": "/var/tmp/src/${workspaceHash}/${name}",
       "cmakeExecutable": "/usr/bin/cmake",
@@ -101,7 +101,7 @@
     {
       "name": "Linux-Release",
       "generator": "Unix Makefiles",
-      "remoteMachineName": "1889718238;localhost (username=nature, port=22, authentication=Password)",
+      "remoteMachineName": "-1304476608;192.168.199.128 (username=natural, port=22, authentication=Password)",
       "configurationType": "Release",
       "remoteCMakeListsRoot": "/var/tmp/src/${workspaceHash}/${name}",
       "cmakeExecutable": "/usr/bin/cmake",

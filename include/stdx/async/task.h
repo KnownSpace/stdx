@@ -320,13 +320,13 @@ namespace stdx
 	template<typename _t>
 	struct _TaskCompleter
 	{
-		static void call(stdx::runable_ptr<_t> call, promise_ptr<_t> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state,std::shared_future<_t> future)
+		static void call(std::function<_t()> call, promise_ptr<_t> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state,std::shared_future<_t> future)
 		{
 			try
 			{
 				//调用方法
 				//设置promise
-				promise->set_value(call->run());
+				promise->set_value(call());
 				future.wait();
 			}
 			catch (const std::exception&)
@@ -354,16 +354,20 @@ namespace stdx
 			//加锁
 			lock.lock();
 			//如果有callback
-			if (*next)
+			if (next)
 			{
-				*state = task_state::complete;
-				//解锁
-				lock.unlock();
-				//运行callback
-				(*next)->run_on_this_thread();
-				return;
+				if (*next)
+				{
+					*state = task_state::complete;
+					//解锁
+					lock.unlock();
+					//运行callback
+					(*next)->run_on_this_thread();
+					return;
+				}
 			}
 			//设置状态为完成
+
 			*state = task_state::complete;
 			//解锁
 			lock.unlock();
@@ -374,12 +378,12 @@ namespace stdx
 	template<>
 	struct _TaskCompleter<void>
 	{
-		static void call(stdx::runable_ptr<void> call, promise_ptr<void> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state,std::shared_future<void> future)
+		static void call(std::function<void()> call, promise_ptr<void> promise, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next, stdx::spin_lock lock, state_ptr state,std::shared_future<void> future)
 		{
 			try
 			{
 				//调用方法
-				call->run();
+				call();
 				//设置promise
 				promise->set_value();
 				future.wait();
@@ -738,7 +742,7 @@ namespace stdx
 
 		template<typename _Fn, typename ..._Args>
 		explicit _Task(_Fn&& f, _Args&&...args)
-			:m_action(stdx::make_runable<R>(std::move(f), args...))
+			:m_action(std::bind(f,args...))
 			, m_promise(std::make_shared<std::promise<R>>())
 			, m_future(std::shared_future<R>(m_promise->get_future()))
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
@@ -749,7 +753,7 @@ namespace stdx
 
 		template<typename _Fn>
 		explicit _Task(_Fn&& f)
-			:m_action(stdx::make_runable<R>(std::move(f)))
+			:m_action(f)
 			, m_promise(std::make_shared<std::promise<R>>())
 			, m_future(std::shared_future<R>(m_promise->get_future()))
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
@@ -782,7 +786,7 @@ namespace stdx
 			//解锁
 			m_lock.unlock();
 			//创建方法
-			auto f = [](stdx::runable_ptr<R> r
+			auto f = [](std::function<R()> r
 				, promise_ptr<R> promise
 				, std::shared_ptr<std::shared_ptr<stdx::basic_task>>  next
 				, stdx::spin_lock lock
@@ -870,7 +874,7 @@ namespace stdx
 		//}
 
 	protected:
-		stdx::runable_ptr<R> m_action;
+		std::function<R()> m_action;
 		stdx::promise_ptr<R> m_promise;
 		std::shared_future<R> m_future;
 		std::shared_ptr<std::shared_ptr<stdx::basic_task>> m_next;

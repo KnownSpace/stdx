@@ -9,11 +9,12 @@
 void handle_client(stdx::network_connected_event ev,std::string doc_content)
 {
 	auto c = ev.connection;
-	auto t = c.recv(4096).then([c, doc_content](stdx::network_recv_event e) mutable
+	auto t = c.recv(4096).then([c, doc_content](stdx::task_result<stdx::network_recv_event> r) mutable
 		{
-			std::string tmp(e.buffer, e.size);
 			try
 			{
+				auto e = r.get();
+				std::string tmp(e.buffer, e.size);
 				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
 				if (request.request_header().request_url() == U("/"))
 				{
@@ -36,7 +37,7 @@ void handle_client(stdx::network_connected_event ev,std::string doc_content)
 			}
 			catch (const std::exception& err)
 			{
-				stdx::perrorf(U("Error:{0}\n"), err.what());
+				stdx::perrorf(U("请求处理出错:{0}\n"), err.what());
 				stdx::http_response response(502);
 				response.response_header().add_header(U("Content-Type"), U("text/html"));
 				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
@@ -48,18 +49,18 @@ void handle_client(stdx::network_connected_event ev,std::string doc_content)
 				std::vector<unsigned char>&& bytes = res.to_bytes();
 				stdx::uint64_union u;
 				u.value = bytes.size();
-				auto t = c.send((const char*)bytes.data(), u.low);
-				return t;
+				return c.send((const char*)bytes.data(), u.low);
 			})
 			.then([c](stdx::task_result<stdx::network_send_event> r) mutable
 		{
 					try
 					{
 						auto e = r.get();
+						//c.close();
 					}
 					catch (const std::exception& err)
 					{
-						stdx::perrorf(U("Error:{0}\n"), err.what());
+						stdx::perrorf(U("发送失败:{0}\n"), err.what());
 					}
 		});
 }
@@ -81,6 +82,7 @@ int main(int argc, char **argv)
 	{
 		try
 		{
+			stdx::printf(U("读取文件完成\n"));
 			auto &&e = r.get();
 			doc_content = std::string(e.buffer, e.buffer.size());
 		}
@@ -95,6 +97,10 @@ int main(int argc, char **argv)
 	try
 	{
 		stdx::ipv4_addr addr(U("0.0.0.0"),8080);
+		if (argc != 1)
+		{
+			addr.port(std::stoul(argv[1]));
+		}
 		s.bind(addr);
 		s.listen(65535);
 		stdx::printf(U("Listen: {0}:{1}\n"),addr.ip(),addr.port());
@@ -104,12 +110,22 @@ int main(int argc, char **argv)
 		stdx::perrorf(U("Error:{0}\n"), e.what());
 		return -1;
 	}
-	s.accept_until_error([doc_content](stdx::network_connected_event ev)  mutable
+	std::list<stdx::socket> keeper;
+	s.accept_until_error([doc_content,&keeper](stdx::network_connected_event ev)  mutable
 	{
-			handle_client(ev, doc_content);
+			try
+			{
+				//keeper.push_back(ev.connection);
+				handle_client(ev, doc_content);
+			}
+			catch (const std::exception& err)
+			{
+				stdx::perrorf(U("Handle Error:{0}"), err.what());
+			}
 	},
 	[](std::exception_ptr error) 
 	{
+		printf("监听关闭\n");
 		try
 		{
 			if (error)
@@ -123,6 +139,7 @@ int main(int argc, char **argv)
 		}
 	});
 	stdx::threadpool::join_handle();
+	s.close();
 #pragma endregion
 #endif
 	return 0;

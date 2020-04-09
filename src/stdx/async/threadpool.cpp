@@ -31,7 +31,7 @@ stdx::_Threadpool::_Threadpool() noexcept
 	,m_free_count(std::make_shared<uint32_t>(0))
 	, m_lock()
 	, m_alive(std::make_shared<bool>(true))
-	, m_task_queue(std::make_shared<std::queue<runable_ptr>>())
+	, m_task_queue(std::make_shared<std::queue<runable>>())
 	, m_cv(std::make_shared<std::condition_variable>())
 	, m_mutex(std::make_shared<std::mutex>())
 {
@@ -55,7 +55,7 @@ void stdx::_Threadpool::join_handle()
 	std::unique_lock<stdx::spin_lock> lock(m_lock);
 	*m_alive_count += 1;
 	lock.unlock();
-	auto handle = [](std::shared_ptr<std::queue<runable_ptr>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, stdx::spin_lock _lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
+	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, stdx::spin_lock _lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
 	{
 
 		stdx::finally fin([mutex, alive_count]() mutable
@@ -81,6 +81,7 @@ void stdx::_Threadpool::join_handle()
 					*count = *count - 1;
 					return;
 				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
 			if (!(tasks->empty()))
 			{
@@ -101,7 +102,7 @@ void stdx::_Threadpool::join_handle()
 #ifdef DEBUG
 					::printf("[Threadpool]线程池正在获取任务\n");
 #endif
-					runable_ptr t = std::move(tasks->front());
+					runable t = std::move(tasks->front());
 					//从queue中pop
 					tasks->pop();
 					__lock.unlock();
@@ -110,7 +111,7 @@ void stdx::_Threadpool::join_handle()
 #endif
 					if (t)
 					{
-						t->run();
+						t();
 					}
 				}
 				catch (const std::exception& err)
@@ -161,7 +162,14 @@ uint32_t stdx::_Threadpool::expand_number_of_threads()
 
 bool stdx::_Threadpool::need_expand() const
 {
-	return m_task_queue->size() > * m_free_count && *m_alive_count < 10 * m_cpu_cores;
+	if (*m_alive_count < 10 * m_cpu_cores)
+	{
+		if (m_task_queue->size() > * m_free_count)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void stdx::_Threadpool::expand(uint32_t number_of_threads)
@@ -179,7 +187,7 @@ void stdx::_Threadpool::add_thread() noexcept
 	printf("[Threadpool]正在创建新线程\n");
 #endif
 
-	auto handle = [](std::shared_ptr<std::queue<runable_ptr>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, stdx::spin_lock _lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
+	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, stdx::spin_lock _lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
 	{
 
 		stdx::finally fin([mutex, alive_count]() mutable
@@ -195,10 +203,13 @@ void stdx::_Threadpool::add_thread() noexcept
 			//等待通知
 			while (tasks->empty() && *alive)
 			{
+#ifdef DEBUG
+				::printf("[Threadpool]线程池等待任务中\n");
+#endif
 				auto r = cond->wait_for(__lock, std::chrono::minutes(5));
 				if (r == std::cv_status::timeout)
 				{
-					std::unique_lock<stdx::spin_lock> lock(_lock);
+					//std::unique_lock<stdx::spin_lock> lock(_lock);
 #ifdef DEBUG
 					::printf("[Threadpool]线程池等待任务超时,清除线程\n");
 #endif
@@ -225,7 +236,7 @@ void stdx::_Threadpool::add_thread() noexcept
 #ifdef DEBUG
 					::printf("[Threadpool]线程池正在获取任务\n");
 #endif
-					runable_ptr t = std::move(tasks->front());
+					runable t = std::move(tasks->front());
 					//从queue中pop
 					tasks->pop();
 					__lock.unlock();
@@ -234,7 +245,7 @@ void stdx::_Threadpool::add_thread() noexcept
 #endif
 					if (t)
 					{
-						t->run();
+						t();
 					}
 				}
 				catch (const std::exception& err)

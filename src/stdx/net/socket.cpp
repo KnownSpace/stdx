@@ -202,7 +202,7 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 			try
 			{
 				r = ::send(sock, buf, size, MSG_NOSIGNAL);
-				if (r < 1)
+				if (r == -1)
 				{
 					_ThrowLinuxError
 				}
@@ -265,7 +265,7 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 			std::exception_ptr err(nullptr);
 			try
 			{
-				if (r < 1)
+				if (r == -1)
 				{
 					_ThrowLinuxError
 				}
@@ -401,7 +401,19 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 	};
 	context->callback = call;
 	ev.data.ptr = context;
-	m_reactor.push(sock, ev);
+	try
+	{
+		m_reactor.push(sock, ev);
+	}
+	catch (const std::exception&)
+	{
+#ifdef DEBUG
+		::printf("[Network IO Service]IO操作投递失败\n");
+#endif // DEBUG
+		delete call;
+		stdx::free(context->buffer);
+		delete context;
+	}
 #ifdef DEBUG
 	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
@@ -750,7 +762,19 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 	};
 	context->callback = call;
 	ev.data.ptr = context;
-	m_reactor.push(sock, ev);
+	try
+	{
+		m_reactor.push(sock, ev);
+	}
+	catch (const std::exception &err)
+	{
+#ifdef DEBUG
+		::printf("[Network IO Service]IO操作投递失败\n");
+#endif // DEBUG
+		delete call;
+		stdx::free(context->buffer);
+		delete context;
+	}
 #ifdef DEBUG
 	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
@@ -939,7 +963,19 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 	};
 	context->callback = call;
 	ev.data.ptr = context;
-	m_reactor.push(sock, ev);
+	try
+	{
+		m_reactor.push(sock, ev);
+	}
+	catch (const std::exception&)
+	{
+#ifdef DEBUG
+		::printf("[Network IO Service]IO操作投递失败\n");
+#endif // DEBUG
+		delete call;
+		delete context;
+		callback(stdx::network_accept_event(), std::current_exception());
+	}
 #ifdef DEBUG
 	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
@@ -1001,9 +1037,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::run([](stdx::reactor reactor, std::shared_ptr<bool> alive)
+
 			{
 				while (*alive)
 				{
+#ifdef DEBUG
+					::printf("[Epoll]检测IO请求中\n");
+#endif // DEBUG
 					try
 					{
 						reactor.get<stdx::network_io_context_finder>([reactor](epoll_event* ev_ptr) mutable
@@ -1105,12 +1145,18 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 									{
 										delete callback;
 									});
+#ifdef DEBUG
+								::printf("[Epoll]Callback执行完成\n");
+#endif // DEBUG
 							});
 					}
 					catch (const std::exception&)
 					{
 					}
 				}
+#ifdef DEBUG
+				::printf("[Epoll]反应器线程退出\n");
+#endif // DEBUG
 			}, m_reactor, m_alive);
 	}
 #endif

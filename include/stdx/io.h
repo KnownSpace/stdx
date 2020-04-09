@@ -21,7 +21,7 @@
 								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
 								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
 							} \
-						}\
+						}
 						
 
 namespace stdx
@@ -163,7 +163,7 @@ namespace stdx
 #include <stdx/function.h>
 #include <stdx/async/threadpool.h>
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
 
 namespace stdx
 {
@@ -290,11 +290,14 @@ namespace stdx
 				{
 					try
 					{
-						_ThrowLinuxError
+						if (errno != EINTR)
+						{
+							_ThrowLinuxError
+						}
 					}
 					catch (const std::exception &err)
 					{
-						::printf("[Native AIO]发生意外错误:%s", err.what());
+						::printf("[Native AIO]发生意外错误:%s\n", err.what());
 					}
 				}
 #endif
@@ -355,17 +358,31 @@ namespace stdx
 			,m_existed(false)
 			,m_queue()
 		{}
-		ev_queue(ev_queue &&other)
+
+		ev_queue(const ev_queue& other)
 			:m_lock(other.m_lock)
+			, m_existed(other.m_existed)
+			, m_queue(other.m_queue)
+		{}
+
+		ev_queue(ev_queue &&other) noexcept
+			:m_lock(std::cref(other.m_lock))
 			,m_existed(other.m_existed)
 			,m_queue(std::move(other.m_queue))
 		{}
 		~ev_queue() = default;
-		ev_queue &operator=(const ev_queue &&other)
+		ev_queue &operator=(ev_queue &&other) noexcept
+		{
+			m_lock = std::cref(other.m_lock);
+			m_existed = other.m_existed;
+			m_queue = std::move(other.m_queue);
+			return *this;
+		}
+		ev_queue& operator=(const ev_queue& other)
 		{
 			m_lock = other.m_lock;
 			m_existed = other.m_existed;
-			m_queue = std::move(other.m_queue);
+			m_queue = other.m_queue;
 			return *this;
 		}
 		stdx::spin_lock m_lock;
@@ -388,29 +405,31 @@ namespace stdx
 		void unbind(int fd);
 
 		template<typename _Finder,typename _Fn>
-		void get(_Fn &&execute)
+		void get(_Fn execute)
 		{
 			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
+#ifdef DEBUG
+			::printf("[Epoll]等待事件到达\n");
+#endif // DEBUG
 			epoll_event ev = m_poll.wait(-1);
-			auto *ev_ptr = new epoll_event;
+			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
 			int fd = _Finder::find(ev_ptr);
-			std::function<void(epoll_event*,_Fn)> call = [](epoll_event *ev_ptr,_Fn execute) mutable
-			{
-				try
+			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
 				{
-					execute(ev_ptr);
-				}
-				catch (...)
-				{
-				}
-				delete ev_ptr;
-			};
-			stdx::threadpool::run([this](epoll_event *ev, _Fn execute, int fd, std::function<void(epoll_event*, _Fn)> call) mutable
-			{
-				call(ev,execute);
-				loop(fd);
-			}, ev_ptr,execute, fd,call);
+					try
+					{
+						execute(ev);
+					}
+					catch (...)
+					{
+					}
+					delete ev;
+#ifdef DEBUG
+					::printf("[Epoll]新循环开始\n");
+#endif // DEBUG
+					loop(fd);
+				}, ev_ptr, execute, fd);
 		}
 
 		void push(int fd, epoll_event &ev);

@@ -15,7 +15,7 @@ namespace stdx
 	//线程池
 	class _Threadpool
 	{
-		using runable_ptr = std::shared_ptr<stdx::basic_runable<void>>;
+		using runable = std::function<void()>;
 	public:
 		//构造函数
 		_Threadpool() noexcept;
@@ -39,12 +39,12 @@ namespace stdx
 #ifdef DEBUG
 			::printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
-			auto t = stdx::make_runable<void>(std::move(task), args...);
+			std::function<void()> t = std::bind(task,args...);
 #ifdef DEBUG
 			::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
 #endif // DEBUG
 			std::unique_lock<std::mutex> _lock(*m_mutex);
-			m_task_queue->push(t);
+			m_task_queue->push(std::move(t));
 			m_cv->notify_one();
 			if (need_expand())
 			{
@@ -63,7 +63,7 @@ namespace stdx
 		std::shared_ptr<uint32_t> m_free_count;
 		std::shared_ptr<bool> m_alive;
 		mutable stdx::spin_lock m_lock;
-		std::shared_ptr<std::queue<runable_ptr>> m_task_queue;
+		std::shared_ptr<std::queue<runable>> m_task_queue;
 		std::shared_ptr<std::condition_variable> m_cv;
 		std::shared_ptr<std::mutex> m_mutex;
 		static uint32_t m_cpu_cores;

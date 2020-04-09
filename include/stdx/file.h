@@ -24,7 +24,7 @@
 								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
 								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
 							} \
-						}\
+						}
 
 namespace stdx
 {
@@ -467,7 +467,7 @@ namespace stdx
 #include <sys/stat.h>
 #include <stdio.h>
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
 
 namespace stdx
 {
@@ -912,7 +912,7 @@ namespace stdx
 								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
 								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
 							} \
-						}\
+						}
 
 #endif
 namespace stdx

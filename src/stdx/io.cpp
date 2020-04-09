@@ -1,10 +1,11 @@
 ﻿#include <stdx/io.h>
 #include <iostream>
 #include <stdx/datetime.h>
+#include <stdx/net/socket.h>
 
 #ifdef LINUX
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); \
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
 
 int stdx::io_setup(unsigned nr_events, aio_context_t* ctx_idp)
 {
@@ -127,10 +128,8 @@ void stdx::_Reactor::bind(int fd)
 	auto iterator = m_map.find(fd);
 	if (iterator == std::end(m_map))
 	{
-		m_map.emplace(fd, std::move(make()));
+		m_map.emplace(fd,make());
 		_lock.unlock();
-		//int flag = fcntl(fd, F_GETFL, 0);
-		//fcntl(fd, F_SETFL, flag | O_NONBLOCK);
 	}
 }
 
@@ -140,7 +139,20 @@ void stdx::_Reactor::unbind(int fd)
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		m_map.erase(iterator);
+		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
+		_lock.unlock();
+		auto& obj = iterator->second;
+		if (!obj.m_queue.empty())
+		{
+//#ifdef DEBUG
+			::printf("[Epoll]IO操作仍未完成,但FD已解除绑定,剩余队列长%zu\n",obj.m_queue.size());
+//#endif
+			//while (!obj.m_queue.empty())
+			//{
+			//	obj.m_queue.pop();
+			//}
+		}
+		obj.m_existed = false;
 	}
 }
 
@@ -151,9 +163,12 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		_lock.unlock();
 		std::lock_guard<stdx::spin_lock> lock(iterator->second.m_lock);
-		if (iterator->second.m_queue.empty() && (!iterator->second.m_existed))
+		_lock.unlock();
+#ifdef DEBUG
+		printf("[Epoll]准备更新监听事件\n");
+#endif // DEBUG
+		if (!iterator->second.m_existed)
 		{
 			m_poll.add_event(fd, &ev);
 			iterator->second.m_existed = true;
@@ -165,10 +180,12 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	}
 	else
 	{
-		//_lock.unlock();
-		//bind(fd);
-		//push(fd, ev);
-		throw std::invalid_argument("invalid argument: fd");
+		_lock.unlock();
+#ifdef DEBUG
+		::printf("[Epoll]无效FD\n");
+#endif // DEBUG
+		bind(fd);
+		return push(fd, ev);
 	}
 }
 
@@ -178,21 +195,28 @@ void stdx::_Reactor::loop(int fd)
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
+		auto &obj = *iterator;
+		std::unique_lock<stdx::spin_lock> lock(obj.second.m_lock);
 		_lock.unlock();
-		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-		if (!iterator->second.m_queue.empty())
+		if (!obj.second.m_queue.empty())
 		{
-			auto ev = iterator->second.m_queue.front();
+			auto ev = obj.second.m_queue.front();
 			iterator->second.m_queue.pop();
 			lock.unlock();
+#ifdef DEBUG
+			::printf("[Epoll]更新监听事件\n");
+#endif // DEBUG
 			m_poll.update_event(fd, &ev);
+			return;
 		}
-		else
+#ifdef DEBUG
+		::printf("[Epoll]到达循环尾\n");
+#endif // DEBUG
+		if (iterator->second.m_existed)
 		{
 			iterator->second.m_existed = false;
-			m_poll.del_event(fd);
-			lock.unlock();
 		}
+		m_poll.del_event(fd);
 	}
 }
 #endif // LINUX
