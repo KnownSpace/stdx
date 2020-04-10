@@ -162,7 +162,7 @@ uint32_t stdx::_Threadpool::expand_number_of_threads()
 
 bool stdx::_Threadpool::need_expand() const
 {
-	if (*m_alive_count < 10 * m_cpu_cores)
+	if (*m_alive_count < 6 * m_cpu_cores)
 	{
 		if (m_task_queue->size() > * m_free_count)
 		{

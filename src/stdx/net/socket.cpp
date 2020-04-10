@@ -2,31 +2,20 @@
 #include <stdx/finally.h>
 #ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
-						LPVOID _MSG;\
 						if(_ERROR_CODE != ERROR_IO_PENDING) \
 						{ \
-							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
-							{ \
-								throw std::runtime_error((char*)_MSG);\
-							}else \
-							{ \
-								std::string _ERROR_MSG("windows system error:");\
-								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
-								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
-							} \
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
 #define _ThrowWSAError 	auto _ERROR_CODE = WSAGetLastError(); \
 						if(_ERROR_CODE != WSA_IO_PENDING)\
 						{\
-							std::string _ERROR_STR("windows WSA error:");\
-							_ERROR_STR.append(std::to_string(_ERROR_CODE));\
-							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_STR.c_str());\
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()));\
 						}
 #endif
 
 #ifdef LINUX
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
 #endif
 
 #ifdef _STDX_HAS_SOCKET
@@ -54,11 +43,19 @@ LPFN_GETACCEPTEXSOCKADDRS stdx::_NetworkIOService::m_get_addr_ex = nullptr;
 std::once_flag stdx::_NetworkIOService::m_once_flag;
 #endif
 
+#ifdef LINUX
+void clean(epoll_event* ptr);
+#endif // LINUX
+
+
 stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_iocp()
 #else
-	: m_reactor()
+	: m_reactor([](epoll_event *ptr) 
+	{
+			clean(ptr);
+	})
 #endif
 	, m_alive(std::make_shared<bool>(true))
 {
@@ -122,6 +119,40 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int& addr_family, const i
 	return sock;
 }
 #endif
+
+#ifdef LINUX
+void _Send(int sock,char* buf,size_t size,std::function<void(stdx::network_send_event,std::exception_ptr)> callback)
+{
+	ssize_t r = 0;
+	std::exception_ptr err(nullptr);
+	try
+	{
+		r = ::send(sock, buf, size, MSG_NOSIGNAL);
+		if (r == 0)
+		{
+			throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
+		}
+		else if (r < 0)
+		{
+			_ThrowLinuxError
+		}
+	}
+	catch (const std::exception&)
+	{
+		err = std::current_exception();
+	}
+	stdx::free(buf);
+	if (err)
+	{
+		callback(stdx::network_send_event(), err);
+		return;
+	}
+	stdx::network_send_event ev;
+	ev.sock = sock;
+	ev.size = r;
+	callback(ev, err);
+}
+#endif // LINUX
 
 void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket_size_t& size, std::function<void(network_send_event, std::exception_ptr)> callback)
 {
@@ -196,32 +227,9 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 	}
 	memcpy(buf, data, size);
 	stdx::threadpool::run([sock, buf, size, callback]()
-		{
-			ssize_t r = 0;
-			std::exception_ptr err(nullptr);
-			try
-			{
-				r = ::send(sock, buf, size, MSG_NOSIGNAL);
-				if (r == -1)
-				{
-					_ThrowLinuxError
-				}
-			}
-			catch (const std::exception&)
-			{
-				err = std::current_exception();
-			}
-			stdx::free(buf);
-			if (err)
-			{
-				callback(network_send_event(), err);
-				return;
-			}
-			network_send_event ev;
-			ev.sock = sock;
-			ev.size = r;
-			callback(ev, err);
-		});
+	{
+		_Send(sock, buf, size, callback);
+	});
 #endif
 }
 void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_cache, std::function<void(std::exception_ptr)> callback)
@@ -265,10 +273,14 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 			std::exception_ptr err(nullptr);
 			try
 			{
-				if (r == -1)
+				if (r == 0)
+				{
+					throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
+				}
+				else if (r < 0)
 				{
 					_ThrowLinuxError
-				}
+		}
 			}
 			catch (const std::exception&)
 			{
@@ -413,6 +425,7 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 		delete call;
 		stdx::free(context->buffer);
 		delete context;
+		callback(stdx::network_recv_event(), std::current_exception());
 	}
 #ifdef DEBUG
 	::printf("[Network IO Service]IO操作已投递\n");
@@ -774,6 +787,7 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 		delete call;
 		stdx::free(context->buffer);
 		delete context;
+		callback(stdx::network_recv_event(), std::current_exception());
 	}
 #ifdef DEBUG
 	::printf("[Network IO Service]IO操作已投递\n");
@@ -1117,7 +1131,11 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								std::exception_ptr err(nullptr);
 								try
 								{
-									if (r < 1)
+									if (r == 0)
+									{
+										throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
+									}
+									else if (r < 0)
 									{
 										_ThrowLinuxError
 									}
@@ -1130,6 +1148,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 								}
 								context->size = (size_t)r;
+								stdx::finally fin([callback]()
+								{
+									delete callback;
+								});
 								try
 								{
 #ifdef DEBUG
@@ -1141,10 +1163,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								{
 
 								}
-								stdx::finally fin([callback]()
-									{
-										delete callback;
-									});
 #ifdef DEBUG
 								::printf("[Epoll]Callback执行完成\n");
 #endif // DEBUG
@@ -1161,6 +1179,33 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	}
 #endif
 }
+
+#ifdef LINUX
+void clean(epoll_event* ptr)
+{
+#ifdef DEBUG
+	::printf("[Epoll]清理损坏队列\n");
+#endif // DEBUG
+	stdx::network_io_context* context = (stdx::network_io_context*)ptr->data.ptr;
+	if (context == nullptr)
+	{
+		return;
+	}
+	auto* callback = context->callback;
+	try
+	{
+		(*callback)(context, std::make_exception_ptr(std::system_error(std::error_code(ECONNABORTED, std::system_category()))));
+	}
+	catch (const std::exception &err)
+	{
+#ifdef DEBUG
+		::printf("[Epoll]执行Callback出错%s\n",err.what());
+#endif // DEBUG
+	}
+	delete callback;
+}
+#endif // LINUX
+
 
 #ifdef WIN32
 DWORD stdx::_NetworkIOService::recv_flag = 0;

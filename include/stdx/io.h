@@ -8,20 +8,23 @@
 #ifdef WIN32
 
 //定义抛出Windows错误宏
+#ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
-						LPVOID _MSG;\
 						if(_ERROR_CODE != ERROR_IO_PENDING) \
 						{ \
-							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
-							{ \
-								throw std::runtime_error((char*)_MSG);\
-							}else \
-							{ \
-								std::string _ERROR_MSG("windows system error:");\
-								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
-								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
-							} \
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
+#define _ThrowWSAError 	auto _ERROR_CODE = WSAGetLastError(); \
+						if(_ERROR_CODE != WSA_IO_PENDING)\
+						{\
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()));\
+						}
+#endif
+
+#ifdef LINUX
+#define _ThrowLinuxError auto _ERROR_CODE = errno;\
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
+#endif
 						
 
 namespace stdx
@@ -387,16 +390,17 @@ namespace stdx
 		}
 		stdx::spin_lock m_lock;
 		bool m_existed;
-		std::queue<epoll_event> m_queue;
+		std::list<epoll_event> m_queue;
 	};
 
 	class _Reactor
 	{
 	public:
-		_Reactor()
+		_Reactor(std::function<void(epoll_event*)> clean)
 			:m_lock()
 			,m_map()
 			,m_poll()
+			,m_clean(clean)
 		{}
 		~_Reactor()=default;
 
@@ -444,14 +448,15 @@ namespace stdx
 		stdx::spin_lock m_lock;
 		std::unordered_map<int,ev_queue> m_map;
 		stdx::epoll m_poll;
+		std::function<void(epoll_event*)> m_clean;
 	};
 	
 	class reactor
 	{
 		using impl_t = std::shared_ptr<stdx::_Reactor>;
 	public:
-		reactor()
-			:m_impl(std::make_shared<stdx::_Reactor>())
+		reactor(std::function<void(epoll_event*)> &&clean)
+			:m_impl(std::make_shared<stdx::_Reactor>(clean))
 		{}
 		reactor(const reactor &other)
 			:m_impl(other.m_impl)

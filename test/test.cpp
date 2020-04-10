@@ -6,10 +6,10 @@
 #include <stdx/net/socket.h>
 #include <list>
 
-void handle_client(stdx::network_connected_event ev,std::string doc_content)
+void handle_client(stdx::network_connected_event ev,std::string doc_content,uint32_t &num,stdx::spin_lock lock)
 {
-	auto c = ev.connection;
-	auto t = c.recv(4096).then([c, doc_content](stdx::task_result<stdx::network_recv_event> r) mutable
+	stdx::socket c(ev.connection);
+	auto t = c.recv(4096).then([doc_content,&num,lock,c](stdx::task_result<stdx::network_recv_event> r) mutable
 		{
 			try
 			{
@@ -44,19 +44,19 @@ void handle_client(stdx::network_connected_event ev,std::string doc_content)
 				response.response_body().push(body);
 				return response;
 			}
-		}).then([c](stdx::http_response res) mutable
+		}).then([c,&num,lock](stdx::http_response res) mutable
 			{
 				std::vector<unsigned char>&& bytes = res.to_bytes();
 				stdx::uint64_union u;
 				u.value = bytes.size();
 				return c.send((const char*)bytes.data(), u.low);
 			})
-			.then([c](stdx::task_result<stdx::network_send_event> r) mutable
+			.then([c,&num,lock](stdx::task_result<stdx::network_send_event> r) mutable
 		{
 					try
 					{
+						c.close();
 						auto e = r.get();
-						//c.close();
 					}
 					catch (const std::exception& err)
 					{
@@ -110,13 +110,13 @@ int main(int argc, char **argv)
 		stdx::perrorf(U("Error:{0}\n"), e.what());
 		return -1;
 	}
-	std::list<stdx::socket> keeper;
-	s.accept_until_error([doc_content,&keeper](stdx::network_connected_event ev)  mutable
+	stdx::spin_lock lock;
+	uint32_t num = 0;
+	s.accept_until_error([doc_content,&num,lock](stdx::network_connected_event ev)  mutable
 	{
 			try
 			{
-				//keeper.push_back(ev.connection);
-				handle_client(ev, doc_content);
+				handle_client(ev, doc_content,num,lock);
 			}
 			catch (const std::exception& err)
 			{

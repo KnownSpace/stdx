@@ -9,21 +9,13 @@
 #endif
 
 #ifdef WIN32
+
 #include <Shlwapi.h>
 #pragma comment(lib,"Shlwapi.lib")
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
-						LPVOID _MSG;\
 						if(_ERROR_CODE != ERROR_IO_PENDING) \
 						{ \
-							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
-							{ \
-								throw std::runtime_error((char*)_MSG);\
-							}else \
-							{ \
-								std::string _ERROR_MSG("windows system error:");\
-								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
-								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
-							} \
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
 
 namespace stdx
@@ -897,24 +889,6 @@ namespace stdx
 
 
 #if defined(WIN32) | defined(LINUX)
-
-#ifdef WIN32
-#define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
-						LPVOID _MSG;\
-						if(_ERROR_CODE != ERROR_IO_PENDING) \
-						{ \
-							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
-							{ \
-								throw std::runtime_error((char*)_MSG);\
-							}else \
-							{ \
-								std::string _ERROR_MSG("windows system error:");\
-								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
-								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
-							} \
-						}
-
-#endif
 namespace stdx
 {
 	extern stdx::task_flag _FullpathNameFlag;
@@ -975,7 +949,3 @@ namespace stdx
 	};
 }
 #endif
-
-#ifdef WIN32
-#undef _ThrowWinError
-#endif // WIN32

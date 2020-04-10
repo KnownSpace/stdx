@@ -7,7 +7,7 @@ stdx::_SpinLock::_SpinLock()
 void stdx::_SpinLock::lock() volatile
 {
 	bool exp = false;
-	while (m_locked.compare_exchange_strong(exp, true, std::memory_order_acquire))
+	while (!m_locked.compare_exchange_weak(exp, true))
 	{
 		exp = false;
 		std::this_thread::yield();
@@ -16,5 +16,5 @@ void stdx::_SpinLock::lock() volatile
 
 void stdx::_SpinLock::unlock() volatile noexcept
 {
-	m_locked.store(false,std::memory_order::memory_order_release);
+	m_locked.store(false);
 }

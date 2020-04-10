@@ -11,28 +11,18 @@
 #pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib, "Mswsock.lib")
 #define _STDX_HAS_SOCKET
+#ifdef WIN32
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
-						LPVOID _MSG;\
 						if(_ERROR_CODE != ERROR_IO_PENDING) \
 						{ \
-							if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,NULL,_ERROR_CODE,MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),(LPTSTR) &_MSG,0,NULL))\
-							{ \
-								throw std::runtime_error((char*)_MSG);\
-							}else \
-							{ \
-								std::string _ERROR_MSG("windows system error:");\
-								_ERROR_MSG.append(std::to_string(_ERROR_CODE));\
-								throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_MSG.c_str()); \
-							} \
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
-
 #define _ThrowWSAError 	auto _ERROR_CODE = WSAGetLastError(); \
 						if(_ERROR_CODE != WSA_IO_PENDING)\
 						{\
-							std::string _ERROR_STR("windows WSA error:");\
-							_ERROR_STR.append(std::to_string(_ERROR_CODE));\
-							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),_ERROR_STR.c_str());\
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()));\
 						}
+#endif
 #endif 
 
 #ifdef LINUX
@@ -43,7 +33,7 @@
 #include<sys/sendfile.h>
 #define _STDX_HAS_SOCKET
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
 #endif // LINUX
 
 
@@ -867,6 +857,8 @@ namespace stdx
 		socket(self_t&& other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
+		~socket()
+		{}
 		self_t& operator=(const self_t& other)
 		{
 			m_impl = other.m_impl;
@@ -966,6 +958,7 @@ namespace stdx
 		{
 			return m_impl == other.m_impl;
 		}
+
 	private:
 		impl_t m_impl;
 
@@ -1002,6 +995,14 @@ namespace stdx
 			addr = other.addr;
 			return *this;
 		}
+
+		network_connected_event& operator=(network_connected_event&& other) noexcept
+		{
+			connection = other.connection;
+			addr = other.addr;
+			return *this;
+		}
+
 		stdx::socket connection;
 		ipv4_addr addr;
 	};
