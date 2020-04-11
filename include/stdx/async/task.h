@@ -332,7 +332,7 @@ namespace stdx
 			catch (const std::exception&)
 			{
 				//加锁
-				lock.lock();
+				std::unique_lock<stdx::spin_lock> _lock(lock);
 				//设置状态为错误
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
@@ -340,15 +340,13 @@ namespace stdx
 				if (*next)
 				{
 					//解锁
-					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
 					future.wait();
 					return;
 				}
 				//解锁
-				lock.unlock();
-				future.wait();
+				_lock.unlock();
 				return;
 			}
 			//加锁
@@ -367,7 +365,6 @@ namespace stdx
 				}
 			}
 			//设置状态为完成
-
 			*state = task_state::complete;
 			//解锁
 			lock.unlock();

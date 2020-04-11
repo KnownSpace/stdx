@@ -804,8 +804,7 @@ void stdx::_NetworkIOService::close(socket_t sock)
 		_ThrowWSAError
 	}
 #else
-	::close(sock);
-	m_reactor.unbind(sock); //It is OK!
+	m_reactor.unbind_and_close(sock);
 #endif
 }
 
@@ -996,6 +995,9 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 #endif
 }
 
+size_t num = 0;
+stdx::spin_lock num_lock;
+
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
@@ -1051,7 +1053,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::run([](stdx::reactor reactor, std::shared_ptr<bool> alive)
-
 			{
 				while (*alive)
 				{
@@ -1070,6 +1071,16 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								{
 									return;
 								}
+								if (ev_ptr->events & stdx::epoll_events::hup)
+								{
+									reactor.push(context->this_socket,*ev_ptr);
+									return;
+								}
+								else if(ev_ptr->events & stdx::epoll_events::err)
+								{
+									reactor.push(context->this_socket, *ev_ptr);
+									return;
+								}
 								ssize_t r = 0;
 #ifdef DEBUG
 								::printf("[Epoll]IO操作准备中\n");
@@ -1079,7 +1090,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef DEBUG
 									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
 #endif // DEBUG
-									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL);
+									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL|MSG_DONTWAIT);
 								}
 								else if (context->code == stdx::network_io_context_code::recvfrom)
 								{
@@ -1088,7 +1099,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef DEBUG
 									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
 #endif // DEBUG
-									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL, (sockaddr*)&addr, &addr_size);
+									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL|MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
 									context->addr = stdx::ipv4_addr(addr);
 								}
 								else if (context->code == stdx::network_io_context_code::accept)
@@ -1137,35 +1148,31 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 									}
 									else if (r < 0)
 									{
+										if (errno == EAGAIN || errno == EWOULDBLOCK)
+										{
+											reactor.push(context->this_socket,*ev_ptr);
+											return;
+										}
 										_ThrowLinuxError
 									}
+									context->size = (size_t)r;
 								}
-								catch (const std::exception& ex)
+								catch (const std::exception&)
 								{
 									err = std::current_exception();
 #ifdef DEBUG
 									::printf("[Epoll]IO操作出错\n");
 #endif // DEBUG
 								}
-								context->size = (size_t)r;
-								stdx::finally fin([callback]()
-								{
-									delete callback;
-								});
 								try
 								{
-#ifdef DEBUG
-									::printf("[Epoll]Callback执行中\n");
-#endif // DEBUG
 									(*callback)(context, err);
 								}
 								catch (const std::exception&)
 								{
 
 								}
-#ifdef DEBUG
-								::printf("[Epoll]Callback执行完成\n");
-#endif // DEBUG
+								delete callback;
 							});
 					}
 					catch (const std::exception&)

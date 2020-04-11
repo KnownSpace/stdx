@@ -5,6 +5,8 @@
 #include <stdx/buffer.h>
 #include <stdio.h>
 #include <stdx/async/threadpool.h>
+#include <stdx/finally.h>
+
 #ifdef WIN32
 
 //定义抛出Windows错误宏
@@ -360,7 +362,8 @@ namespace stdx
 			:m_lock()
 			,m_existed(false)
 			,m_queue()
-		{}
+		{
+		}
 
 		ev_queue(const ev_queue& other)
 			:m_lock(other.m_lock)
@@ -408,6 +411,8 @@ namespace stdx
 
 		void unbind(int fd);
 
+		void unbind_and_close(int fd);
+
 		template<typename _Finder,typename _Fn>
 		void get(_Fn execute)
 		{
@@ -421,6 +426,11 @@ namespace stdx
 			int fd = _Finder::find(ev_ptr);
 			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
 				{
+					stdx::finally fin([this,fd]() 
+					{
+							//在IO操作后执行
+							loop(fd);
+					});
 					try
 					{
 						execute(ev);
@@ -432,7 +442,6 @@ namespace stdx
 #ifdef DEBUG
 					::printf("[Epoll]新循环开始\n");
 #endif // DEBUG
-					loop(fd);
 				}, ev_ptr, execute, fd);
 		}
 
@@ -477,7 +486,12 @@ namespace stdx
 			return m_impl->unbind(fd);
 		}
 
-		template<typename _Finder, typename _Fn>
+		void unbind_and_close(int fd)
+		{
+			return m_impl->unbind_and_close(fd);
+		}
+
+		template<typename _Finder, typename _Fn, class = typename std::enable_if<is_arguments_type(_Fn, epoll_event*)>::type >
 		void get(_Fn &&execute)
 		{
 			return m_impl->get<_Finder>(std::move(execute));

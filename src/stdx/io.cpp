@@ -135,12 +135,6 @@ void stdx::_Reactor::bind(int fd)
 		m_map.emplace(fd,make());
 		_lock.unlock();
 	}
-	else
-	{
-#ifdef DEBUG
-		::printf("[Epoll]绑定已被另一线程完成\n");
-#endif // DEBUG
-	}
 }
 
 void stdx::_Reactor::unbind(int fd)
@@ -149,14 +143,39 @@ void stdx::_Reactor::unbind(int fd)
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		_lock.unlock();
 		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
+		_lock.unlock();
 		if (!iterator->second.m_queue.empty())
 		{
 #ifdef DEBUG
 			::printf("[Epoll]IO操作仍未完成,但FD已解除绑定,剩余队列长%zu\n", iterator->second.m_queue.size());
 #endif
 			for (auto qbegin = iterator->second.m_queue.begin(),qend=iterator->second.m_queue.end();qbegin!=qend;qbegin++)
+			{
+				auto ev = *qbegin;
+				m_clean(&ev);
+				iterator->second.m_queue.erase(qbegin);
+			}
+		}
+		iterator->second.m_existed = false;
+	}
+}
+
+void stdx::_Reactor::unbind_and_close(int fd)
+{
+	std::unique_lock<stdx::spin_lock> _lock(m_lock);
+	auto iterator = m_map.find(fd);
+	if (iterator != std::end(m_map))
+	{
+		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
+		_lock.unlock();
+		::close(fd);
+		if (!iterator->second.m_queue.empty())
+		{
+#ifdef DEBUG
+			::printf("[Epoll]IO操作仍未完成,但FD已解除绑定,剩余队列长%zu\n", iterator->second.m_queue.size());
+#endif
+			for (auto qbegin = iterator->second.m_queue.begin(), qend = iterator->second.m_queue.end(); qbegin != qend; qbegin++)
 			{
 				auto ev = *qbegin;
 				m_clean(&ev);
@@ -215,25 +234,32 @@ void stdx::_Reactor::loop(int fd)
 			{
 				auto ev = obj.second.m_queue.front();
 				iterator->second.m_queue.pop_front();
-				lock.unlock();
 #ifdef DEBUG
 				::printf("[Epoll]更新监听事件\n");
 #endif // DEBUG
 				m_poll.update_event(fd, &ev);
+				obj.second.m_existed = true;
 				return;
 			}
 			else
 			{
+#ifdef DEBUG
+				::printf("[Epoll]到达循环尾\n");
+#endif // DEBUG
 				m_poll.del_event(fd);
 				obj.second.m_existed = false;
+				return;
 			}
 		}
 		else
 		{
+			if (!obj.second.m_queue.empty())
+			{
+				lock.unlock();
+				unbind(fd);
+				return;
+			}
 		}
-#ifdef DEBUG
-		::printf("[Epoll]到达循环尾\n");
-#endif // DEBUG
 	}
 }
 #endif // LINUX
