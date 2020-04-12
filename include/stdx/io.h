@@ -437,7 +437,7 @@ namespace stdx
 					stdx::finally fin([this,fd,ev]() 
 					{
 							//在IO操作后执行
-							loop(fd);
+							//loop(fd);
 							delete ev;
 					});
 					try
@@ -499,6 +499,7 @@ namespace stdx
 			return m_impl->unbind_and_close(fd);
 		}
 
+		//在execute中手动调用loop
 		template<typename _Finder, typename _Fn, class = typename std::enable_if<is_arguments_type(_Fn, epoll_event*)>::type >
 		void get(_Fn &&execute)
 		{
@@ -508,6 +509,11 @@ namespace stdx
 		void push(int fd,epoll_event &ev)
 		{
 			return m_impl->push(fd,ev);
+		}
+
+		void loop(int fd)
+		{
+			return m_impl->loop(fd);
 		}
 
 		bool operator==(const reactor &other) const

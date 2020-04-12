@@ -170,7 +170,6 @@ void stdx::_Reactor::unbind_and_close(int fd)
 	{
 		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
 		_lock.unlock();
-		::close(fd);
 		if (!iterator->second.m_queue.empty())
 		{
 #ifdef DEBUG
@@ -184,6 +183,7 @@ void stdx::_Reactor::unbind_and_close(int fd)
 			}
 		}
 		iterator->second.m_existed = false;
+		::close(fd);
 	}
 }
 

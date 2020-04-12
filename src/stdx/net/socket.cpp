@@ -1071,11 +1071,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								if (ev_ptr->events & stdx::epoll_events::hup)
 								{
 									reactor.push(context->this_socket,*ev_ptr);
+									reactor.loop(context->this_socket);
 									return;
 								}
 								else if(ev_ptr->events & stdx::epoll_events::err)
 								{
 									reactor.push(context->this_socket, *ev_ptr);
+									reactor.loop(context->this_socket);
 									return;
 								}
 								ssize_t r = 0;
@@ -1115,6 +1117,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 										epoll_event ev = *ev_ptr;
 										reactor.push(context->this_socket,ev);
+										reactor.loop(context->this_socket);
 										return;
 									}
 									else
@@ -1148,6 +1151,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 										if (errno == EAGAIN || errno == EWOULDBLOCK)
 										{
 											reactor.push(context->this_socket,*ev_ptr);
+											reactor.loop(context->this_socket);
 											return;
 										}
 										_ThrowLinuxError
@@ -1165,6 +1169,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								{
 									delete callback;
 								});
+								reactor.loop(context->this_socket);
 								try
 								{
 									(*callback)(context, err);
