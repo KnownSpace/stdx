@@ -995,9 +995,6 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 #endif
 }
 
-size_t num = 0;
-stdx::spin_lock num_lock;
-
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
@@ -1109,7 +1106,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 									sockaddr_in addr;
 									socklen_t addr_size = sizeof(sockaddr_in);
-									context->target_socket = ::accept4(context->this_socket,(sockaddr*)&addr,&addr_size,O_NONBLOCK);
+									context->target_socket = ::accept4(context->this_socket,(sockaddr*)&addr,&addr_size, SOCK_NONBLOCK);
 									context->addr = stdx::ipv4_addr(addr);
 									if (context->target_socket == -1)
 									{
@@ -1164,6 +1161,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 									::printf("[Epoll]IO操作出错\n");
 #endif // DEBUG
 								}
+								stdx::finally fin([callback]()
+								{
+									delete callback;
+								});
 								try
 								{
 									(*callback)(context, err);
@@ -1172,7 +1173,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								{
 
 								}
-								delete callback;
 							});
 					}
 					catch (const std::exception&)

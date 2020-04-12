@@ -201,7 +201,7 @@ namespace stdx
 
 		void update_event(int fd, epoll_event *event_ptr);
 
-		void wait(epoll_event *event_ptr, const int &maxevents, const int &timeout);
+		int wait(epoll_event *event_ptr, const int &maxevents, const int &timeout);
 	private:
 		int m_handle;
 	};
@@ -236,7 +236,7 @@ namespace stdx
 			return m_impl->del_event(fd);
 		}
 
-		void wait(epoll_event *event_ptr,const int &maxevents,const int &timeout)
+		int wait(epoll_event *event_ptr,const int &maxevents,const int &timeout)
 		{
 			return m_impl->wait(event_ptr, maxevents, timeout);
 		}
@@ -245,7 +245,10 @@ namespace stdx
 		{
 			
 			epoll_event ev;
-			this->wait(&ev, 1, timeout);
+			if (this->wait(&ev, 1, timeout) != 1)
+			{
+				ev.data.fd = -1;
+			}
 			return ev;
 		}
 	private:
@@ -420,28 +423,33 @@ namespace stdx
 #ifdef DEBUG
 			::printf("[Epoll]等待事件到达\n");
 #endif // DEBUG
-			epoll_event ev = m_poll.wait(-1);
+			epoll_event ev;
+			int r = m_poll.wait(&ev,1,300);
+			while (r != 1)
+			{
+				r = m_poll.wait(&ev, 1, 300);
+			}
 			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
 			int fd = _Finder::find(ev_ptr);
 			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
 				{
-					stdx::finally fin([this,fd]() 
+					stdx::finally fin([this,fd,ev]() 
 					{
 							//在IO操作后执行
 							loop(fd);
+							delete ev;
 					});
 					try
 					{
 						execute(ev);
 					}
-					catch (...)
+					catch (const std::exception &err)
 					{
-					}
-					delete ev;
 #ifdef DEBUG
-					::printf("[Epoll]新循环开始\n");
+						::printf("[Epoll]Callback出错%s\n",err.what());
 #endif // DEBUG
+					}
 				}, ev_ptr, execute, fd);
 		}
 

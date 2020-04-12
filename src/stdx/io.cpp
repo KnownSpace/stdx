@@ -115,7 +115,7 @@ void stdx::_EPOLL::update_event(int fd, epoll_event * event_ptr)
 		_ThrowLinuxError
 	}
 }
-void stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int & timeout) 
+int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int & timeout) 
 {
 	sigset_t newmask;
 	sigemptyset(&newmask);
@@ -125,6 +125,7 @@ void stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const in
 	{
 		_ThrowLinuxError
 	}
+	return r;
 }
 void stdx::_Reactor::bind(int fd)
 {
@@ -193,15 +194,13 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	auto iterator = m_map.find(fd);
 	if (iterator != std::end(m_map))
 	{
-		std::lock_guard<stdx::spin_lock> lock(iterator->second.m_lock);
+		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
 		_lock.unlock();
-#ifdef DEBUG
-		printf("[Epoll]准备更新监听事件\n");
-#endif // DEBUG
 		if (!iterator->second.m_existed)
 		{
-			m_poll.add_event(fd, &ev);
 			iterator->second.m_existed = true;
+			lock.unlock();
+			m_poll.add_event(fd, &ev);
 		}
 		else
 		{
@@ -211,9 +210,6 @@ void stdx::_Reactor::push(int fd, epoll_event & ev)
 	else
 	{
 		_lock.unlock();
-#ifdef DEBUG
-		::printf("[Epoll]无效FD\n");
-#endif // DEBUG
 		bind(fd);
 		return push(fd, ev);
 	}
@@ -237,8 +233,8 @@ void stdx::_Reactor::loop(int fd)
 #ifdef DEBUG
 				::printf("[Epoll]更新监听事件\n");
 #endif // DEBUG
-				m_poll.update_event(fd, &ev);
 				obj.second.m_existed = true;
+				m_poll.update_event(fd, &ev);
 				return;
 			}
 			else
