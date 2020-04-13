@@ -68,20 +68,12 @@ void stdx::_Threadpool::join_handle()
 		while (*alive)
 		{
 			std::unique_lock<std::mutex> __lock(*mutex);
-			//等待通知
+#ifdef DEBUG
+			::printf("[Threadpool]线程池等待任务中\n");
+#endif
 			while (tasks->empty() && *alive)
 			{
-				auto r = cond->wait_for(__lock,std::chrono::minutes(5));
-				if (r == std::cv_status::timeout)
-				{
-					std::unique_lock<stdx::spin_lock> lock(_lock);
-#ifdef DEBUG
-					::printf("[Threadpool]线程池等待任务超时,清除线程\n");
-#endif
-					*count = *count - 1;
-					return;
-				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				cond->wait(__lock);
 			}
 			if (!(tasks->empty()))
 			{
@@ -162,9 +154,9 @@ uint32_t stdx::_Threadpool::expand_number_of_threads()
 
 bool stdx::_Threadpool::need_expand() const
 {
-	if (*m_alive_count < 6 * m_cpu_cores)
+	if (*m_alive_count < (6 * m_cpu_cores))
 	{
-		if (m_task_queue->size() > * m_free_count)
+		if (m_task_queue->size() > *m_free_count)
 		{
 			return true;
 		}
@@ -201,21 +193,12 @@ void stdx::_Threadpool::add_thread() noexcept
 		{
 			std::unique_lock<std::mutex> __lock(*mutex);
 			//等待通知
+#ifdef DEBUG
+			::printf("[Threadpool]线程池等待任务中\n");
+#endif
 			while (tasks->empty() && *alive)
 			{
-#ifdef DEBUG
-				::printf("[Threadpool]线程池等待任务中\n");
-#endif
-				auto r = cond->wait_for(__lock, std::chrono::minutes(5));
-				if (r == std::cv_status::timeout)
-				{
-					//std::unique_lock<stdx::spin_lock> lock(_lock);
-#ifdef DEBUG
-					::printf("[Threadpool]线程池等待任务超时,清除线程\n");
-#endif
-					* count = *count - 1;
-					return;
-				}
+				cond->wait(__lock);
 			}
 			if (!(tasks->empty()))
 			{
