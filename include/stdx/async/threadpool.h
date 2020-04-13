@@ -40,9 +40,6 @@ namespace stdx
 			::printf("[Threadpool]正在投递任务\n");
 #endif // DEBUG
 			std::function<void()> t = std::bind(task,args...);
-#ifdef DEBUG
-			::printf("[Threadpool]空闲线程数(%u)不足,创建新线程\n", *m_free_count);
-#endif // DEBUG
 			std::unique_lock<std::mutex> _lock(*m_mutex);
 			m_task_queue->push(std::move(t));
 			m_cv->notify_one();
