@@ -29,7 +29,6 @@ uint32_t stdx::suggested_threads_number()
 stdx::_Threadpool::_Threadpool() noexcept
 	:m_alive_count(std::make_shared<uint32_t>(0))
 	,m_free_count(std::make_shared<uint32_t>(0))
-	, m_lock()
 	, m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable>>())
 	, m_cv(std::make_shared<std::condition_variable>())
@@ -52,19 +51,12 @@ stdx::_Threadpool::~_Threadpool() noexcept
 
 void stdx::_Threadpool::join_handle()
 {
-	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	std::unique_lock<std::mutex> lock(*m_mutex);
 	*m_alive_count += 1;
+	*m_free_count += 1;
 	lock.unlock();
-	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, stdx::spin_lock _lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
+	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
 	{
-
-		stdx::finally fin([mutex, alive_count]() mutable
-		{
-			std::unique_lock<std::mutex> lock(*mutex);
-			*alive_count -= 1;
-		});
-
-		//如果存活
 		while (*alive)
 		{
 			std::unique_lock<std::mutex> __lock(*mutex);
@@ -82,9 +74,7 @@ void stdx::_Threadpool::join_handle()
 #endif
 				//如果任务列表不为空
 				//减去一个计数
-				//std::unique_lock<stdx::spin_lock> lock(_lock);
 				*count = *count - 1;
-				//lock.unlock();
 #ifdef DEBUG
 				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 #endif
@@ -136,7 +126,7 @@ void stdx::_Threadpool::join_handle()
 			}
 		}
 	};
-	handle(m_task_queue,m_cv,m_mutex, m_free_count, m_lock, m_alive,m_alive_count);
+	handle(m_task_queue,m_cv,m_mutex, m_free_count, m_alive,m_alive_count);
 }
 
 uint32_t stdx::_Threadpool::expand_number_of_threads()
@@ -179,15 +169,8 @@ void stdx::_Threadpool::add_thread() noexcept
 	printf("[Threadpool]正在创建新线程\n");
 #endif
 
-	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, stdx::spin_lock _lock, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
+	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
 	{
-
-		stdx::finally fin([mutex, alive_count]() mutable
-			{
-				std::unique_lock<std::mutex> lock(*mutex);
-				*alive_count -= 1;
-			});
-
 		//如果存活
 		while (*alive)
 		{
@@ -207,9 +190,7 @@ void stdx::_Threadpool::add_thread() noexcept
 #endif
 				//如果任务列表不为空
 				//减去一个计数
-				//std::unique_lock<stdx::spin_lock> lock(_lock);
 				* count = *count - 1;
-				//lock.unlock();
 #ifdef DEBUG
 				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
 #endif
@@ -246,7 +227,6 @@ void stdx::_Threadpool::add_thread() noexcept
 #endif
 				//完成或终止后
 				//添加计数
-				//lock.lock();
 				* count = *count + 1;
 #ifdef DEBUG
 				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
@@ -262,7 +242,7 @@ void stdx::_Threadpool::add_thread() noexcept
 		}
 	};
 	//创建线程
-	std::thread t(handle, m_task_queue, m_cv, m_mutex, m_free_count, m_lock, m_alive, m_alive_count);
+	std::thread t(handle, m_task_queue, m_cv, m_mutex, m_free_count, m_alive, m_alive_count);
 	//分离线程
 	t.detach();
 }

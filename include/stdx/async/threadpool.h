@@ -59,7 +59,6 @@ namespace stdx
 		std::shared_ptr<uint32_t> m_alive_count;
 		std::shared_ptr<uint32_t> m_free_count;
 		std::shared_ptr<bool> m_alive;
-		mutable stdx::spin_lock m_lock;
 		std::shared_ptr<std::queue<runable>> m_task_queue;
 		std::shared_ptr<std::condition_variable> m_cv;
 		std::shared_ptr<std::mutex> m_mutex;
