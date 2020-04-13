@@ -2806,23 +2806,12 @@ stdx::http_chunk_body::self_t& stdx::http_chunk_body::operator=(self_t&& other) 
 	return *this;
 }
 
-template<bool _Cond>
 void _GetHexFromSize(char* buf,size_t size)
 {
 #ifdef WIN32
-	::sprintf_s(buf, 16, "%lX", size);
+	::sprintf_s(buf, 16, "%zu", size);
 #else
-	::sprintf(buf,"%lX", size);
-#endif
-}
-
-template<>
-void _GetHexFromSize<false>(char* buf, size_t size)
-{
-#ifdef WIN32
-	::sprintf_s(buf, 16, "%X", size);
-#else
-	::sprintf(buf, "%X", size);
+	::sprintf(buf,"%zu", size);
 #endif
 }
 
@@ -2836,7 +2825,7 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_by
 			size_t size = begin->size();
 			char buf[17];
 			memset(buf, 0, 17);
-			_GetHexFromSize<(sizeof(void*) == 8)>(buf,size);
+			_GetHexFromSize(buf,size);
 			builder.append(buf);
 			builder.append("\r\n");
 			for (auto data_begin = begin->cbegin(),data_end = begin->cend();data_begin!=data_end;data_begin++)

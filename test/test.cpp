@@ -6,10 +6,10 @@
 #include <stdx/net/socket.h>
 #include <list>
 
-void handle_client(stdx::network_connected_event ev,std::string doc_content,uint32_t &num,stdx::spin_lock lock)
+void handle_client(stdx::network_connected_event ev, std::string doc_content, uint32_t& num, stdx::spin_lock lock)
 {
 	stdx::socket c(ev.connection);
-	auto t = c.recv(4096).then([doc_content,&num,lock,c](stdx::task_result<stdx::network_recv_event> r) mutable
+	auto t = c.recv(4096).then([doc_content, &num, lock, c](stdx::task_result<stdx::network_recv_event> r) mutable
 		{
 			try
 			{
@@ -44,15 +44,15 @@ void handle_client(stdx::network_connected_event ev,std::string doc_content,uint
 				response.response_body().push(body);
 				return response;
 			}
-		}).then([c,&num,lock](stdx::http_response res) mutable
+		}).then([c, &num, lock](stdx::http_response res) mutable
 			{
 				std::vector<unsigned char>&& bytes = res.to_bytes();
 				stdx::uint64_union u;
 				u.value = bytes.size();
 				return c.send((const char*)bytes.data(), u.low);
 			})
-			.then([c,&num,lock](stdx::task_result<stdx::network_send_event> r) mutable
-		{
+			.then([c, &num, lock](stdx::task_result<stdx::network_send_event> r) mutable
+				{
 					try
 					{
 						c.close();
@@ -62,85 +62,85 @@ void handle_client(stdx::network_connected_event ev,std::string doc_content,uint
 					{
 						stdx::perrorf(U("发送失败:{0}\n"), err.what());
 					}
-		});
+				});
 }
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::file_io_service file_io_service;
-	stdx::file doc(file_io_service,U("./index.html"));
+	stdx::file doc(file_io_service, U("./index.html"));
 	if (!doc.exist())
 	{
-		stdx::perrorf(U("Error:File {0} does not exist"),doc.path());
+		stdx::perrorf(U("Error:File {0} does not exist"), doc.path());
 		return -1;
 	}
 	std::string doc_content;
 	auto stream = doc.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
 	stream.read_to_end(0).then([&doc_content](stdx::task_result<stdx::file_read_event> r) mutable
-	{
-		try
 		{
-			stdx::printf(U("读取文件完成\n"));
-			auto &&e = r.get();
-			doc_content = std::string(e.buffer, e.buffer.size());
-		}
-		catch (const std::exception &err)
-		{
-			stdx::perrorf(U("Error:{0}"),err.what());
-			std::terminate();
-		}
-	}).wait();
-	stdx::network_io_service service;
-	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
-	try
-	{
-		stdx::ipv4_addr addr(U("0.0.0.0"),8080);
-		if (argc != 1)
-		{
-			addr.port(std::stoul(argv[1]));
-		}
-		s.bind(addr);
-		s.listen(65535);
-		stdx::printf(U("Listen: {0}:{1}\n"),addr.ip(),addr.port());
-	}
-	catch (std::exception &e)
-	{
-		stdx::perrorf(U("Error:{0}\n"), e.what());
-		return -1;
-	}
-	stdx::spin_lock lock;
-	uint32_t num = 0;
-	s.accept_until_error([doc_content,&num,lock](stdx::network_connected_event ev)  mutable
-	{
 			try
 			{
-				handle_client(ev, doc_content,num,lock);
+				stdx::printf(U("读取文件完成\n"));
+				auto&& e = r.get();
+				doc_content = std::string(e.buffer, e.buffer.size());
 			}
 			catch (const std::exception& err)
 			{
-				stdx::perrorf(U("Handle Error:{0}"), err.what());
+				stdx::perrorf(U("Error:{0}"), err.what());
+				std::terminate();
 			}
-	},
-	[](std::exception_ptr error) 
-	{
-		printf("监听关闭\n");
+		}).wait();
+		stdx::network_io_service service;
+		stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 		try
 		{
-			if (error)
+			stdx::ipv4_addr addr(U("0.0.0.0"), 8080);
+			if (argc != 1)
 			{
-				std::rethrow_exception(error);
+				addr.port(std::stoul(argv[1]));
 			}
+			s.bind(addr);
+			s.listen(65535);
+			stdx::printf(U("Listen: {0}:{1}\n"), addr.ip(), addr.port());
 		}
-		catch (const std::exception &err)
+		catch (std::exception& e)
 		{
-			stdx::perrorf(U("Accept Error:{0}"), err.what());
+			stdx::perrorf(U("Error:{0}\n"), e.what());
+			return -1;
 		}
-	});
-	stdx::threadpool::join_handle();
-	s.close();
+		stdx::spin_lock lock;
+		uint32_t num = 0;
+		s.accept_until_error([doc_content, &num, lock](stdx::network_connected_event ev)  mutable
+			{
+				try
+				{
+					handle_client(ev, doc_content, num, lock);
+				}
+				catch (const std::exception& err)
+				{
+					stdx::perrorf(U("Handle Error:{0}"), err.what());
+				}
+			},
+			[](std::exception_ptr error)
+			{
+				printf("监听关闭\n");
+				try
+				{
+					if (error)
+					{
+						std::rethrow_exception(error);
+					}
+				}
+				catch (const std::exception& err)
+				{
+					stdx::perrorf(U("Accept Error:{0}"), err.what());
+				}
+			});
+		stdx::threadpool::join_handle();
+		s.close();
 #pragma endregion
 #endif
-	return 0;
+		return 0;
 }

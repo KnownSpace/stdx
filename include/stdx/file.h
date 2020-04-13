@@ -188,9 +188,9 @@ namespace stdx
 		file_io_service()
 			:m_impl(std::make_shared<_FileIOService>())
 		{}
-		//file_io_service(const iocp_t &iocp)
-		//	:m_impl(std::make_shared<_FileIOService>(iocp))
-		//{}
+		file_io_service(const impl_t &impl)
+			:m_impl(impl)
+		{}
 		file_io_service(const file_io_service &other)
 			:m_impl(other.m_impl)
 		{}
@@ -614,6 +614,9 @@ namespace stdx
 		file_io_service(uint32_t nr_events)
 			:m_impl(std::make_shared<_FileIOService>(nr_events))
 		{}
+		file_io_service(const impl_t& impl)
+			:m_impl(impl)
+		{}
 		file_io_service(const file_io_service &other)
 			:m_impl(other.m_impl)
 		{}
@@ -909,6 +912,10 @@ namespace stdx
 	{
 	public:
 		
+		file()
+			:m_io_service(nullptr)
+			,m_path(std::make_shared<stdx::string>())
+		{}
 
 		file(const stdx::file_io_service &io_service,const stdx::string &path);
 
@@ -939,6 +946,18 @@ namespace stdx
 		stdx::file_stream open_stream(const stdx::file_io_service &io_service, const int32_t &access_type, const int32_t &open_type);
 
 		int open_native_handle(const int32_t &access_type, const int32_t &open_type) const;
+#endif // WIN32
+
+#ifdef WIN32
+		HANDLE open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
+#else
+		int open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
+#endif
+
+#ifdef WIN32
+		static void close_handle(HANDLE file);
+#else
+		static void close_handle(int file);
 #endif // WIN32
 
 		stdx::file_stream open_stream(const stdx::file_access_type &access_type, const stdx::file_open_type &open_type);

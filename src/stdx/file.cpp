@@ -1153,6 +1153,49 @@ stdx::file_stream stdx::file::open_stream(const stdx::file_access_type & access_
 }
 
 #ifdef WIN32
+HANDLE stdx::file::open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
+{
+	DWORD shared = 0;
+	DWORD access = stdx::forward_file_access_type(access_type);
+	if (access == FILE_GENERIC_READ)
+	{
+		shared = FILE_SHARE_READ;
+	}
+	else if (access == FILE_GENERIC_WRITE)
+	{
+		shared = FILE_SHARE_WRITE;
+}
+	else if (access == GENERIC_ALL)
+	{
+		shared = FILE_SHARE_READ | FILE_SHARE_WRITE;
+	}
+	HANDLE file = CreateFileW(m_path->c_str(), access, shared, 0, stdx::forward_file_open_type(open_type), FILE_FLAG_SEQUENTIAL_SCAN, 0);
+	if (file == INVALID_HANDLE_VALUE)
+	{
+		_ThrowWinError
+	}
+	return file;
+}
+#else
+int stdx::file::open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
+{
+	::open(m_path->c_str(), stdx::forward_file_access_type(access_type) | stdx::forward_file_open_type(open_type));
+}
+#endif // WIN32
+
+#ifdef WIN32
+void stdx::file::close_handle(HANDLE file)
+{
+	::CloseHandle(file);
+}
+#else
+void stdx::file::close_handle(int file)
+{
+	::close(file);
+}
+#endif // WIN32
+
+#ifdef WIN32
 #undef _ThrowWinError
 #endif // WIN32
 #ifdef LINUX
