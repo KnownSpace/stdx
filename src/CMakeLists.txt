@@ -36,7 +36,9 @@ endif()
 if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
 	add_definitions(-DWIN32)
 	message(STATUS "Current platform: Windows ")
-	target_compile_options(libstdx  PUBLIC "/MT$<$<STREQUAL:$<CONFIGURATION>,Debug>:d>")
+	if(MSVC_USE_MT)
+		target_compile_options(libstdx  PUBLIC "/MT$<$<STREQUAL:$<CONFIGURATION>,Debug>:d>")
+	endif()
 endif()
 
 #定义DEBUG符号
