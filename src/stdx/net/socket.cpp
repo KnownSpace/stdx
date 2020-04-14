@@ -433,7 +433,7 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 #endif
 }
 
-void stdx::_NetworkIOService::connect(socket_t sock, stdx::ipv4_addr& addr)
+void stdx::_NetworkIOService::connect(socket_t sock,  stdx::ipv4_addr& addr)
 {
 #ifdef WIN32
 	if (WSAConnect(sock, addr, ipv4_addr::addr_len, NULL, NULL, NULL, NULL) == SOCKET_ERROR)
@@ -1495,6 +1495,36 @@ stdx::socket stdx::open_tcpsocket(const stdx::network_io_service& io_service)
 stdx::socket stdx::open_udpsocket(const stdx::network_io_service& io_service)
 {
 	return stdx::open_socket(io_service, stdx::addr_family::ip, stdx::socket_type::dgram, stdx::protocol::udp);
+}
+
+stdx::socket stdx::connect_to(const stdx::network_io_service& io_service,stdx::ipv4_addr& addr)
+{
+	stdx::socket sock = stdx::open_tcpsocket(io_service);
+	sock.connect(addr);
+	return sock;
+}
+
+stdx::socket stdx::connect_to(const stdx::network_io_service& io_service, stdx::ipv4_addr&& addr)
+{
+	stdx::socket sock = stdx::open_tcpsocket(io_service);
+	sock.connect(addr);
+	return sock;
+}
+
+stdx::socket stdx::listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr& addr)
+{
+	stdx::socket sock = stdx::open_tcpsocket(io_service);
+	sock.bind(addr);
+	sock.listen(65535);
+	return sock;
+}
+
+stdx::socket stdx::listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr&& addr)
+{
+	stdx::socket sock = stdx::open_tcpsocket(io_service);
+	sock.bind(addr);
+	sock.listen(65535);
+	return sock;
 }
 #endif
 

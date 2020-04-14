@@ -1011,6 +1011,10 @@ namespace stdx
 	extern stdx::socket open_socket(const stdx::network_io_service& io_service, const stdx::addr_family& addr_family, const stdx::socket_type& sock_type, const stdx::protocol& protocol);
 	extern stdx::socket open_tcpsocket(const stdx::network_io_service& io_service);
 	extern stdx::socket open_udpsocket(const stdx::network_io_service& io_service);
+	extern stdx::socket connect_to(const stdx::network_io_service &io_service,stdx::ipv4_addr &addr);
+	extern stdx::socket connect_to(const stdx::network_io_service& io_service, stdx::ipv4_addr &&addr);
+	extern stdx::socket listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr &addr);
+	extern stdx::socket listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr &&addr);
 #endif // _STDX_HAS_SOCKET
 }
 
