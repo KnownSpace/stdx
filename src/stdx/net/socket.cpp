@@ -147,7 +147,6 @@ void _Send(int sock,char* buf,size_t size,size_t offset,std::function<void(stdx:
 		offset += r;
 		if (offset != size)
 		{
-			offset += r;
 			stdx::threadpool::run([sock, buf, size, offset, callback]()
 			{
 				_Send(sock, buf, size, offset, callback);
