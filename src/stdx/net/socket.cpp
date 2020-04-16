@@ -121,20 +121,37 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int& addr_family, const i
 #endif
 
 #ifdef LINUX
-void _Send(int sock,char* buf,size_t size,std::function<void(stdx::network_send_event,std::exception_ptr)> callback)
+void _Send(int sock,char* buf,size_t size,size_t offset,std::function<void(stdx::network_send_event,std::exception_ptr)> callback)
 {
 	ssize_t r = 0;
 	std::exception_ptr err(nullptr);
 	try
 	{
-		r = ::send(sock, buf, size, MSG_NOSIGNAL);
+		r = ::send(sock, buf+offset, size-offset, MSG_NOSIGNAL|MSG_DONTWAIT);
 		if (r == 0)
 		{
 			throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
 		}
 		else if (r < 0)
 		{
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				stdx::threadpool::run([sock,buf,size,offset,callback]() 
+				{
+						_Send(sock, buf, size, offset, callback);
+				});
+				return;
+			}
 			_ThrowLinuxError
+		}
+		if (r != size)
+		{
+			offset += r;
+			stdx::threadpool::run([sock, buf, size, offset, callback]()
+			{
+				_Send(sock, buf, size, offset, callback);
+			});
+			return;
 		}
 	}
 	catch (const std::exception&)
@@ -228,7 +245,7 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 	memcpy(buf, data, size);
 	stdx::threadpool::run([sock, buf, size, callback]()
 	{
-		_Send(sock, buf, size, callback);
+		_Send(sock, buf, size,0, callback);
 	});
 #endif
 }
@@ -524,6 +541,60 @@ void stdx::_NetworkIOService::bind(socket_t sock, ipv4_addr& addr)
 #endif
 }
 
+#ifdef LINUX
+void _SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offset, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
+{
+	socklen_t len = stdx::ipv4_addr::addr_len;
+	ssize_t r = 0;
+	std::exception_ptr err(nullptr);
+	try
+	{
+		stdx::ipv4_addr &_addr = addr;
+		r = ::sendto(sock, buf+offset, size-offset, MSG_NOSIGNAL|MSG_DONTWAIT, _addr, len);
+		if (r == 0)
+		{
+			throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
+		}
+		else if (r < 0)
+		{
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				stdx::threadpool::run([sock,addr, buf, size, offset, callback]()
+					{
+						_SendTo(sock,addr, buf, size, offset, callback);
+					});
+				return;
+			}
+			_ThrowLinuxError
+		}
+		if (r != size)
+		{
+			offset += r;
+			stdx::threadpool::run([sock, addr, buf, size, offset, callback]()
+				{
+					_SendTo(sock, addr, buf, size, offset, callback);
+				});
+			return;
+		}
+	}
+	catch (const std::exception&)
+	{
+		err = std::current_exception();
+	}
+	stdx::free(buf);
+	if (err)
+	{
+		callback(stdx::network_send_event(), err);
+		return;
+	}
+	stdx::network_send_event ev;
+	ev.sock = sock;
+	ev.size = r;
+	callback(ev, err);
+}
+#endif // LINUX
+
+
 void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, const char* data, const socket_size_t& size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
 {
 #ifdef WIN32
@@ -591,35 +662,10 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, cons
 		return;
 	}
 	memcpy(buf, data, size);
-	stdx::threadpool::run([sock, addr, buf, size, callback]() mutable
-		{
-			socklen_t len = stdx::ipv4_addr::addr_len;
-			ssize_t r = 0;
-			std::exception_ptr err(nullptr);
-			try
-			{
-				ipv4_addr _addr = addr;
-				r = ::sendto(sock, buf, size, MSG_NOSIGNAL, _addr, len);
-				if (r < 1)
-				{
-					_ThrowLinuxError
-				}
-			}
-			catch (const std::exception&)
-			{
-				err = std::current_exception();
-			}
-			stdx::free(buf);
-			if (err)
-			{
-				callback(network_send_event(), err);
-				return;
-			}
-			network_send_event ev;
-			ev.sock = sock;
-			ev.size = r;
-			callback(ev, err);
-		});
+	stdx::threadpool::run([addr,sock, buf, size, callback]()
+	{
+		_SendTo(sock,addr, buf, size, 0, callback);
+	});
 #endif
 
 }
