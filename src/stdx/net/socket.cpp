@@ -144,7 +144,8 @@ void _Send(int sock,char* buf,size_t size,size_t offset,std::function<void(stdx:
 			}
 			_ThrowLinuxError
 		}
-		if (r != size)
+		offset += r;
+		if (offset != size)
 		{
 			offset += r;
 			stdx::threadpool::run([sock, buf, size, offset, callback]()
@@ -567,9 +568,9 @@ void _SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offs
 			}
 			_ThrowLinuxError
 		}
-		if (r != size)
+		offset += r;
+		if (offset != size)
 		{
-			offset += r;
 			stdx::threadpool::run([sock, addr, buf, size, offset, callback]()
 				{
 					_SendTo(sock, addr, buf, size, offset, callback);
