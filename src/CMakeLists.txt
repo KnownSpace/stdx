@@ -70,3 +70,6 @@ if(UNIX)
  		 target_link_libraries(libstdx  PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
 	endif()
 endif()
+
+install(TARGETS libstdx DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/stdx" DESTINATION "include")
