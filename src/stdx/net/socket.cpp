@@ -1257,17 +1257,24 @@ void clean(epoll_event* ptr)
 		return;
 	}
 	auto* callback = context->callback;
-	try
+	if (callback != nullptr)
 	{
-		(*callback)(context, std::make_exception_ptr(std::system_error(std::error_code(ECONNABORTED, std::system_category()))));
-	}
-	catch (const std::exception &err)
-	{
+		try
+		{
+			(*callback)(context, std::make_exception_ptr(std::system_error(std::error_code(ECONNABORTED, std::system_category()))));
+		}
+		catch (const std::exception& err)
+		{
 #ifdef DEBUG
-		::printf("[Epoll]执行Callback出错%s\n",err.what());
+			::printf("[Epoll]执行Callback出错%s\n", err.what());
 #endif // DEBUG
+		}
+		delete callback;
 	}
-	delete callback;
+	else
+	{
+		delete context;
+	}
 }
 #endif // LINUX
 
