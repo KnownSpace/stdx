@@ -699,7 +699,7 @@ int stdx::big_int::_BitCompareWith(byte_t *buffer, const size_t& buffer_size) co
 				//this < buffer
 				return -1;
 			}
-			if (i<=0)
+			if (i==0)
 			{
 				break;
 			}
@@ -732,7 +732,7 @@ int stdx::big_int::_BitCompareWith(byte_t *buffer, const size_t& buffer_size) co
 					return -1;
 				}
 			}
-			if (i<=0)
+			if (i==0)
 			{
 				break;
 			}
@@ -765,7 +765,7 @@ int stdx::big_int::_BitCompareWith(byte_t *buffer, const size_t& buffer_size) co
 					return -1;
 				}
 			}
-			if (i <= 0)
+			if (i == 0)
 			{
 				break;
 			}
@@ -806,7 +806,7 @@ int stdx::big_int::_BitCompareWith(const std::vector<byte_t>& other) const
 				//this < other
 				return -1;
 			}
-			if (i<=0)
+			if (i==0)
 			{
 				break;
 			}
@@ -839,7 +839,7 @@ int stdx::big_int::_BitCompareWith(const std::vector<byte_t>& other) const
 					return -1;
 				}
 			}
-			if (i <= 0)
+			if (i == 0)
 			{
 				break;
 			}
@@ -872,7 +872,7 @@ int stdx::big_int::_BitCompareWith(const std::vector<byte_t>& other) const
 					return -1;
 				}
 			}
-			if (i <= 0)
+			if (i == 0)
 			{
 				break;
 			}

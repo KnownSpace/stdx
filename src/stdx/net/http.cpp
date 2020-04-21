@@ -1444,7 +1444,6 @@ stdx::http_response_header stdx::http_response_header::from_string(const stdx::s
 		header.version() = stdx::make_http_version_by_string(*begin);
 		begin++;
 		header.status_code() = begin->to_uint32();
-		begin++;
 	}
 	//其他头部和Cookie
 	if (list.size() > 1)

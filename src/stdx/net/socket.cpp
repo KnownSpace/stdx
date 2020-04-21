@@ -1211,18 +1211,25 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 									::printf("[Epoll]IO操作出错\n");
 #endif // DEBUG
 								}
-								stdx::finally fin([callback]()
-								{
-									delete callback;
-								});
 								reactor.loop(context->this_socket);
-								try
+								if (callback != nullptr)
 								{
-									(*callback)(context, err);
-								}
-								catch (const std::exception&)
-								{
+									stdx::finally fin([callback]()
+									{
+											delete callback;
+									});
+									try
+									{
+										(*callback)(context, err);
+									}
+									catch (const std::exception&)
+									{
 
+									}
+								}
+								else
+								{
+									clean(ev_ptr);
 								}
 							});
 					}

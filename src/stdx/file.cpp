@@ -998,7 +998,7 @@ DWORD CALLBACK copy_callback(
 {
 	uint64_t total_size = TotalFileSize.QuadPart;
 	uint64_t bytes_transferred = TotalBytesTransferred.QuadPart;
-	copy_struct *cpy_ptr = (copy_struct*)lpData;
+	copy_struct *cpy_ptr = reinterpret_cast<copy_struct*>(lpData);
 	if (!cpy_ptr)
 	{
 		//出错则取消
@@ -1153,7 +1153,7 @@ stdx::file_stream stdx::file::open_stream(const stdx::file_access_type & access_
 }
 
 #ifdef WIN32
-HANDLE stdx::file::open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
+HANDLE stdx::file::open_for_sendfile_native(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
 {
 	DWORD shared = 0;
 	DWORD access = stdx::forward_file_access_type(access_type);
@@ -1177,11 +1177,16 @@ HANDLE stdx::file::open_for_sendfile(const stdx::file_access_type& access_type, 
 	return file;
 }
 #else
-int stdx::file::open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
+int stdx::file::open_for_sendfile_native(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
 {
 	::open(m_path->c_str(), stdx::forward_file_access_type(access_type) | stdx::forward_file_open_type(open_type));
 }
-#endif // WIN32
+#endif
+
+stdx::file_handle stdx::file::open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type)
+{
+	return stdx::open_for_senfile(*m_path,stdx::forward_file_access_type(access_type),stdx::forward_file_open_type(open_type));
+}
 
 #ifdef WIN32
 void stdx::file::close_handle(HANDLE file)

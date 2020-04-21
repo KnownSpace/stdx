@@ -409,6 +409,9 @@ namespace stdx
 	{
 		using impl_t = std::shared_ptr<_FileHandle>;
 	public:
+		file_handle()
+			:m_impl(nullptr)
+		{}
 		file_handle(const HANDLE &file)
 			:m_impl(std::make_shared<_FileHandle>(file))
 		{}
@@ -432,6 +435,10 @@ namespace stdx
 		bool operator==(const file_handle &other) const
 		{
 			return (m_impl == other.m_impl) || (m_impl->get_file_handle() == m_impl->get_file_handle());
+		}
+		operator bool() const
+		{
+			return (bool)m_impl;
 		}
 	private:
 		impl_t m_impl;
@@ -845,6 +852,9 @@ namespace stdx
 	{
 		using impl_t = std::shared_ptr<_FileHandle>;
 	public:
+		file_handle()
+			:m_impl(nullptr)
+		{}
 		file_handle(const int &file)
 			:m_impl(std::make_shared<_FileHandle>(file))
 		{}
@@ -868,6 +878,10 @@ namespace stdx
 		bool operator==(const file_handle &other) const
 		{
 			return (m_impl == other.m_impl)||(m_impl->get_file_handle() == m_impl->get_file_handle());
+		}
+		operator bool() const
+		{
+			return (bool)m_impl;
 		}
 	private:
 		impl_t m_impl;
@@ -949,10 +963,12 @@ namespace stdx
 #endif // WIN32
 
 #ifdef WIN32
-		HANDLE open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
+		HANDLE open_for_sendfile_native(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
 #else
-		int open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
+		int open_for_sendfile_native(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
 #endif
+
+		stdx::file_handle open_for_sendfile(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
 
 #ifdef WIN32
 		static void close_handle(HANDLE file);

@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 			},
 			[](std::exception_ptr error)
 			{
-				printf("监听关闭\n");
+				stdx::printf(U("监听关闭\n"));
 				try
 				{
 					if (error)

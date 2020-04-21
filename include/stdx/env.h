@@ -15,7 +15,6 @@
 #if (defined __linux__) || (defined linux) || (defined __gnu_linux__)
 #define LINUX
 #endif
-
 #endif 
 #endif
 

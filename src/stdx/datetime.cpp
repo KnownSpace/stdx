@@ -431,7 +431,6 @@ void stdx::datetime::operator+=(const time_span& span)
 	if (tmp!=0)
 	{
 		m_day += tmp;
-		tmp = 0;
 	}
 	m_day += span.day;
 	while (m_day > day_of_month(m_month,m_year))
