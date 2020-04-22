@@ -6,10 +6,10 @@
 #include <stdx/net/socket.h>
 #include <list>
 
-void handle_client(stdx::network_connected_event ev, std::string doc_content, uint32_t& num, stdx::spin_lock lock)
+void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 {
 	stdx::socket c(ev.connection);
-	auto t = c.recv(4096).then([doc_content, &num, lock, c](stdx::task_result<stdx::network_recv_event> r) mutable
+	auto t = c.recv(4096).then([doc_content, c](stdx::task_result<stdx::network_recv_event> r) mutable
 		{
 			try
 			{
@@ -44,14 +44,14 @@ void handle_client(stdx::network_connected_event ev, std::string doc_content, ui
 				response.response_body().push(body);
 				return response;
 			}
-		}).then([c, &num, lock](stdx::http_response res) mutable
+		}).then([c](stdx::http_response res) mutable
 			{
 				std::vector<unsigned char>&& bytes = res.to_bytes();
 				stdx::uint64_union u;
 				u.value = bytes.size();
 				return c.send((const char*)bytes.data(), u.low);
 			})
-			.then([c, &num, lock](stdx::task_result<stdx::network_send_event> r) mutable
+			.then([c](stdx::task_result<stdx::network_send_event> r) mutable
 				{
 					try
 					{
@@ -112,16 +112,9 @@ int main(int argc, char** argv)
 		}
 		stdx::spin_lock lock;
 		uint32_t num = 0;
-		s.accept_until_error([doc_content, &num, lock](stdx::network_connected_event ev)  mutable
+		s.accept_until_error([doc_content](stdx::network_connected_event ev)  mutable
 			{
-				try
-				{
-					handle_client(ev, doc_content, num, lock);
-				}
-				catch (const std::exception& err)
-				{
-					stdx::perrorf(U("Handle Error:{0}"), err.what());
-				}
+				handle_client(ev,doc_content);
 			},
 			[](std::exception_ptr error)
 			{

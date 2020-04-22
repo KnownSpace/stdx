@@ -1061,31 +1061,34 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					{
 						continue;
 					}
-					std::exception_ptr error(nullptr);
-					try
+					stdx::threadpool::run([context_ptr]() 
 					{
-						DWORD flag = 0;
-						if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
-						{
-							_ThrowWSAError
-						}
-					}
-					catch (const std::exception&)
-					{
-						error = std::current_exception();
-					}
-					auto* call = context_ptr->callback;
-					try
-					{
-						(*call)(context_ptr, error);
-					}
-					catch (const std::exception&)
-					{
-					}
-					stdx::finally fin([call]()
-						{
-							delete call;
-						});
+							std::exception_ptr error(nullptr);
+							try
+							{
+								DWORD flag = 0;
+								if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
+								{
+									_ThrowWSAError
+								}
+							}
+							catch (const std::exception&)
+							{
+								error = std::current_exception();
+							}
+							auto* call = context_ptr->callback;
+							stdx::finally fin([call]()
+								{
+									delete call;
+								});
+							try
+							{
+								(*call)(context_ptr, error);
+							}
+							catch (const std::exception&)
+							{
+							}
+					});
 				}
 			}, m_iocp, m_alive);
 	}

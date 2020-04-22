@@ -37,7 +37,7 @@ namespace stdx
 	{
 	public:
 		_IOCP()
-			:m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0))
+			:m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, suggested_threads_number()))
 		{
 		}
 		~_IOCP()
