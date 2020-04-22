@@ -1,6 +1,6 @@
 ﻿# Standard Expansion
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/39240a2b088e4648b70b589d049eb71a)](https://app.codacy.com/manual/NaturalSelect/stdx?utm_source=github.com&utm_medium=referral&utm_content=NaturalSelect/stdx&utm_campaign=Badge_Grade_Dashboard)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1d46abfe845b4b9fac4989e4d4ea2fc1)](https://www.codacy.com/manual/NaturalSelect/stdx?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=NaturalSelect/stdx&amp;utm_campaign=Badge_Grade)
 
 ---
 注意：
