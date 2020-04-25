@@ -179,6 +179,23 @@ namespace stdx
 			_U& unit = *this;
 			return unit.produce(args...);
 		}
+
+		template<typename _T, typename ..._Args, typename _U = stdx::factory_unit<_T, _Args...>, class = typename std::enable_if<stdx::type_include<_U, tl_t>::value, void>::type>
+		bool check_unit() const
+		{
+			const _U& unit = *this;
+			return unit.check();
+		}
+
+		bool check_all_unit() const
+		{
+			return unit_t::check() && base_t::check_all_unit();
+		}
+
+		operator bool() const
+		{
+			return check_all_unit();
+		}
 	};
 
 	template<typename _Unit>
@@ -230,6 +247,22 @@ namespace stdx
 		_U& unit()
 		{
 			return *this;
+		}
+
+		template<typename _T, typename ..._Args, typename _U = stdx::factory_unit<_T, _Args...>, class = typename std::enable_if<std::is_same<_U, unit_t>::value>::type>
+		bool check_unit() const
+		{
+			return unit_t::check();
+		}
+
+		bool check_all_unit() const
+		{
+			return unit_t::check();
+		}
+
+		operator bool() const
+		{
+			return check_all_unit();
 		}
 	};
 }
