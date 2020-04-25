@@ -109,7 +109,7 @@ namespace stdx
 		iocp(const iocp<_IOContext> &other)
 			:m_impl(other.m_impl)
 		{}
-		iocp(iocp<_IOContext> &&other)
+		iocp(iocp<_IOContext> &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 		~iocp() = default;

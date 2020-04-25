@@ -231,7 +231,6 @@ namespace stdx
 		{
 			return m_impl == other.m_impl;
 		}
-
 	private:
 		impl_t m_impl;
 	};
@@ -376,6 +375,11 @@ namespace stdx
 		bool operator==(const file_stream &other) const
 		{
 			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
 		}
 	private:
 		impl_t m_impl;
@@ -816,6 +820,11 @@ namespace stdx
 		bool operator==(const file_stream &other) const
 		{
 			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
 		}
 
 	private:

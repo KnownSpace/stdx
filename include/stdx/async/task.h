@@ -1018,6 +1018,11 @@ namespace stdx
 		{
 			m_impl->run_on_this_thread();
 		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -1062,6 +1067,10 @@ namespace stdx
 		void run_on_this_thread()
 		{
 			m_impl->run_on_this_thread();
+		}
+		operator bool() const
+		{
+			return (bool)m_impl;
 		}
 	private:
 		impl_t m_impl;
@@ -1117,6 +1126,11 @@ namespace stdx
 		void unlock() noexcept
 		{
 			m_impl->unlock();
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
 		}
 
 	private:

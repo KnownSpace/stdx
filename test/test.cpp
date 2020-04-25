@@ -5,6 +5,8 @@
 #include <stdx/traits/convertable.h>
 #include <stdx/net/socket.h>
 #include <list>
+#include <stdx/object_pool.h>
+#include <stdx/factory.h>
 
 void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 {
@@ -64,6 +66,7 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 					}
 				});
 }
+
 int main(int argc, char** argv)
 {
 #define ENABLE_WEB

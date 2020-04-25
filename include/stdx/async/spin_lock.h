@@ -50,6 +50,12 @@ namespace stdx
 		{
 			return m_impl == other.m_impl;
 		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
 	private:
 		impl_t m_impl;
 	};

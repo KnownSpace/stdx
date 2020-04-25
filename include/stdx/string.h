@@ -625,9 +625,20 @@ namespace stdx
 	extern void _FormatString(stdx::string& format_string, std::initializer_list<stdx::string>&& args);
 
 	template<typename ..._Args>
-	void format_string(stdx::string& format_string, _Args&&...args)
+	inline void format_string(stdx::string& format_string, _Args&&...args)
 	{
 		_FormatString(format_string, std::move(std::initializer_list<stdx::string>{stdx::to_string(args)...}));
+	}
+
+	template<typename _T>
+	inline stdx::string to_string(_T* p)
+	{
+#ifdef WIN32
+		return stdx::string(std::to_wstring(p));
+#else
+		return stdx::string(std::to_string(p));
+#endif
+
 	}
 
 
