@@ -54,17 +54,17 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				return c.send((const char*)bytes.data(), u.low);
 			})
 			.then([c](stdx::task_result<stdx::network_send_event> r) mutable
+			{
+				try
 				{
-					try
-					{
 						c.close();
-						auto e = r.get();
-					}
-					catch (const std::exception& err)
-					{
-						stdx::perrorf(U("发送失败:{0}\n"), err.what());
-					}
-				});
+					auto e = r.get();
+				}
+				catch (const std::exception& err)
+				{
+					stdx::perrorf(U("发送失败:{0}\n"), err.what());
+				}
+			});
 }
 
 int main(int argc, char** argv)
