@@ -17,49 +17,77 @@
 						{ \
 							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
+#define _STDX_HAS_FILE
+#else
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdx/io.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#define _ThrowLinuxError auto _ERROR_CODE = errno;\
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
+#define _STDX_HAS_FILE
+#endif
 
+#ifdef _STDX_HAS_FILE
 namespace stdx
 {
-#pragma region TypeDef
+#ifdef WIN32
 	using native_file_handle = HANDLE;
+#else
+	using native_file_handle = int;
+#endif
+
 	struct file_io_context
 	{
 		file_io_context()
 		{
+#ifdef WIN32
 			memset(&m_ol, 0, sizeof(OVERLAPPED));
+#endif
 		}
 		~file_io_context() = default;
+#ifdef WIN32
 		OVERLAPPED m_ol;
-		HANDLE file;
-		char *buffer;
+#endif
+		native_file_handle file;
+		char* buffer;
+#ifdef WIN32
 		DWORD size;
+#else
+		size_t size;
+#endif
 		uint64_t offset;
 		bool eof;
-		std::function<void(file_io_context*, std::exception_ptr)> *callback;
-	};
+		std::function<void(file_io_context*, std::exception_ptr)>* callback;
+};
 	//文件读取完成事件
 	struct file_read_event
 	{
 		file_read_event()
+#ifdef WIN32
 			:file(INVALID_HANDLE_VALUE)
+#else
+			: file(-1)
+#endif
 			, buffer(0, nullptr)
 			, offset(0)
 			, eof(false)
 		{}
 		~file_read_event() = default;
-		file_read_event(const file_read_event &other)
+		file_read_event(const file_read_event& other)
 			:file(other.file)
 			, buffer(other.buffer)
 			, offset(other.offset)
 			, eof(other.eof)
 		{}
-		file_read_event(file_read_event &&other) noexcept
+		file_read_event(file_read_event&& other) noexcept
 			:file(std::move(other.file))
 			, buffer(std::move(other.buffer))
 			, offset(std::move(other.offset))
 			, eof(std::move(other.eof))
 		{}
-		file_read_event &operator=(const file_read_event &other)
+		file_read_event& operator=(const file_read_event& other)
 		{
 			file = other.file;
 			buffer = other.buffer;
@@ -67,113 +95,196 @@ namespace stdx
 			eof = other.eof;
 			return *this;
 		}
-		file_read_event(file_io_context *ptr)
+		file_read_event& operator=(file_read_event&& other) noexcept
+		{
+			file = other.file;
+			buffer = other.buffer;
+			offset = other.offset;
+			eof = other.eof;
+#ifdef WIN32
+			other.file = INVALID_HANDLE_VALUE;
+#else
+			other.file = -1;
+#endif
+			return *this;
+		}
+		file_read_event(file_io_context* ptr)
 			:file(ptr->file)
 			, buffer(ptr->size, ptr->buffer)
 			, offset(ptr->offset)
 			, eof(ptr->eof)
 		{
 		}
-		HANDLE file;
+		native_file_handle file;
 		stdx::buffer buffer;
 		uint64_t offset;
 		bool eof;
-	};
+		};
 
 	//文件写入完成事件
 	struct file_write_event
 	{
 		file_write_event()
+#ifdef WIN32
 			:file(INVALID_HANDLE_VALUE)
+#else
+			: file(-1)
+#endif
 			, size(0)
 		{}
 		~file_write_event() = default;
-		file_write_event(const file_write_event &other)
+		file_write_event(const file_write_event& other)
 			:file(other.file)
 			, size(other.size)
 		{}
-		file_write_event(file_write_event &&other) noexcept
+		file_write_event(file_write_event&& other) noexcept
 			:file(std::move(other.file))
 			, size(std::move(other.size))
 		{}
-		file_write_event &operator=(const file_write_event &other)
+		file_write_event& operator=(const file_write_event& other)
 		{
 			file = other.file;
 			size = other.size;
 			return *this;
 		}
-		file_write_event(file_io_context *ptr)
+
+		file_write_event& operator=(file_write_event&& other) noexcept
+		{
+			file = other.file;
+			size = other.size;
+#ifdef WIN32
+			other.file = INVALID_HANDLE_VALUE;
+#else
+			other.file = -1;
+#endif
+			other.size = 0;
+			return *this;
+		}
+
+		file_write_event(file_io_context* ptr)
 			:file(ptr->file)
 			, size(ptr->size)
 		{}
-		HANDLE file;
+		native_file_handle file;
 		size_t size;
-	};
-#pragma endregion
+		};
 
-	
-#pragma region EnumDef
+
+#ifdef WIN32
+	using file_enum_value_t = DWORD;
+#else
+	using file_enum_value_t = int32_t;
+#endif
+
+
+
 	//文件访问类型
-	enum class file_access_type : DWORD
+	enum class file_access_type : file_enum_value_t
 	{
+#ifdef WIN32
 		execute = FILE_GENERIC_EXECUTE,	//以执行的形式访问
 		read = FILE_GENERIC_READ,		//以只读的形式访问
 		write = FILE_GENERIC_WRITE,		//以只写的形式访问
 		all = GENERIC_ALL				//以读写的形式访问
+#else
+		read = O_RDONLY,	//以只读的形式访问
+		write = O_WRONLY,	//以只写的形式访问
+		all = O_RDWR,		//以读写的形式访问
+#endif
 	};
 
+#ifdef WIN32
 	//文件共享类型
-	enum class file_shared_model : DWORD
+	enum class file_shared_model : file_enum_value_t
 	{
 		unique = 0UL,							//独占
 		shared_read = FILE_SHARE_READ,			//共享读
 		shared_write = FILE_SHARE_WRITE,		//共享写
-		shared_delete= FILE_SHARE_DELETE		//共享删除
+		shared_delete = FILE_SHARE_DELETE		//共享删除
 	};
+#endif
 
 	//文件打开类型
-	enum class file_open_type : DWORD
+	enum class file_open_type : file_enum_value_t
 	{
+#ifdef WIN32
 		open = OPEN_EXISTING,					//打开已存在的文件
 		create_always = CREATE_ALWAYS,			//总时创建新文件,若文件已存在会被截断
 		create = CREATE_NEW,					//若文件不存在则创建,存在则出错
-		open_always	= OPEN_ALWAYS				//若文件存在则打开,不存在则创建
+		open_always = OPEN_ALWAYS				//若文件存在则打开,不存在则创建
+#else
+		open,							//打开已存在的文件
+		create_always = O_TRUNC,		//总时创建新文件,若文件已存在会被截断
+		create = O_CREAT | O_EXCL,		//若文件不存在则创建,存在则出错
+		open_always = O_CREAT,			//若文件存在则打开,不存在则创建
+#endif
 	};
 
-	extern DWORD forward_file_access_type(const file_access_type & access_type);
 
-	extern DWORD forward_file_shared_model(const file_shared_model &shared_model);
 
-	extern DWORD forward_file_open_type(const file_open_type &open_type);
-#pragma endregion
+	extern file_enum_value_t forward_file_access_type(const file_access_type& access_type);
+
+#ifdef WIN32
+	extern DWORD forward_file_shared_model(const file_shared_model& shared_model);
+#endif
+	extern file_enum_value_t forward_file_open_type(const file_open_type& open_type);
+
+#ifdef WIN32
+	using file_size_t = DWORD;
+#else
+	using file_size_t = size_t;
+#endif
 
 #pragma region IO_SERVICE
 	//文件IO服务实现
 	class _FileIOService
 	{
 	public:
+#ifdef WIN32
 		using iocp_t = stdx::iocp<file_io_context>;
+#else
+		using iocp_t = stdx::aiocp<file_io_context>;
+		using aiocp_t = stdx::aiocp<file_io_context>;
+#endif
 		_FileIOService();
+
+#ifdef LINUX
+		_FileIOService(uint32_t nr_events);
+#endif // LINUX
+
 
 		delete_copy(_FileIOService);
 
 		~_FileIOService();
 
-		HANDLE create_file(const stdx::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model);
+#ifdef WIN32
+		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type, file_enum_value_t shared_model);
+#else
+		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type, file_enum_value_t model);
+		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type);
+#endif
 
-		void read_file(HANDLE file, DWORD size, const uint64_t &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
+		void read_file(native_file_handle file, file_size_t size, const uint64_t& offset, std::function<void(file_read_event, std::exception_ptr)> callback);
 
-		void write_file(HANDLE file, const char *buffer, const DWORD &size, const uint64_t &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
+		void write_file(native_file_handle file, const char* buffer, const file_size_t& size, const uint64_t& offset, std::function<void(file_write_event, std::exception_ptr)> callback);
 
+		uint64_t get_file_size(native_file_handle file) const;
 
-		uint64_t get_file_size(HANDLE file) const;
-
-		void close_file(HANDLE file)
+		void close_file(native_file_handle file)
 		{
+#ifdef WIN32
 			CloseHandle(file);
+#else
+			close(file);
+#endif
 		}
 	private:
+#ifdef WIN32
 		iocp_t m_iocp;
+#else
+		iocp_t m_aiocp;
+#endif // WIN32
+
 		std::shared_ptr<bool> m_alive;
 
 		void init_threadpoll() noexcept;
@@ -184,20 +295,23 @@ namespace stdx
 	{
 		using impl_t = std::shared_ptr<_FileIOService>;
 		using iocp_t = typename _FileIOService::iocp_t;
+#ifdef LINUX
+		using aiocp_t = typename _FileIOService::aiocp_t;
+#endif
 	public:
 		file_io_service()
 			:m_impl(std::make_shared<_FileIOService>())
 		{}
-		file_io_service(const impl_t &impl)
+		file_io_service(const impl_t& impl)
 			:m_impl(impl)
 		{}
-		file_io_service(const file_io_service &other)
+		file_io_service(const file_io_service& other)
 			:m_impl(other.m_impl)
 		{}
-		file_io_service(file_io_service &&other) noexcept
+		file_io_service(file_io_service&& other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
-		file_io_service &operator=(const file_io_service &other)
+		file_io_service& operator=(const file_io_service& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
@@ -206,34 +320,46 @@ namespace stdx
 		{
 			return (bool)m_impl;
 		}
-		HANDLE create_file(const stdx::string &path, DWORD access_type, DWORD file_open_type, DWORD shared_model)
+#ifdef WIN32
+		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type, file_enum_value_t shared_model)
 		{
 			return m_impl->create_file(path, access_type, file_open_type, shared_model);
 		}
-		void read_file(HANDLE file,const DWORD &size, const uint64_t &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
+#else
+		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type, file_enum_value_t model)
+		{
+			return m_impl->create_file(path, access_type, file_open_type, model);
+		}
+		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type)
+		{
+			return m_impl->create_file(path, access_type, file_open_type);
+		}
+#endif
+
+		void read_file(native_file_handle file, const file_size_t& size, const uint64_t& offset, std::function<void(file_read_event, std::exception_ptr)>&& callback)
 		{
 			return m_impl->read_file(file, size, offset, callback);
 		}
-		void write_file(HANDLE file, const char *buffer, const DWORD &size, const uint64_t &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
+		void write_file(native_file_handle file, const char* buffer, const file_size_t& size, const uint64_t& offset, std::function<void(file_write_event, std::exception_ptr)>&& callback)
 		{
-			return m_impl->write_file(file, buffer, size, offset,callback);
+			return m_impl->write_file(file, buffer, size, offset, callback);
 		}
-		void close_file(HANDLE file)
+		void close_file(native_file_handle file)
 		{
 			return m_impl->close_file(file);
 		}
-		uint64_t get_file_size(HANDLE file) const
+		uint64_t get_file_size(native_file_handle file) const
 		{
 			return m_impl->get_file_size(file);
 		}
 
-		bool operator==(const file_io_service &other) const
+		bool operator==(const file_io_service& other) const
 		{
 			return m_impl == other.m_impl;
 		}
 	private:
 		impl_t m_impl;
-	};
+		};
 #pragma endregion
 
 #pragma region FILE_STREAM
@@ -243,24 +369,36 @@ namespace stdx
 	{
 		using io_service_t = file_io_service;
 	public:
-		_FileStream(const io_service_t &io_service);
+		_FileStream(const io_service_t& io_service);
 
 		~_FileStream();
 
-		void init(const stdx::string &path, const DWORD &access_type, const DWORD &open_type, const DWORD &shared_model)
+#ifdef WIN32
+		void init(const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type, const DWORD& shared_model)
 		{
 			m_file = m_io_service.create_file(path, access_type, open_type, shared_model);
 		}
+#else
+		void init(const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type, const file_enum_value_t& model)
+		{
+			m_file = m_io_service.create_file(path, access_type, open_type, model);
+		}
 
-		stdx::task<file_read_event> read(const DWORD &size, const uint64_t &offset);
+		void init(const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type)
+		{
+			m_file = m_io_service.create_file(path, access_type, open_type);
+		}
+#endif
+
+		stdx::task<file_read_event> read(const file_size_t& size, const uint64_t& offset);
 
 
 		//直到call返回true停止
-		void read_utill(const DWORD& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
+		void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
 
-		void read_utill_eof(const DWORD& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
+		void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
 
-		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)
 		{
 			uint64_union u;
 			u.value = size() - offset;
@@ -272,7 +410,7 @@ namespace stdx
 		}
 
 
-		stdx::task<file_write_event> write(const char* buffer, const DWORD&size, const uint64_t &offset);
+		stdx::task<file_write_event> write(const char* buffer, const file_size_t& size, const uint64_t& offset);
 
 
 		void close();
@@ -282,13 +420,13 @@ namespace stdx
 			return m_io_service.get_file_size(m_file);
 		}
 
-		HANDLE get_handle() const
+		native_file_handle get_handle() const
 		{
 			return m_file;
 		}
 	private:
 		io_service_t m_io_service;
-		HANDLE m_file;
+		native_file_handle m_file;
 	};
 
 	class file_stream
@@ -299,60 +437,72 @@ namespace stdx
 
 		file_stream() = default;
 
-		explicit file_stream(const io_service_t &io_service)
+		explicit file_stream(const io_service_t& io_service)
 			:m_impl(std::make_shared<_FileStream>(io_service))
 		{}
 
-		file_stream(const file_stream &other)
+		file_stream(const file_stream& other)
 			:m_impl(other.m_impl)
 		{}
 
-		file_stream(file_stream &&other) noexcept
+		file_stream(file_stream&& other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 
 		~file_stream() = default;
 
-		void init(const stdx::string &path, DWORD access_type, DWORD open_type, DWORD shared_model)
+#ifdef WIN32
+		void init(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t open_type, DWORD shared_model)
 		{
 			return m_impl->init(path, access_type, open_type, shared_model);
 		}
+#else
+		void init(const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type, const file_enum_value_t& model)
+		{
+			return m_impl->init(path, access_type, open_type, model);
+		}
 
-		file_stream &operator=(const file_stream &other)
+		void init(const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type)
+		{
+			return m_impl->init(path, access_type, open_type);
+		}
+#endif
+
+		file_stream& operator=(const file_stream& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
 
-		stdx::task<file_read_event> read(const DWORD&size, const uint64_t &offset)
+		stdx::task<file_read_event> read(const file_size_t& size, const uint64_t& offset)
 		{
 			return m_impl->read(size, offset);
 		}
 
-		stdx::task<file_write_event> write(const char* buffer, const DWORD&size, const uint64_t &offset)
+		stdx::task<file_write_event> write(const char* buffer, const file_size_t& size, const uint64_t& offset)
 		{
 			return m_impl->write(buffer, size, offset);
 		}
 
-		stdx::task<file_write_event> write(const stdx::string &str, const uint64_t &offset)
+		stdx::task<file_write_event> write(const stdx::string& str, const uint64_t& offset)
 		{
 			uint64_union u64;
-			u64.value = str.size()*sizeof(wchar_t);
-			return write((char*)str.c_str(),u64.low, offset);
+			u64.value = str.size() * sizeof(wchar_t);
+			return write((char*)str.c_str(), u64.low, offset);
 		}
 
 		//直到call返回true停止
-		void read_utill(const DWORD& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
+		void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
 		{
 			m_impl->read_utill(size, offset, call);
 		}
 
-		void read_utill_eof(const DWORD& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
+		void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
 		{
 			m_impl->read_utill_eof(size, offset, call, err_handler);
 		}
 
-		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
+		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)
 		{
 			return m_impl->read_to_end(offset);
 		}
@@ -367,12 +517,12 @@ namespace stdx
 			return m_impl->close();
 		}
 
-		HANDLE get_handle() const
+		native_file_handle get_handle() const
 		{
 			return m_impl->get_handle();
 		}
 
-		bool operator==(const file_stream &other) const
+		bool operator==(const file_stream& other) const
 		{
 			return m_impl == other.m_impl;
 		}
@@ -389,24 +539,28 @@ namespace stdx
 	class _FileHandle
 	{
 	public:
-		_FileHandle(const HANDLE &file)
+		_FileHandle(const native_file_handle& file)
 			:m_file(file)
 		{}
 		~_FileHandle()
 		{
-			::CloseHandle(m_file);
+#ifdef WIN32
+			CloseHandle(m_file);
+#else
+			::close(m_file);
+#endif // WIN32
 		}
-		operator HANDLE() const
+		operator native_file_handle() const
 		{
 			return m_file;
-		}
-		HANDLE get_file_handle() const
+	}
+		native_file_handle get_file_handle() const
 		{
 			return m_file;
 		}
 		delete_copy(_FileHandle);
 	private:
-		HANDLE m_file;
+		native_file_handle m_file;
 	};
 
 	class file_handle
@@ -416,27 +570,27 @@ namespace stdx
 		file_handle()
 			:m_impl(nullptr)
 		{}
-		file_handle(const HANDLE &file)
+		file_handle(const native_file_handle& file)
 			:m_impl(std::make_shared<_FileHandle>(file))
 		{}
-		file_handle(const file_handle &other)
+		file_handle(const file_handle& other)
 			:m_impl(other.m_impl)
 		{}
 		~file_handle() = default;
-		file_handle &operator=(const file_handle &other)
+		file_handle& operator=(const file_handle& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
-		operator HANDLE() const
+		operator native_file_handle() const
 		{
-			return (HANDLE)(*m_impl);
+			return (native_file_handle)(*m_impl);
 		}
-		HANDLE get_file_handle() const
+		native_file_handle get_file_handle() const
 		{
 			return m_impl->get_file_handle();
 		}
-		bool operator==(const file_handle &other) const
+		bool operator==(const file_handle& other) const
 		{
 			return (m_impl == other.m_impl) || (m_impl->get_file_handle() == m_impl->get_file_handle());
 		}
@@ -447,474 +601,17 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
-}
-
-#pragma region APIs
-namespace stdx
-{
-	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, const DWORD &access_type, const DWORD &open_type);
-
-	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, file_access_type access_type, file_open_type open_type);
-
-	extern stdx::file_handle open_for_senfile(const stdx::string &path, const DWORD &access_type, const DWORD &open_type);
-}
-#pragma endregion
-
-
-#undef _ThrowWinError
-#endif // WIN32
-#ifdef LINUX
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdx/io.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
+	}
 
 namespace stdx
 {
-#pragma region TypeDef
-	using native_file_handle = int;
+	extern stdx::file_stream open_file_stream(const stdx::file_io_service& io_service, const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type);
 
-	struct file_io_context
-	{
-		int file;
-		size_t size;
-		char* buffer;
-		int64_t offset;
-		bool eof;
-		std::function<void(file_io_context*, std::exception_ptr)> *callback;
-	};
-	//文件读取完成事件
-	struct file_read_event
-	{
-		file_read_event()
-			:file(-1)
-			, buffer(0, nullptr)
-			, offset(0)
-			, eof(false)
-		{}
-		~file_read_event() = default;
-		file_read_event(const file_read_event &other)
-			:file(other.file)
-			, buffer(other.buffer)
-			, offset(other.offset)
-			, eof(other.eof)
-		{}
-		file_read_event(file_read_event &&other)
-			:file(std::move(other.file))
-			, buffer(std::move(other.buffer))
-			, offset(std::move(other.offset))
-			, eof(std::move(other.eof))
-		{}
-		file_read_event &operator=(const file_read_event &other)
-		{
-			file = other.file;
-			buffer = other.buffer;
-			offset = other.offset;
-			eof = other.eof;
-			return *this;
-		}
-		file_read_event(file_io_context *ptr)
-			:file(ptr->file)
-			, buffer(ptr->size, ptr->buffer)
-			, offset(ptr->offset)
-			, eof(ptr->eof)
-		{
-		}
-		int file;
-		stdx::buffer buffer;
-		int64_t offset;
-		bool eof;
-	};
+	extern stdx::file_stream open_file_stream(const stdx::file_io_service& io_service, const stdx::string& path, file_access_type access_type, file_open_type open_type);
 
-	//文件写入完成事件
-	struct file_write_event
-	{
-		file_write_event()
-			:file(-1)
-			, size(0)
-		{}
-		~file_write_event() = default;
-		file_write_event(const file_write_event &other)
-			:file(other.file)
-			, size(other.size)
-		{}
-		file_write_event(file_write_event &&other)
-			:file(std::move(other.file))
-			, size(std::move(other.size))
-		{}
-		file_write_event &operator=(const file_write_event &other)
-		{
-			file = other.file;
-			size = other.size;
-			return *this;
-		}
-		file_write_event(file_io_context *ptr)
-			:file(ptr->file)
-			, size(ptr->size)
-		{}
-		int file;
-		size_t size;
-	};
-#pragma endregion
-	
-#pragma region TypeDef
-	//文件访问类型
-	enum class file_access_type : uint32_t
-	{
-		read = O_RDONLY,	//以只读的形式访问
-		write = O_WRONLY,	//以只写的形式访问
-		all = O_RDWR,		//以读写的形式访问
-	};
-	//文件打开类型
-	enum class file_open_type : uint32_t
-	{
-		open,							//打开已存在的文件
-		create_always = O_TRUNC,		//总时创建新文件,若文件已存在会被截断
-		create = O_CREAT | O_EXCL,		//若文件不存在则创建,存在则出错
-		open_always= O_CREAT,			//若文件存在则打开,不存在则创建
-	};
-
-	extern int32_t forward_file_access_type(const file_access_type &access_type);
-
-	extern int32_t forward_file_open_type(const file_open_type &open_type);
-#pragma endregion
-
-#pragma region IO_SERVICE
-	class _FileIOService
-	{
-		using aiocp_t = stdx::aiocp<file_io_context>;
-	public:
-
-		_FileIOService();
-
-		_FileIOService(uint32_t nr_events);
-
-		delete_copy(_FileIOService);
-
-		~_FileIOService();
-
-		int create_file(const stdx::string &path, int32_t access_type, int32_t open_type, mode_t mode);
-
-		int create_file(const stdx::string &path, int32_t access_type, int32_t open_type);
-
-		void read_file(int file,size_t size, const uint64_t &offset, std::function<void(file_read_event, std::exception_ptr)> callback);
-
-		void write_file(int file, const char *buffer,size_t size, const uint64_t &offset, std::function<void(file_write_event, std::exception_ptr)> callback);
-
-		uint64_t get_file_size(int file) const;
-
-		void close_file(int file);
-	private:
-		aiocp_t m_aiocp;
-		std::shared_ptr<bool> m_alive;
-
-		void init_thread();
-	};
-
-	//文件IO服务
-	class file_io_service
-	{
-		using impl_t = std::shared_ptr<_FileIOService>;
-	public:
-		file_io_service()
-			:m_impl(std::make_shared<_FileIOService>())
-		{}
-		file_io_service(uint32_t nr_events)
-			:m_impl(std::make_shared<_FileIOService>(nr_events))
-		{}
-		file_io_service(const impl_t& impl)
-			:m_impl(impl)
-		{}
-		file_io_service(const file_io_service &other)
-			:m_impl(other.m_impl)
-		{}
-		file_io_service(file_io_service &&other)
-			:m_impl(std::move(other.m_impl))
-		{}
-		file_io_service &operator=(const file_io_service &other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-		operator bool() const
-		{
-			return (bool)m_impl;
-		}
-
-		int create_file(const stdx::string &path, int32_t access_type, int32_t file_open_type, mode_t model)
-		{
-			return m_impl->create_file(path, access_type, file_open_type, model);
-		}
-
-		int create_file(const stdx::string &path, int32_t access_type, int32_t file_open_type)
-		{
-			return m_impl->create_file(path, access_type, file_open_type);
-		}
-
-		void read_file(int file, const size_t &size, const uint64_t &offset, std::function<void(file_read_event, std::exception_ptr)> &&callback)
-		{
-			return m_impl->read_file(file, size, offset,callback);
-		}
-		void write_file(int file, const char *buffer, const size_t &size, const uint64_t &offset, std::function<void(file_write_event, std::exception_ptr)> &&callback)
-		{
-			return m_impl->write_file(file, buffer, size, offset,callback);
-		}
-		void close_file(int file)
-		{
-			return m_impl->close_file(file);
-		}
-		uint64_t get_file_size(int file) const
-		{
-			return m_impl->get_file_size(file);
-		}
-
-		bool operator==(const file_io_service &other) const
-		{
-			return m_impl == other.m_impl;
-		}
-
-	private:
-		impl_t m_impl;
-	};
-#pragma endregion
-
-#pragma region FILE_STREAM
-
-	//异步文件流实现
-	class _FileStream
-	{
-		using io_service_t = file_io_service;
-	public:
-		_FileStream(const io_service_t &io_service);
-
-		~_FileStream();
-
-		void init(const stdx::string &path, const int32_t &access_type, const int32_t &open_type, const mode_t &model)
-		{
-			m_file = m_io_service.create_file(path, access_type, open_type, model);
-		}
-
-		void init(const stdx::string &path, const int32_t &access_type, const int32_t &open_type)
-		{
-			m_file = m_io_service.create_file(path, access_type, open_type);
-		}
-
-		stdx::task<file_read_event> read(const size_t &size, const uint64_t &offset);
-
-		//直到call返回true停止
-		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
-
-		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
-
-		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
-		{
-			return this->read(size() - offset, offset);
-		}
-
-
-		stdx::task<stdx::file_write_event> write(const char* buffer, const size_t &size, const uint64_t &offset);
-
-		void close();
-
-		uint64_t size() const
-		{
-			return m_io_service.get_file_size(m_file);
-		}
-
-		int get_handle() const
-		{
-			return m_file;
-		}
-	private:
-		io_service_t m_io_service;
-		int m_file;
-	};
-
-	class file_stream
-	{
-		using impl_t = std::shared_ptr<stdx::_FileStream>;
-		using io_service_t = stdx::file_io_service;
-	public:
-
-		explicit file_stream(const io_service_t &io_service)
-			:m_impl(std::make_shared<_FileStream>(io_service))
-		{}
-
-
-		file_stream(const file_stream &other)
-			:m_impl(other.m_impl)
-		{}
-
-		file_stream(file_stream &&other)
-			:m_impl(std::move(other.m_impl))
-		{}
-
-		~file_stream() = default;
-
-		void init(const stdx::string &path, int32_t access_type, int32_t open_type, const mode_t &model)
-		{
-			return m_impl->init(path, access_type, open_type, model);
-		}
-
-		void init(const stdx::string &path, int32_t access_type, int32_t open_type)
-		{
-			return m_impl->init(path, access_type, open_type);
-		}
-
-		file_stream &operator=(const file_stream &other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-
-		stdx::task<file_read_event> read(const size_t &size, const uint64_t &offset)
-		{
-			return m_impl->read(size, offset);
-		}
-
-		stdx::task<file_write_event> write(const char* buffer, const size_t &size, const uint64_t &offset)
-		{
-			return m_impl->write(buffer, size, offset);
-		}
-
-
-		stdx::task<file_write_event> write(const stdx::string &str, const uint64_t &offset)
-		{
-			return write(str.c_str(), str.size(), offset);
-		}
-
-		//直到call返回true停止
-		void read_utill(const size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
-		{
-			m_impl->read_utill(size, offset, call);
-		}
-
-		void read_utill_eof(const size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
-		{
-			m_impl->read_utill_eof(size, offset, call, err_handler);
-		}
-
-		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
-		{
-			return m_impl->read_to_end(offset);
-		}
-
-		uint64_t size() const
-		{
-			return m_impl->size();
-		}
-
-		void close()
-		{
-			return m_impl->close();
-		}
-
-		int get_handle() const
-		{
-			return m_impl->get_handle();
-		}
-
-		bool operator==(const file_stream &other) const
-		{
-			return m_impl == other.m_impl;
-		}
-
-		operator bool() const
-		{
-			return (bool)m_impl;
-		}
-
-	private:
-		impl_t m_impl;
-	};
-#pragma endregion
-
-	
-
-	class _FileHandle
-	{
-	public:
-		_FileHandle(const int &file)
-			:m_file(file)
-		{}
-		~_FileHandle()
-		{
-			::close(m_file);
-		}
-		operator int() const
-		{
-			return m_file;
-		}
-		int get_file_handle() const
-		{
-			return m_file;
-		}
-		delete_copy(_FileHandle);
-	private:
-		int m_file;
-	};
-
-	class file_handle
-	{
-		using impl_t = std::shared_ptr<_FileHandle>;
-	public:
-		file_handle()
-			:m_impl(nullptr)
-		{}
-		file_handle(const int &file)
-			:m_impl(std::make_shared<_FileHandle>(file))
-		{}
-		file_handle(const file_handle &other)
-			:m_impl(other.m_impl)
-		{}
-		~file_handle() = default;
-		file_handle &operator=(const file_handle &other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-		operator int() const
-		{
-			return (int)(*m_impl);
-		}
-		int get_file_handle() const
-		{
-			return m_impl->get_file_handle();
-		}
-		bool operator==(const file_handle &other) const
-		{
-			return (m_impl == other.m_impl)||(m_impl->get_file_handle() == m_impl->get_file_handle());
-		}
-		operator bool() const
-		{
-			return (bool)m_impl;
-		}
-	private:
-		impl_t m_impl;
-	};
+	extern stdx::file_handle open_for_senfile(const stdx::string& path, const file_enum_value_t& access_type, const file_enum_value_t& open_type);
 }
 
-#pragma region APIs
-namespace stdx
-{
-	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, const int32_t &access_type, const int32_t &open_type);
-
-	extern stdx::file_stream open_file_stream(const stdx::file_io_service &io_service, const stdx::string &path, file_access_type access_type, file_open_type open_type);
-
-	extern stdx::file_handle open_for_senfile(const stdx::string &path, const int32_t &access_type, const int32_t &open_type);
-}
-#pragma endregion
-
-#undef _ThrowLinuxError
-#endif //LINUX
-
-
-
-
-#if defined(WIN32) | defined(LINUX)
 namespace stdx
 {
 	extern stdx::task_flag _FullpathNameFlag;
@@ -925,7 +622,7 @@ namespace stdx
 	using cancel_token_ptr = int*;
 	struct cancel_token_value
 	{
-		enum 
+		enum
 		{
 			none = 0,
 			cancel = 1
@@ -934,41 +631,41 @@ namespace stdx
 	class file
 	{
 	public:
-		
+
 		file()
 			:m_io_service(nullptr)
-			,m_path(std::make_shared<stdx::string>())
+			, m_path(std::make_shared<stdx::string>())
 		{}
 
-		file(const stdx::file_io_service &io_service,const stdx::string &path);
+		file(const stdx::file_io_service& io_service, const stdx::string& path);
 
-		file(const file &other);
+		file(const file& other);
 
-		file &operator=(const file &other);
+		file& operator=(const file& other);
 
-		bool operator==(const file &other) const;
+		bool operator==(const file& other) const;
 
 		~file() = default;
 
-		const stdx::string &path() const;
+		const stdx::string& path() const;
 
 		uint64_t size() const;
 
 		void remove();
 
-		void copy_to(const stdx::string &path, cancel_token_ptr cancel_ptr, std::function<void(uint64_t,uint64_t)> &&on_progress_change, std::function<void(uint64_t, uint64_t)> &&on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/);
+		void copy_to(const stdx::string& path, cancel_token_ptr cancel_ptr, std::function<void(uint64_t, uint64_t)>&& on_progress_change, std::function<void(uint64_t, uint64_t)>&& on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/);
 
 		bool exist() const;
 
 #ifdef WIN32
-		stdx::file_stream open_stream(const DWORD &access_type, const DWORD &open_type);
+		stdx::file_stream open_stream(const DWORD& access_type, const DWORD& open_type);
 
 
-		HANDLE open_native_handle(const DWORD &access_type, const DWORD &open_type) const;
+		HANDLE open_native_handle(const DWORD& access_type, const DWORD& open_type) const;
 #else
-		stdx::file_stream open_stream(const stdx::file_io_service &io_service, const int32_t &access_type, const int32_t &open_type);
+		stdx::file_stream open_stream(const stdx::file_io_service& io_service, const int32_t& access_type, const int32_t& open_type);
 
-		int open_native_handle(const int32_t &access_type, const int32_t &open_type) const;
+		int open_native_handle(const int32_t& access_type, const int32_t& open_type) const;
 #endif // WIN32
 
 #ifdef WIN32
@@ -985,11 +682,17 @@ namespace stdx
 		static void close_handle(int file);
 #endif // WIN32
 
-		stdx::file_stream open_stream(const stdx::file_access_type &access_type, const stdx::file_open_type &open_type);
+		stdx::file_stream open_stream(const stdx::file_access_type& access_type, const stdx::file_open_type& open_type);
 
 	private:
 		std::shared_ptr<stdx::string> m_path;
 		stdx::file_io_service m_io_service;
 	};
 }
+#endif
+
+#ifdef WIN32
+#undef _ThrowWinError
+#else
+#undef _ThrowLinuxError
 #endif
