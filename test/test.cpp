@@ -57,7 +57,7 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 			{
 				try
 				{
-						c.close();
+					c.close();
 					auto e = r.get();
 				}
 				catch (const std::exception& err)

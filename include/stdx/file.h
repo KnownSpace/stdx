@@ -268,7 +268,7 @@ namespace stdx
 			{
 				throw std::out_of_range("file is too big");
 			}
-			return read(u.low, offset);
+			return this->read(u.low, offset);
 		}
 
 
@@ -711,7 +711,7 @@ namespace stdx
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t &offset)
 		{
-			return read(size() - offset, offset);
+			return this->read(size() - offset, offset);
 		}
 
 
