@@ -224,11 +224,11 @@ namespace stdx
 		size_t m_cache_size;
 	};
 
-	template<typename _T,template<class> class _Impl>
+	template<typename _T>
 	class object_pool
 	{
 		using impl_t = std::shared_ptr<stdx::basic_object_pool<_T>>;
-		using self_t = stdx::object_pool<_T, _Impl>;
+		using self_t = stdx::object_pool<_T>;
 	public:
 		//don't use it.
 		//store only.
@@ -236,7 +236,7 @@ namespace stdx
 			:m_impl(nullptr)
 		{}
 
-		object_pool(const std::shared_ptr<_Impl<_T>> &impl)
+		object_pool(const impl_t &impl)
 			:m_impl(impl)
 		{}
 
@@ -287,28 +287,23 @@ namespace stdx
 		impl_t m_impl;
 	};
 	
-	template<typename _T>
-	using default_object_pool = stdx::object_pool<_T,stdx::_DefaultObjectPool>;
-
-	template<typename _T>
-	using concurrency_object_pool = stdx::object_pool<_T, stdx::_ConcurrencyObjectPool>;
 	
-	template<typename _T,template<class> class _Impl,typename ..._Args>
-	inline stdx::object_pool<_T, _Impl> make_object_pool(std::function<_T()> &&maker,_Args&&...args)
+	template<typename _T,template <class> class _Impl,typename ..._Args>
+	inline stdx::object_pool<_T> make_object_pool(std::function<_T()> &&maker,_Args&&...args)
 	{
-		stdx::object_pool<_T, _Impl> pool(std::move(std::make_shared<_Impl<_T>>(std::move(maker),args...)));
+		stdx::object_pool<_T> pool(std::move(std::make_shared<_Impl<_T>>(std::move(maker),args...)));
 		pool.init();
 		return pool;
 	}
 
 	template<typename _T>
-	inline stdx::default_object_pool<_T> make_default_object_pool(std::function<_T()>&& maker)
+	inline stdx::object_pool<_T> make_default_object_pool(std::function<_T()>&& maker)
 	{
 		return stdx::make_object_pool<_T,stdx::_DefaultObjectPool>(std::move(maker));
 	}
 
 	template<typename _T>
-	inline stdx::concurrency_object_pool<_T> make_concurrency_object_pool(std::function<_T()>&& maker,size_t cache_size = 32)
+	inline stdx::object_pool<_T> make_concurrency_object_pool(std::function<_T()>&& maker,size_t cache_size = 32)
 	{
 		return stdx::make_object_pool<_T, stdx::_ConcurrencyObjectPool>(std::move(maker),cache_size);
 	}

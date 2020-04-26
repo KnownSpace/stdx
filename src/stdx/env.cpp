@@ -67,12 +67,24 @@ void* stdx::realloc(void* p, size_t size)
 #endif
 }
 
-//void* operator new(size_t size, const std::nothrow_t& nothrow_value) noexcept
-//{
-//	return stdx::malloc(size);
-//}
-//
-//void operator delete(void* p, const std::nothrow_t& nothrow_value) noexcept
-//{
-//	return stdx::free(p);
-//}
+#ifdef WIN32
+void* operator new(size_t size, const std::nothrow_t& nothrow_value) noexcept
+{
+	return stdx::malloc(size);
+}
+
+void operator delete(void* p, const std::nothrow_t& nothrow_value) noexcept
+{
+	return stdx::free(p);
+}
+
+void* operator new[](size_t size, const std::nothrow_t& nothrow_value) noexcept
+{
+	return stdx::malloc(size);
+}
+
+void operator delete[](void* p, const std::nothrow_t& nothrow_value) noexcept
+{
+	return stdx::free(p);
+}
+#endif

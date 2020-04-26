@@ -31,8 +31,12 @@ namespace stdx
 	extern int posix_memalign(void **mem,size_t align, size_t size);
 	extern void* realloc(void* p, size_t size);
 }
-//extern void* operator new(size_t size, const std::nothrow_t& nothrow_value) noexcept;
-//extern void operator delete(void* p, const std::nothrow_t& nothrow_value) noexcept;
+#ifdef WIN32
+extern void* operator new(size_t size, const std::nothrow_t& nothrow_value) noexcept;
+extern void operator delete(void* p, const std::nothrow_t& nothrow_value) noexcept;
+extern void* operator new[](size_t size, const std::nothrow_t& nothrow_value) noexcept;
+extern void operator delete[](void* p, const std::nothrow_t& nothrow_value) noexcept;
+#endif
 
 #include <type_traits>
 #include <stdint.h>
