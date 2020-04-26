@@ -22,6 +22,7 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				{
 					stdx::http_response response(200);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
+					response.response_header().add_header(U("Server"), U("ELanguage"));
 					std::string body = stdx::ansi_to_utf8(doc_content);
 					const unsigned long long int& tmp = body.size();
 					response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
@@ -32,6 +33,7 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				{
 					stdx::http_response response(404);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
+					response.response_header().add_header(U("Server"), U("ELanguage"));
 					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
 					response.response_body().push(body);
 					return response;
@@ -42,6 +44,7 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				stdx::perrorf(U("请求处理出错:{0}\n"), err.what());
 				stdx::http_response response(502);
 				response.response_header().add_header(U("Content-Type"), U("text/html"));
+				response.response_header().add_header(U("Server"), U("ELanguage"));
 				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
 				response.response_body().push(body);
 				return response;
@@ -65,6 +68,71 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 					stdx::perrorf(U("发送失败:{0}\n"), err.what());
 				}
 			});
+}
+
+void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_service &io_service)
+{
+	stdx::socket c(ev.connection);
+	auto t = c.recv(4096).then([io_service,c](stdx::task_result<stdx::network_recv_event> r) mutable
+		{
+			try
+			{
+				auto e = r.get();
+				std::string tmp(e.buffer, e.size);
+				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
+				stdx::string path = U(".");
+				path.append(request.request_header().request_url());
+				stdx::file file(io_service,path);
+				if (file.exist())
+				{
+					auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
+					return stream.read_to_end(0).then([](stdx::file_read_event ev) 
+					{
+							stdx::http_response response(200);
+							response.response_header().add_header(U("Content-Type"), U("text/html"));
+							response.response_header().add_header(U("Server"), U("ELanguage"));
+							response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
+							return response;
+					});
+				}
+				else
+				{
+					stdx::http_response response(404);
+					response.response_header().add_header(U("Content-Type"), U("text/html"));
+					response.response_header().add_header(U("Server"), U("ELanguage"));
+					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+					response.response_body().push(body);
+					return stdx::complete_task<stdx::http_response>(response);
+				}
+			}
+			catch (const std::exception& err)
+			{
+				stdx::perrorf(U("请求处理出错:{0}\n"), err.what());
+				stdx::http_response response(502);
+				response.response_header().add_header(U("Content-Type"), U("text/html"));
+				response.response_header().add_header(U("Server"), U("ELanguage"));
+				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
+				response.response_body().push(body);
+				return stdx::complete_task<stdx::http_response>(response);
+			}
+		})
+		.then([c](stdx::http_response res) mutable 
+		{
+			auto&& bytes = res.to_bytes();
+			return c.send((const char*)bytes.data(), bytes.size());
+		})
+		.then([c](stdx::task_result<stdx::network_send_event> r) mutable
+		{
+			try
+			{
+				c.close();
+				auto e = r.get();
+			}
+			catch (const std::exception& err)
+			{
+				stdx::perrorf(U("发送失败:{0}\n"), err.what());
+			}
+		});
 }
 
 int main(int argc, char** argv)
@@ -115,9 +183,10 @@ int main(int argc, char** argv)
 		}
 		stdx::spin_lock lock;
 		uint32_t num = 0;
-		s.accept_until_error([doc_content](stdx::network_connected_event ev)  mutable
+		s.accept_until_error([doc_content,file_io_service](stdx::network_connected_event ev)  mutable
 			{
-				handle_client(ev,doc_content);
+				//handle_client(ev,doc_content);
+				handle_client_file(ev, file_io_service);
 			},
 			[](std::exception_ptr error)
 			{

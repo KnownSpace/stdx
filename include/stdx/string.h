@@ -622,6 +622,7 @@ namespace stdx
 	extern stdx::string to_string(const std::wstring &val);
 	extern stdx::string to_string(const char* str);
 #endif
+
 	extern void _FormatString(stdx::string& format_string, std::initializer_list<stdx::string>&& args);
 
 	template<typename ..._Args>

@@ -33,6 +33,16 @@ namespace stdx
 			return m_data;
 		}
 
+		operator unsigned char* ()
+		{
+			return (unsigned char*)m_data;
+		}
+
+		operator const unsigned char* () const
+		{
+			return (const unsigned char*)m_data;
+		}
+
 		void realloc(const size_t & size);
 
 		const size_t &size() const
@@ -82,6 +92,16 @@ namespace stdx
 			return *m_impl;
 		}
 		operator const char* () const
+		{
+			return *m_impl;
+		}
+
+		operator unsigned char* ()
+		{
+			return *m_impl;
+		}
+
+		operator const unsigned char* () const
 		{
 			return *m_impl;
 		}

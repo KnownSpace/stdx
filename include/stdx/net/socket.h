@@ -417,6 +417,21 @@ namespace stdx
 			size = other.size;
 			return *this;
 		}
+
+		network_send_event& operator=(network_send_event&& other) noexcept
+		{
+			sock = other.sock;
+			size = other.size;
+#ifdef WIN32
+			other.sock = INVALID_SOCKET;
+			other.size = 0;
+#else
+			other.sock = -1;
+			other.size = 0;
+#endif
+			return *this;
+		}
+
 		network_send_event(network_io_context* ptr)
 			:sock(ptr->this_socket)
 			, size(ptr->size)
@@ -463,6 +478,23 @@ namespace stdx
 			addr = other.addr;
 			return *this;
 		}
+
+		network_recv_event& operator=(network_recv_event&& other) noexcept
+		{
+			sock = other.sock;
+			buffer = other.buffer;
+			size = other.size;
+			addr = other.addr;
+#ifdef WIN32
+			other.sock = INVALID_SOCKET;
+			other.size = 0;
+#else
+			other.sock = -1;
+			other.size = 0;
+#endif
+			return *this;
+		}
+
 		network_recv_event(network_io_context* ptr)
 			:sock(ptr->target_socket)
 #ifdef WIN32

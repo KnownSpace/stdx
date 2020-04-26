@@ -111,7 +111,7 @@ void stdx::_Buffer::copy_from(const stdx::_Buffer& other)
 	{
 		realloc(new_size);
 	}
-	memcpy(m_data, other, new_size);
+	memcpy(m_data, (const char*)other, new_size);
 }
 
 char* stdx::_Buffer::to_raw()

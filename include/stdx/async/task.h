@@ -560,7 +560,7 @@ namespace stdx
 			promise_ptr<Input> promise = stdx::make_promise_ptr<Input>();
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> result)
 				{
-					fn(result.get());
+					return fn(result.get());
 				}, fn, (std::shared_future<Input>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
 				{
@@ -606,7 +606,7 @@ namespace stdx
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> result)
 				{
 					//使用future来制作task_result
-					fn(stdx::task_result<Input>(result));
+					return fn(stdx::task_result<Input>(result));
 				}, fn, (std::shared_future<Input>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
 				{
@@ -702,7 +702,7 @@ namespace stdx
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<void> result)
 				{
 					result.wait();
-					fn();
+					return fn();
 				}, fn, (std::shared_future<void>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<void> input_promise)
 				{
@@ -1138,8 +1138,8 @@ namespace stdx
 	};
 #pragma endregion
 
-	template<typename _T, typename ..._Args>
-	inline stdx::task<_T> complete_task(_Args&&...args)
+	template<typename _T,typename ..._Args>
+	inline stdx::task<_T> complete_task(_Args ...args)
 	{
 		stdx::task_completion_event<_T> ev;
 		ev.set_value(args...);
