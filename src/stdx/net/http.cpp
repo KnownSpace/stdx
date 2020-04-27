@@ -3096,25 +3096,15 @@ stdx::http_response_body_ptr stdx::make_http_response_body(const stdx::string& b
 	return body;
 }
 
-template<bool _Cond>
 void _GetSizeFromHex(const char* buf, size_t* ptr)
 {
 #ifdef WIN32
-	sscanf_s(buf, "%lX", ptr);
+	sscanf_s(buf, "%zX", ptr);
 #else
-	sscanf(buf, "%lX", ptr);
+	sscanf(buf, "%zX", ptr);
 #endif
 }
 
-template<>
-void _GetSizeFromHex<false>(const char* buf, size_t* ptr)
-{
-#ifdef WIN32
-	sscanf_s(buf, "%X", ptr);
-#else
-	sscanf(buf, "%X", ptr);
-#endif
-}
 
 stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned char>& data)
 {
@@ -3140,7 +3130,7 @@ stdx::http_chunk_body stdx::make_http_chunked_body(const std::vector<unsigned ch
 		if (!begin->empty())
 		{
 			size_t size = 0;
-			_GetSizeFromHex<(sizeof(void*) == 8)>(begin->c_str(), &size);
+			_GetSizeFromHex(begin->c_str(), &size);
 			if (size == 0)
 			{
 				_end = true;
@@ -3186,7 +3176,7 @@ stdx::http_chunk_body stdx::make_http_chunked_body(const std::string& data)
 		if (!begin->empty())
 		{
 			size_t size = 0;
-			_GetSizeFromHex<(sizeof(void*) == 8)>(begin->c_str(), &size);
+			_GetSizeFromHex(begin->c_str(), &size);
 			if (size == 0)
 			{
 				_end = true;
