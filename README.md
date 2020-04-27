@@ -27,4 +27,4 @@ make
 make install
 ```
 
-[中文文档](https://github.com/NaturalSelect/stdx/wiki)
+[中文文档(编写中)](https://github.com/NaturalSelect/stdx/wiki)
