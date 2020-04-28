@@ -142,4 +142,6 @@ namespace stdx
 
 	extern uint16_t month_name_to_time_int(stdx::string&& name);
 	extern uint16_t month_name_to_time_int(const stdx::string &name);
+
+	extern uint64_t get_tick_count();
 }

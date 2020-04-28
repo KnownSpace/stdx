@@ -7,6 +7,11 @@
 #include <stdx/function.h>
 #include <stdx/env.h>
 
+#ifndef STDX_LAZY_MAX_TIME
+#define STDX_LAZY_MAX_TIME 64
+#endif
+
+
 namespace stdx
 {
 #pragma region SomeDataStruct
@@ -1155,4 +1160,6 @@ namespace stdx
 		ev.run_on_this_thread();
 		return ev.get_task();
 	}
+
+	extern stdx::task<void> lazy(uint64_t ms);
 }

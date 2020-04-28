@@ -1,4 +1,6 @@
 ﻿#include <stdx/async/task.h>
+#include <chrono>
+#include <stdx/datetime.h>
 
 stdx::_TaskFlag::_TaskFlag()
 	:m_lock()
@@ -54,4 +56,49 @@ void stdx::_TaskFlag::unlock() noexcept
 	{
 		m_locked = false;
 	}
+}
+
+void _Lazy(uint64_t ms,std::function<void()> callback,uint64_t tick)
+{
+	if (ms == 0)
+	{
+		callback();
+		return;
+	}
+	else if(ms < STDX_LAZY_MAX_TIME)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+		callback();
+		return;
+	}
+	else
+	{
+		if (tick == 0)
+		{
+			tick = stdx::get_tick_count();
+			tick += ms;
+		}
+		uint64_t now = stdx::get_tick_count();
+		if (now >= tick)
+		{
+			callback();
+			return;
+		}
+		ms -= (now - tick);
+		stdx::threadpool::run([ms,tick,callback]() 
+		{
+				_Lazy(ms, callback, tick);
+		});
+	}
+}
+
+stdx::task<void> stdx::lazy(uint64_t ms)
+{
+	stdx::task_completion_event<void> ce;
+	_Lazy(ms, [ce]() mutable
+	{
+		ce.set_value();
+		ce.run_on_this_thread();
+	},0);
+	return ce.get_task();
 }

@@ -608,11 +608,13 @@ namespace stdx
 #endif
 	};
 
-	extern stdx::string to_string(const int &val);
+	extern stdx::string to_string(const int& val);
+	extern stdx::string to_string(const long int &val);
 	extern stdx::string to_string(const long long int &val);
 	extern stdx::string to_string(const double &val);
 	extern stdx::string to_string(const long double &val);
-	extern stdx::string to_string(const unsigned int &val);
+	extern stdx::string to_string(const unsigned int& val);
+	extern stdx::string to_string(const unsigned long int &val);
 	extern stdx::string to_string(const unsigned long long int &val);
 	extern stdx::string to_string(const typename stdx::string::char_t *str);
 	extern const stdx::string &to_string(const stdx::string &val);
@@ -626,7 +628,7 @@ namespace stdx
 	extern void _FormatString(stdx::string& format_string, std::initializer_list<stdx::string>&& args);
 
 	template<typename ..._Args>
-	inline void format_string(stdx::string& format_string, _Args&&...args)
+	inline void format_string(stdx::string& format_string,const _Args &...args)
 	{
 		_FormatString(format_string, std::move(std::initializer_list<stdx::string>{stdx::to_string(args)...}));
 	}

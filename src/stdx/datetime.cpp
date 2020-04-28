@@ -3,6 +3,22 @@
 #include <sys/timeb.h>
 #endif
 
+#ifdef WIN32
+#define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
+						if(_ERROR_CODE != ERROR_IO_PENDING) \
+						{ \
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
+						}
+#define _ThrowWSAError 	auto _ERROR_CODE = WSAGetLastError(); \
+						if(_ERROR_CODE != WSA_IO_PENDING)\
+						{\
+							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()));\
+						}
+#else
+#define _ThrowLinuxError auto _ERROR_CODE = errno;\
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
+#endif
+
 stdx::datetime::datetime()
 	:m_year(1970)
 	, m_month(1)
@@ -905,4 +921,18 @@ uint16_t stdx::month_name_to_time_int(const stdx::string& name)
 {
 	stdx::string tmp(name);
 	return month_name_to_time_int(std::move(tmp));
+}
+
+uint64_t stdx::get_tick_count()
+{
+#ifdef WIN32
+	return GetTickCount64();
+#else
+	struct timespec ts;
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+	{
+		_ThrowLinuxError
+	}
+	return (ts.tv_sec * 1000 + ts.tv_nsec/1000000);
+#endif
 }

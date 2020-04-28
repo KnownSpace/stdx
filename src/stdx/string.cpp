@@ -527,7 +527,16 @@ std::istream& operator>>(std::istream& in, stdx::string& str)
 }
 #endif
 
-stdx::string stdx::to_string(const int &val)
+stdx::string stdx::to_string(const int& val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif
+}
+
+stdx::string stdx::to_string(const long int &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
@@ -563,7 +572,16 @@ stdx::string stdx::to_string(const long double &val)
 #endif
 }
 
-stdx::string stdx::to_string(const unsigned int &val)
+stdx::string stdx::to_string(const unsigned int& val)
+{
+#ifdef WIN32
+	return std::to_wstring(val);
+#else
+	return std::to_string(val);
+#endif
+}
+
+stdx::string stdx::to_string(const unsigned long int &val)
 {
 #ifdef WIN32
 	return std::to_wstring(val);
