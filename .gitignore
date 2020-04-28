@@ -263,4 +263,3 @@ __pycache__/
 /out
 /lib
 *.zip
-CMakeSettings.json
