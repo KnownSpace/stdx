@@ -912,6 +912,17 @@ stdx::string stdx::to_string(const char* str)
 
 #endif
 
+stdx::string stdx::to_string(void* p)
+{
+	typename stdx::string::char_t buf[sizeof(void*)*2+3];
+#ifdef WIN32
+	swprintf_s(buf, sizeof(buf), L"0x%p", p);
+#else
+	snprintf(buf, sizeof(buf), "0x%p", p);
+#endif
+	return stdx::string(buf);
+}
+
 void stdx::string::erase(const stdx::string& target)
 {
 	for (size_t pos(m_data.find(target.m_data)); pos != npos; pos = m_data.find(target.m_data))
