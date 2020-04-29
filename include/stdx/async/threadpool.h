@@ -58,13 +58,10 @@ namespace stdx
 		void join_as_worker();
 
 	private:
-		std::shared_ptr<uint32_t> m_alive_count;
-		std::shared_ptr<uint32_t> m_free_count;
 		std::shared_ptr<bool> m_alive;
 		std::shared_ptr<std::queue<runable>> m_task_queue;
 		std::shared_ptr<std::condition_variable> m_cv;
 		std::shared_ptr<std::mutex> m_mutex;
-		static uint32_t m_cpu_cores;
 		//添加线程
 		void add_thread() noexcept;
 		

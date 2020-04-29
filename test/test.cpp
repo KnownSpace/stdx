@@ -80,6 +80,15 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				auto e = r.get();
 				std::string tmp(e.buffer, e.size);
 				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
+				if (request.request_header().request_url().end_with(U("/")))
+				{
+					stdx::http_response response(404);
+					response.response_header().add_header(U("Content-Type"), U("text/html"));
+					response.response_header().add_header(U("Server"), U("ELanguage"));
+					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+					response.response_body().push(body);
+					return stdx::complete_task<stdx::http_response>(response);
+				}
 				stdx::string path = U(".");
 				path.append(request.request_header().request_url());
 				stdx::file file(io_service,path);

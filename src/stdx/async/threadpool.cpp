@@ -2,7 +2,6 @@
 #include <stdx/finally.h>
 
 stdx::threadpool::impl_t stdx::threadpool::m_impl;
-uint32_t stdx::_Threadpool::m_cpu_cores = cpu_cores();
 uint32_t stdx::suggested_threads_number()
 {
 	uint32_t cores = cpu_cores();
@@ -21,14 +20,12 @@ uint32_t stdx::suggested_threads_number()
 	{
 		return 20;
 	}
-#endif // STDX_NOT_LIMITED_CPU_USING
+#endif
 }
 
 //构造函数
 stdx::_Threadpool::_Threadpool() noexcept
-	:m_alive_count(std::make_shared<uint32_t>(0))
-	,m_free_count(std::make_shared<uint32_t>(0))
-	, m_alive(std::make_shared<bool>(true))
+	: m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable>>())
 	, m_cv(std::make_shared<std::condition_variable>())
 	, m_mutex(std::make_shared<std::mutex>())
@@ -51,10 +48,8 @@ stdx::_Threadpool::~_Threadpool() noexcept
 void stdx::_Threadpool::join_as_worker()
 {
 	std::unique_lock<std::mutex> lock(*m_mutex);
-	*m_alive_count += 1;
-	*m_free_count += 1;
 	lock.unlock();
-	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
+	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<bool> alive)
 	{
 		while (*alive)
 		{
@@ -68,15 +63,7 @@ void stdx::_Threadpool::join_as_worker()
 			}
 			if (!(tasks->empty()))
 			{
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 				//如果任务列表不为空
-				//减去一个计数
-				*count = *count - 1;
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 				//执行任务
 				try
 				{
@@ -108,24 +95,14 @@ void stdx::_Threadpool::join_as_worker()
 #ifdef DEBUG
 				::printf("[Threadpool]当前剩余未处理任务数:%zu\n", tasks->size());
 #endif
-				//完成或终止后
-				//添加计数
-				//lock.lock();
-				*count = *count + 1;
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 			}
 			else
 			{
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 				continue;
 			}
 		}
 	};
-	handle(m_task_queue,m_cv,m_mutex, m_free_count, m_alive,m_alive_count);
+	handle(m_task_queue,m_cv,m_mutex,m_alive);
 }
 
 //uint32_t stdx::_Threadpool::expand_number_of_threads()
@@ -168,7 +145,7 @@ void stdx::_Threadpool::add_thread() noexcept
 	printf("[Threadpool]正在创建新线程\n");
 #endif
 
-	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<uint32_t> count, std::shared_ptr<bool> alive, std::shared_ptr<uint32_t> alive_count)
+	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex,std::shared_ptr<bool> alive)
 	{
 		//如果存活
 		while (*alive)
@@ -184,15 +161,7 @@ void stdx::_Threadpool::add_thread() noexcept
 			}
 			if (!(tasks->empty()))
 			{
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 				//如果任务列表不为空
-				//减去一个计数
-				* count = *count - 1;
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 				//执行任务
 				try
 				{
@@ -224,24 +193,15 @@ void stdx::_Threadpool::add_thread() noexcept
 #ifdef DEBUG
 				::printf("[Threadpool]当前剩余未处理任务数:%zu\n", tasks->size());
 #endif
-				//完成或终止后
-				//添加计数
-				* count = *count + 1;
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 			}
 			else
 			{
-#ifdef DEBUG
-				::printf("[Threadpool]当前线程池空闲线程数:%u\n", *count);
-#endif
 				continue;
 			}
 		}
 	};
 	//创建线程
-	std::thread t(handle, m_task_queue, m_cv, m_mutex, m_free_count, m_alive, m_alive_count);
+	std::thread t(handle, m_task_queue, m_cv, m_mutex, m_alive);
 	//分离线程
 	t.detach();
 }
@@ -253,8 +213,16 @@ void stdx::_Threadpool::init_threads() noexcept
 #ifdef DEBUG
 	printf("[Threadpool]正在初始化线程池\n");
 #endif // DEBUG
-	uint32_t threads_number = suggested_threads_number()*3;
-	*m_free_count += threads_number;
+#ifdef STDX_NOT_LIMITED_CPU_USING
+	uint32_t threads_number = suggested_threads_number() * 2 + cpu_cores();
+#else
+	uint32_t use = cpu_cores();
+	if (use > 9)
+	{
+		use = 9;
+	}
+	uint32_t threads_number = suggested_threads_number() * 2 + use;
+#endif
 	for (size_t i = 0; i < threads_number; i++)
 	{
 		add_thread();
