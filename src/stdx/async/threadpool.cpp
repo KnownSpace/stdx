@@ -25,7 +25,6 @@ uint32_t stdx::suggested_threads_number()
 }
 
 //构造函数
-
 stdx::_Threadpool::_Threadpool() noexcept
 	:m_alive_count(std::make_shared<uint32_t>(0))
 	,m_free_count(std::make_shared<uint32_t>(0))
@@ -49,7 +48,7 @@ stdx::_Threadpool::~_Threadpool() noexcept
 #endif // DEBUG
 }
 
-void stdx::_Threadpool::join_handle()
+void stdx::_Threadpool::join_as_worker()
 {
 	std::unique_lock<std::mutex> lock(*m_mutex);
 	*m_alive_count += 1;
@@ -129,38 +128,38 @@ void stdx::_Threadpool::join_handle()
 	handle(m_task_queue,m_cv,m_mutex, m_free_count, m_alive,m_alive_count);
 }
 
-uint32_t stdx::_Threadpool::expand_number_of_threads()
-{
-	if (m_cpu_cores < 2)
-	{
-		return m_cpu_cores;
-	}
-	if (m_cpu_cores > 8)
-	{
-		return 16;
-	}
-	return m_cpu_cores*2;
-}
-
-bool stdx::_Threadpool::need_expand() const
-{
-	if (*m_alive_count < (6 * m_cpu_cores))
-	{
-		if (m_task_queue->size() > *m_free_count)
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void stdx::_Threadpool::expand(uint32_t number_of_threads)
-{
-	for (size_t i = 0; i < number_of_threads; i++)
-	{
-		add_thread();
-	}
-}
+//uint32_t stdx::_Threadpool::expand_number_of_threads()
+//{
+//	if (m_cpu_cores < 2)
+//	{
+//		return m_cpu_cores;
+//	}
+//	if (m_cpu_cores > 8)
+//	{
+//		return 16;
+//	}
+//	return m_cpu_cores*2;
+//}
+//
+//bool stdx::_Threadpool::need_expand() const
+//{
+//	if (*m_alive_count < (6 * m_cpu_cores))
+//	{
+//		if (m_task_queue->size() > *m_free_count)
+//		{
+//			return true;
+//		}
+//	}
+//	return false;
+//}
+//
+//void stdx::_Threadpool::expand(uint32_t number_of_threads)
+//{
+//	for (size_t i = 0; i < number_of_threads; i++)
+//	{
+//		add_thread();
+//	}
+//}
 
 //添加线程
 void stdx::_Threadpool::add_thread() noexcept
@@ -254,7 +253,7 @@ void stdx::_Threadpool::init_threads() noexcept
 #ifdef DEBUG
 	printf("[Threadpool]正在初始化线程池\n");
 #endif // DEBUG
-	uint32_t threads_number = suggested_threads_number();
+	uint32_t threads_number = suggested_threads_number()*6;
 	*m_free_count += threads_number;
 	for (size_t i = 0; i < threads_number; i++)
 	{

@@ -203,7 +203,7 @@ int main(int argc, char** argv)
 					stdx::perrorf(U("Accept Error:{0}"), err.what());
 				}
 			});
-		stdx::threadpool::join_handle();
+		stdx::threadpool::join_as_worker();
 		s.close();
 #pragma endregion
 #endif

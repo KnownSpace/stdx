@@ -12,8 +12,17 @@ namespace stdx
 {
 	extern uint32_t suggested_threads_number();
 
+	interface_class basic_threadpool
+	{
+		virtual ~basic_threadpool() = default;
+
+		virtual void run(std::function<void()> &&task) = 0;
+
+		virtual void join_as_worker() = 0;
+	};
+
 	//线程池
-	class _Threadpool
+	class _Threadpool:public stdx::basic_threadpool
 	{
 		using runable = std::function<void()>;
 	public:
@@ -26,12 +35,6 @@ namespace stdx
 		//删除复制构造函数
 		_Threadpool(const _Threadpool&) = delete;
 
-		static uint32_t expand_number_of_threads();
-
-		bool need_expand() const;
-
-		void expand(uint32_t number_of_threads);
-
 		//执行任务
 		template<typename _Fn, typename ..._Args>
 		void run(_Fn &&task, _Args &&...args) noexcept
@@ -43,17 +46,16 @@ namespace stdx
 			std::unique_lock<std::mutex> _lock(*m_mutex);
 			m_task_queue->push(std::move(t));
 			m_cv->notify_one();
-			if (need_expand())
-			{
-				uint32_t num = expand_number_of_threads();
-				*m_free_count += num;
-				*m_alive_count += num;
-				_lock.unlock();
-				expand(num);
-			}
 		}
 
-		void join_handle();
+		void run(std::function<void()> &&task)
+		{
+			std::unique_lock<std::mutex> _lock(*m_mutex);
+			m_task_queue->push(std::move(task));
+			m_cv->notify_one();
+		}
+
+		void join_as_worker();
 
 	private:
 		std::shared_ptr<uint32_t> m_alive_count;
@@ -79,11 +81,12 @@ namespace stdx
 		template<typename _Fn,typename ..._Args>
 		static void run(_Fn &&fn,_Args &&...args) noexcept
 		{
-			m_impl.run(std::move(fn),args...);
+			m_impl.run(std::bind(fn,args...));
 		}
-		static void join_handle()
+
+		static void join_as_worker()
 		{
-			m_impl.join_handle();
+			m_impl.join_as_worker();
 		}
 	private:
 		threadpool() = default;
