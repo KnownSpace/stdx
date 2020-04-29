@@ -253,7 +253,7 @@ void stdx::_Threadpool::init_threads() noexcept
 #ifdef DEBUG
 	printf("[Threadpool]正在初始化线程池\n");
 #endif // DEBUG
-	uint32_t threads_number = suggested_threads_number()*6;
+	uint32_t threads_number = suggested_threads_number()*3;
 	*m_free_count += threads_number;
 	for (size_t i = 0; i < threads_number; i++)
 	{
