@@ -57,14 +57,14 @@ stdx::_NetworkIOService::_NetworkIOService()
 			clean(ptr);
 	})
 #endif
-	, m_alive(std::make_shared<bool>(true))
+	, m_token()
 {
 	init_threadpoll();
 }
 
 stdx::_NetworkIOService::~_NetworkIOService()
 {
-	*m_alive = false;
+	m_token.cancel();
 #ifdef WIN32
 	for (size_t i = 0, size = suggested_threads_number(); i < size; i++)
 	{
@@ -1049,48 +1049,46 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
-		stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
+		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
 			{
-				while (*alive)
+				auto* context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+				if (context_ptr == nullptr)
 				{
-					auto* context_ptr = iocp.get();
-#ifdef DEBUG
-					::printf("[IOCP]IO操作完成\n");
-#endif // DEBUG
-					if (context_ptr == nullptr)
-					{
-						continue;
-					}
-					stdx::threadpool::run([context_ptr]() 
-					{
-							std::exception_ptr error(nullptr);
-							try
-							{
-								DWORD flag = 0;
-								if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
-								{
-									_ThrowWSAError
-								}
-							}
-							catch (const std::exception&)
-							{
-								error = std::current_exception();
-							}
-							auto* call = context_ptr->callback;
-							stdx::finally fin([call]()
-								{
-									delete call;
-								});
-							try
-							{
-								(*call)(context_ptr, error);
-							}
-							catch (const std::exception&)
-							{
-							}
-					});
+					return;
 				}
-			}, m_iocp, m_alive);
+#ifdef DEBUG
+				::printf("[IOCP]IO操作完成\n");
+#endif // DEBUG
+				stdx::threadpool::run([context_ptr]()
+					{
+						std::exception_ptr error(nullptr);
+						try
+						{
+							DWORD flag = 0;
+							if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
+							{
+								_ThrowWSAError
+							}
+						}
+						catch (const std::exception&)
+						{
+							error = std::current_exception();
+						}
+						auto* call = context_ptr->callback;
+						stdx::finally fin([call]()
+							{
+								delete call;
+							});
+						try
+						{
+							(*call)(context_ptr, error);
+						}
+						catch (const std::exception&)
+						{
+						}
+					});
+			}, m_iocp);
+
 	}
 #else
 #ifdef DEBUG
@@ -1098,152 +1096,149 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
-		stdx::threadpool::run([](stdx::reactor reactor, std::shared_ptr<bool> alive)
+		stdx::threadpool::loop_run(m_token,[](stdx::reactor reactor)
 			{
-				while (*alive)
-				{
 #ifdef DEBUG
-					::printf("[Epoll]检测IO请求中\n");
+				::printf("[Epoll]检测IO请求中\n");
 #endif // DEBUG
-					try
-					{
-						reactor.get<stdx::network_io_context_finder>([reactor](epoll_event* ev_ptr) mutable
+				try
+				{
+					reactor.get<stdx::network_io_context_finder>([reactor](epoll_event* ev_ptr) mutable
+						{
+#ifdef DEBUG
+							::printf("[Epoll]检测到IO请求\n");
+#endif // DEBUG
+							stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
+							if (context == nullptr)
+							{
+								return;
+							}
+							if (ev_ptr->events & stdx::epoll_events::hup)
+							{
+								reactor.push(context->this_socket, *ev_ptr);
+								reactor.loop(context->this_socket);
+								return;
+							}
+							else if (ev_ptr->events & stdx::epoll_events::err)
+							{
+								reactor.push(context->this_socket, *ev_ptr);
+								reactor.loop(context->this_socket);
+								return;
+							}
+							ssize_t r = 0;
+#ifdef DEBUG
+							::printf("[Epoll]IO操作准备中\n");
+#endif // DEBUG
+							if (context->code == stdx::network_io_context_code::recv)
 							{
 #ifdef DEBUG
-								::printf("[Epoll]检测到IO请求\n");
+								::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
 #endif // DEBUG
-								stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
-								if (context == nullptr)
+								r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT);
+							}
+							else if (context->code == stdx::network_io_context_code::recvfrom)
+							{
+								sockaddr_in addr;
+								socklen_t addr_size = sizeof(sockaddr_in);
+#ifdef DEBUG
+								::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
+#endif // DEBUG
+								r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
+								context->addr = stdx::ipv4_addr(addr);
+							}
+							else if (context->code == stdx::network_io_context_code::accept)
+							{
+#ifdef DEBUG
+								::printf("[Epoll]新的连接建立中\n");
+#endif // DEBUG
+								sockaddr_in addr;
+								socklen_t addr_size = sizeof(sockaddr_in);
+								context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK);
+								context->addr = stdx::ipv4_addr(addr);
+								if (context->target_socket == -1)
 								{
-									return;
-								}
-								if (ev_ptr->events & stdx::epoll_events::hup)
-								{
-									reactor.push(context->this_socket,*ev_ptr);
+#ifdef DEBUG
+									::printf("[Epoll]连接已重置\n");
+#endif // DEBUG
+									epoll_event ev = *ev_ptr;
+									reactor.push(context->this_socket, ev);
 									reactor.loop(context->this_socket);
 									return;
-								}
-								else if(ev_ptr->events & stdx::epoll_events::err)
-								{
-									reactor.push(context->this_socket, *ev_ptr);
-									reactor.loop(context->this_socket);
-									return;
-								}
-								ssize_t r = 0;
-#ifdef DEBUG
-								::printf("[Epoll]IO操作准备中\n");
-#endif // DEBUG
-								if (context->code == stdx::network_io_context_code::recv)
-								{
-#ifdef DEBUG
-									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
-#endif // DEBUG
-									r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL|MSG_DONTWAIT);
-								}
-								else if (context->code == stdx::network_io_context_code::recvfrom)
-								{
-									sockaddr_in addr;
-									socklen_t addr_size = sizeof(sockaddr_in);
-#ifdef DEBUG
-									::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
-#endif // DEBUG
-									r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL|MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
-									context->addr = stdx::ipv4_addr(addr);
-								}
-								else if (context->code == stdx::network_io_context_code::accept)
-								{
-#ifdef DEBUG
-									::printf("[Epoll]新的连接建立中\n");
-#endif // DEBUG
-									sockaddr_in addr;
-									socklen_t addr_size = sizeof(sockaddr_in);
-									context->target_socket = ::accept4(context->this_socket,(sockaddr*)&addr,&addr_size, SOCK_NONBLOCK);
-									context->addr = stdx::ipv4_addr(addr);
-									if (context->target_socket == -1)
-									{
-#ifdef DEBUG
-										::printf("[Epoll]连接已重置\n");
-#endif // DEBUG
-										epoll_event ev = *ev_ptr;
-										reactor.push(context->this_socket,ev);
-										reactor.loop(context->this_socket);
-										return;
-									}
-									else
-									{
-#ifdef DEBUG
-										::printf("[Epoll]新的连接已建立\n");
-#endif // DEBUG
-										reactor.bind(context->target_socket);
-										r = 1;
-									}
-								}
-#ifdef DEBUG
-								::printf("[Epoll]IO操作已完成\n");
-#endif // DEBUG
-								auto* callback = context->callback;
-								if (callback == nullptr)
-								{
-#ifdef DEBUG
-									::printf("[Epoll]Callback为空\n");
-#endif // DEBUG
-								}
-								std::exception_ptr err(nullptr);
-								try
-								{
-									if (r == 0)
-									{
-										throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
-									}
-									else if (r < 0)
-									{
-										if (errno == EAGAIN || errno == EWOULDBLOCK)
-										{
-											reactor.push(context->this_socket,*ev_ptr);
-											reactor.loop(context->this_socket);
-											return;
-										}
-										_ThrowLinuxError
-									}
-									context->size = (size_t)r;
-								}
-								catch (const std::exception&)
-								{
-									err = std::current_exception();
-#ifdef DEBUG
-									::printf("[Epoll]IO操作出错\n");
-#endif // DEBUG
-								}
-								reactor.loop(context->this_socket);
-								if (callback != nullptr)
-								{
-									stdx::finally fin([callback]()
-									{
-											delete callback;
-									});
-									try
-									{
-										(*callback)(context, err);
-									}
-									catch (const std::exception&)
-									{
-
-									}
 								}
 								else
 								{
-									clean(ev_ptr);
+#ifdef DEBUG
+									::printf("[Epoll]新的连接已建立\n");
+#endif // DEBUG
+									reactor.bind(context->target_socket);
+									r = 1;
 								}
-							});
-					}
-					catch (const std::exception&)
-					{
-					}
+							}
+#ifdef DEBUG
+							::printf("[Epoll]IO操作已完成\n");
+#endif // DEBUG
+							auto* callback = context->callback;
+							if (callback == nullptr)
+							{
+#ifdef DEBUG
+								::printf("[Epoll]Callback为空\n");
+#endif // DEBUG
+							}
+							std::exception_ptr err(nullptr);
+							try
+							{
+								if (r == 0)
+								{
+									throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
+								}
+								else if (r < 0)
+								{
+									if (errno == EAGAIN || errno == EWOULDBLOCK)
+									{
+										reactor.push(context->this_socket, *ev_ptr);
+										reactor.loop(context->this_socket);
+										return;
+									}
+									_ThrowLinuxError
+								}
+								context->size = (size_t)r;
+							}
+							catch (const std::exception&)
+							{
+								err = std::current_exception();
+#ifdef DEBUG
+								::printf("[Epoll]IO操作出错\n");
+#endif // DEBUG
+							}
+							reactor.loop(context->this_socket);
+							if (callback != nullptr)
+							{
+								stdx::finally fin([callback]()
+									{
+										delete callback;
+									});
+								try
+								{
+									(*callback)(context, err);
+								}
+								catch (const std::exception&)
+								{
+
+								}
+							}
+							else
+							{
+								clean(ev_ptr);
+							}
+						}, STDX_LAZY_MAX_TIME);
+}
+				catch (const std::exception&)
+				{
 				}
 #ifdef DEBUG
 				::printf("[Epoll]反应器线程退出\n");
 #endif // DEBUG
-			}, m_reactor, m_alive);
+			}, m_reactor);
 	}
 #endif
 }

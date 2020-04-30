@@ -83,6 +83,28 @@ namespace stdx
 			return CONTAINING_RECORD(ol,_IOContext, m_ol);
 		}
 
+		_IOContext* get(DWORD ms)
+		{
+			DWORD size = 0;
+			OVERLAPPED* ol = nullptr;
+			ULONG_PTR key = 0;
+			bool r = GetQueuedCompletionStatus(m_iocp, &size, &key, &ol,ms);
+			if (!r)
+			{
+				if (GetLastError() == 258)
+				{
+					return nullptr;
+				}
+				//处理错误
+				_ThrowWinError
+			}
+			if (ol == nullptr)
+			{
+				return nullptr;
+			}
+			return CONTAINING_RECORD(ol, _IOContext, m_ol);
+		}
+
 		void post(DWORD size,_IOContext *context_ptr,OVERLAPPED *ol_ptr)
 		{
 			bool r = PostQueuedCompletionStatus(m_iocp, size, (ULONG_PTR)context_ptr, ol_ptr);
@@ -122,6 +144,12 @@ namespace stdx
 		{
 			return m_impl->get();
 		}
+
+		_IOContext* get(DWORD ms)
+		{
+			return m_impl->get(ms);
+		}
+
 		void bind(const HANDLE &file_handle)
 		{
 			m_impl->bind(file_handle);
@@ -314,6 +342,38 @@ namespace stdx
 			res = ev.res;
 			return (_IOContext*)ev.data;
 		}
+
+		_IOContext* get(int64_t& res,int32_t ms)
+		{
+			io_event ev;
+			timespec tm;
+			tm.tv_nsec = ms*1000*1000;
+			tm.tv_sec = 0;
+			int r = io_getevents(m_ctxid, 1, 1, &ev, &tm);
+			if (r < 1)
+			{
+#ifdef DEBUG
+				if (r < 0)
+				{
+					try
+					{
+						if (errno != EINTR)
+						{
+							_ThrowLinuxError
+						}
+					}
+					catch (const std::exception& err)
+					{
+						::printf("[Native AIO]发生意外错误:%s\n", err.what());
+					}
+				}
+#endif
+				return nullptr;
+			}
+			res = ev.res;
+			return (_IOContext*)ev.data;
+		}
+
 		aio_context_t get_context() const
 		{
 			return m_ctxid;
@@ -348,6 +408,10 @@ namespace stdx
 		_IOContext *get(int64_t &res)
 		{
 			return m_impl->get(res);
+		}
+		_IOContext* get(int64_t& res, int32_t ms)
+		{
+			return m_impl->get(res,ms);
 		}
 
 		bool operator==(const aiocp &other) const
@@ -424,11 +488,7 @@ namespace stdx
 			::printf("[Epoll]等待事件到达\n");
 #endif // DEBUG
 			epoll_event ev;
-			int r = m_poll.wait(&ev,1,300);
-			while (r != 1)
-			{
-				r = m_poll.wait(&ev, 1, 300);
-			}
+			int r = m_poll.wait(&ev,1,-1);
 			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
 			int fd = _Finder::find(ev_ptr);
@@ -451,6 +511,44 @@ namespace stdx
 #endif // DEBUG
 					}
 				}, ev_ptr, execute, fd);
+		}
+
+		template<typename _Finder, typename _Fn>
+		bool get(_Fn execute,int ms)
+		{
+			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
+#ifdef DEBUG
+			::printf("[Epoll]等待事件到达\n");
+#endif // DEBUG
+			epoll_event ev;
+			int r = m_poll.wait(&ev, 1,ms);
+			if (r != 1)
+			{
+				return false;
+			}
+			auto* ev_ptr = new epoll_event;
+			*ev_ptr = ev;
+			int fd = _Finder::find(ev_ptr);
+			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
+				{
+					stdx::finally fin([this, fd, ev]()
+						{
+							//在IO操作后执行
+							//loop(fd);
+							delete ev;
+						});
+					try
+					{
+						execute(ev);
+					}
+					catch (const std::exception& err)
+					{
+#ifdef DEBUG
+						::printf("[Epoll]Callback出错%s\n", err.what());
+#endif // DEBUG
+					}
+				}, ev_ptr, execute, fd);
+			return true;
 		}
 
 		void push(int fd, epoll_event &ev);
@@ -504,6 +602,12 @@ namespace stdx
 		void get(_Fn &&execute)
 		{
 			return m_impl->get<_Finder>(std::move(execute));
+		}
+
+		template<typename _Finder, typename _Fn>
+		bool get(_Fn execute, int ms)
+		{
+			return m_impl->get<_Finder>(std::move(execute),ms);
 		}
 
 		void push(int fd,epoll_event &ev)

@@ -285,7 +285,7 @@ namespace stdx
 		iocp_t m_aiocp;
 #endif // WIN32
 
-		std::shared_ptr<bool> m_alive;
+		stdx::cancel_token m_token;
 
 		void init_threadpoll() noexcept;
 	};
@@ -618,9 +618,8 @@ namespace stdx
 
 	extern stdx::task<stdx::string> realpath(stdx::string path);
 
-	using cancel_token = int;
-	using cancel_token_ptr = int*;
-	struct cancel_token_value
+	using file_cancel_token_ptr = int*;
+	struct file_cancel_token_value
 	{
 		enum
 		{
@@ -653,7 +652,7 @@ namespace stdx
 
 		void remove();
 
-		void copy_to(const stdx::string& path, cancel_token_ptr cancel_ptr, std::function<void(uint64_t, uint64_t)>&& on_progress_change, std::function<void(uint64_t, uint64_t)>&& on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/);
+		void copy_to(const stdx::string& path, file_cancel_token_ptr cancel_ptr, std::function<void(uint64_t, uint64_t)>&& on_progress_change, std::function<void(uint64_t, uint64_t)>&& on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/);
 
 		bool exist() const;
 

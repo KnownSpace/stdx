@@ -651,7 +651,8 @@ namespace stdx
 #else
 		stdx::reactor m_reactor;
 #endif
-		std::shared_ptr<bool> m_alive;
+		//std::shared_ptr<bool> m_alive;
+		stdx::cancel_token m_token;
 		void init_threadpoll() noexcept;
 	};
 

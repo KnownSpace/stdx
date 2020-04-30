@@ -5,7 +5,7 @@
 #include <queue>
 #include <stdx/async/semaphore.h>
 #include <stdx/function.h>
-#include <memory>
+#include <stdx/async/cancel_token.h>
 
 #define cpu_cores() std::thread::hardware_concurrency()
 namespace stdx
@@ -34,19 +34,6 @@ namespace stdx
 
 		//删除复制构造函数
 		_Threadpool(const _Threadpool&) = delete;
-
-		//执行任务
-		template<typename _Fn, typename ..._Args>
-		void run(_Fn &&task, _Args &&...args) noexcept
-		{
-#ifdef DEBUG
-			::printf("[Threadpool]正在投递任务\n");
-#endif // DEBUG
-			std::function<void()> t = std::bind(task,args...);
-			std::unique_lock<std::mutex> _lock(*m_mutex);
-			m_task_queue->push(std::move(t));
-			m_cv->notify_one();
-		}
 
 		void run(std::function<void()> &&task)
 		{
@@ -85,7 +72,26 @@ namespace stdx
 		{
 			m_impl.join_as_worker();
 		}
+
+		template<typename _Fn, typename ..._Args>
+		static void loop_run(stdx::cancel_token token,_Fn&& fn, _Args&&...args)
+		{
+			std::function<void()> call = std::bind(fn, args...);
+			loop_do(token,call);
+		}
 	private:
+		static void loop_do(stdx::cancel_token token,std::function<void()> call)
+		{
+			stdx::threadpool::run([](stdx::cancel_token token, std::function<void()> call)
+			{
+				if (!token.is_cancel())
+				{
+					call();
+					stdx::threadpool::loop_do(token,call);
+				}
+			}, token, call);
+		}
+
 		threadpool() = default;
 		static impl_t m_impl;
 	};

@@ -213,16 +213,7 @@ void stdx::_Threadpool::init_threads() noexcept
 #ifdef DEBUG
 	printf("[Threadpool]正在初始化线程池\n");
 #endif // DEBUG
-#ifdef STDX_NOT_LIMITED_CPU_USING
-	uint32_t threads_number = suggested_threads_number() * 2 + cpu_cores();
-#else
-	uint32_t use = cpu_cores();
-	if (use > 9)
-	{
-		use = 9;
-	}
-	uint32_t threads_number = suggested_threads_number() * 2 + use;
-#endif
+	uint32_t threads_number = suggested_threads_number() * 2;
 	for (size_t i = 0; i < threads_number; i++)
 	{
 		add_thread();

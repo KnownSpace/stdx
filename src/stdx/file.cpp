@@ -35,7 +35,7 @@ stdx::_FileIOService::_FileIOService()
 #else
 	: m_aiocp(2048)
 #endif
-	, m_alive(std::make_shared<bool>(true))
+	,m_token()
 {
 	init_threadpoll();
 }
@@ -43,7 +43,7 @@ stdx::_FileIOService::_FileIOService()
 #ifdef LINUX
 stdx::_FileIOService::_FileIOService(uint32_t nr_events)
 	:m_aiocp(nr_events)
-	, m_alive(std::make_shared<bool>(true))
+	, m_token()
 {
 	init_threadpoll();
 }
@@ -52,7 +52,7 @@ stdx::_FileIOService::_FileIOService(uint32_t nr_events)
 
 stdx::_FileIOService::~_FileIOService()
 {
-	*m_alive = false;
+	m_token.cancel();
 #ifdef WIN32
 	for (size_t i = 0, size = suggested_threads_number(); i < size; i++)
 	{
@@ -432,62 +432,59 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
-		stdx::threadpool::run([](iocp_t iocp, std::shared_ptr<bool> alive)
+		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
 			{
-				while (*alive)
+				auto* context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+				if (context_ptr == nullptr)
 				{
-					auto* context_ptr = iocp.get();
-					if (context_ptr == nullptr)
+					return;
+				}
+				std::exception_ptr error(nullptr);
+				try
+				{
+					if (!GetOverlappedResult(context_ptr->file, &(context_ptr->m_ol), &(context_ptr->size), false))
 					{
-						continue;
-					}
-					std::exception_ptr error(nullptr);
-					try
-					{
-						if (!GetOverlappedResult(context_ptr->file, &(context_ptr->m_ol), &(context_ptr->size), false))
+						DWORD code = GetLastError();
+						if (code != ERROR_IO_PENDING)
 						{
-							DWORD code = GetLastError();
-							if (code != ERROR_IO_PENDING)
+							if (code == ERROR_HANDLE_EOF)
 							{
-								if (code == ERROR_HANDLE_EOF)
+								context_ptr->eof = true;
+							}
+							else
+							{
+								LPVOID msg;
+								if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msg, 0, NULL))\
 								{
-									context_ptr->eof = true;
+									throw std::runtime_error((char*)msg);
 								}
 								else
 								{
-									LPVOID msg;
-									if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msg, 0, NULL))\
-									{
-										throw std::runtime_error((char*)msg);
-									}
-									else
-									{
-										std::string _ERROR_MSG("windows system error:");
-										_ERROR_MSG.append(std::to_string(code));
-										throw std::runtime_error(_ERROR_MSG.c_str());
-									}
+									std::string _ERROR_MSG("windows system error:");
+									_ERROR_MSG.append(std::to_string(code));
+									throw std::runtime_error(_ERROR_MSG.c_str());
 								}
 							}
 						}
 					}
-					catch (const std::exception&)
-					{
-						error = std::current_exception();
-					}
-#ifdef DEBUG
-					::printf("[IOCP]IO操作完成\n");
-#endif
-					auto* call = context_ptr->callback;
-					try
-					{
-						(*call)(context_ptr, error);
-					}
-					catch (const std::exception&)
-					{
-					}
-					delete call;
 				}
-			}, m_iocp, m_alive);
+				catch (const std::exception&)
+				{
+					error = std::current_exception();
+				}
+#ifdef DEBUG
+				::printf("[IOCP]IO操作完成\n");
+#endif
+				auto* call = context_ptr->callback;
+				try
+				{
+					(*call)(context_ptr, error);
+				}
+				catch (const std::exception&)
+				{
+				}
+				delete call;
+			}, m_iocp);
 	}
 #else
 #ifdef DEBUG
@@ -495,50 +492,47 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #endif
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
-		stdx::threadpool::run([](aiocp_t aiocp, std::shared_ptr<bool> alive)
+		stdx::threadpool::loop_run(m_token,[](aiocp_t aiocp)
 			{
-				while (*alive)
-				{
-					std::exception_ptr error(nullptr);
-					int64_t res = 0;
-					auto* context_ptr = aiocp.get(res);
+				std::exception_ptr error(nullptr);
+				int64_t res = 0;
+				auto* context_ptr = aiocp.get(res,STDX_LAZY_MAX_TIME);
 #ifdef DEBUG
-					::printf("[Native AIO]IO操作完成\n");
+				::printf("[Native AIO]IO操作完成\n");
 #endif
-					if (context_ptr == nullptr)
+				if (context_ptr == nullptr)
+				{
+					return;
+				}
+				auto* call = context_ptr->callback;
+				try
+				{
+					if (res < 0)
 					{
-						continue;
+						throw std::system_error(std::error_code(-res, std::system_category()), strerror(-res));
 					}
-					auto* call = context_ptr->callback;
+					else
+					{
+						context_ptr->size = res;
+					}
+					(*call)(context_ptr, error);
+					delete call;
+				}
+				catch (const std::exception&)
+				{
+					error = std::current_exception();
+					(*call)(nullptr, error);
+					delete call;
 					try
 					{
-						if (res < 0)
-						{
-							throw std::system_error(std::error_code(-res, std::system_category()), strerror(-res));
-						}
-						else
-						{
-							context_ptr->size = res;
-						}
-						(*call)(context_ptr, error);
-						delete call;
+						delete context_ptr;
 					}
 					catch (const std::exception&)
 					{
-						error = std::current_exception();
-						(*call)(nullptr, error);
-						delete call;
-						try
-						{
-							delete context_ptr;
-						}
-						catch (const std::exception&)
-						{
 
-						}
 					}
 				}
-			}, m_aiocp, m_alive);
+			}, m_aiocp);
 	}
 #endif
 }
@@ -903,7 +897,7 @@ DWORD CALLBACK copy_callback(
 #endif
 
 
-void stdx::file::copy_to(const stdx::string & path, cancel_token_ptr cancel_ptr, std::function<void(uint64_t, uint64_t)> && on_progress_change, std::function<void(uint64_t, uint64_t)> && on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/)
+void stdx::file::copy_to(const stdx::string & path, file_cancel_token_ptr cancel_ptr, std::function<void(uint64_t, uint64_t)> && on_progress_change, std::function<void(uint64_t, uint64_t)> && on_cancel/*, std::function<void(std::exception_ptr)> &&on_error*/)
 {
 #ifdef WIN32
 	copy_struct* cpy_ptr = new copy_struct;
