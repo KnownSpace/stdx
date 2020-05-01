@@ -644,6 +644,8 @@ namespace stdx
 		static LPFN_GETACCEPTEXSOCKADDRS m_get_addr_ex;
 		static std::once_flag m_once_flag;
 #endif
+
+		static std::shared_ptr<_NetworkIOService> get_instance();
 	private:
 #ifdef WIN32
 		iocp_t m_iocp;
@@ -654,6 +656,10 @@ namespace stdx
 		//std::shared_ptr<bool> m_alive;
 		stdx::cancel_token m_token;
 		void init_threadpoll() noexcept;
+
+		static std::once_flag _once_flag;
+		
+		static std::shared_ptr<_NetworkIOService> _instance;
 	};
 
 	class network_io_service
@@ -666,7 +672,7 @@ namespace stdx
 		using impl_t = std::shared_ptr<_NetworkIOService>;
 	public:
 		network_io_service()
-			:m_impl(std::make_shared<_NetworkIOService>())
+			:m_impl(stdx::_NetworkIOService::get_instance())
 		{}
 
 		network_io_service(const network_io_service& other)

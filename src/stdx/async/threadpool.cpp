@@ -54,9 +54,6 @@ void stdx::_Threadpool::join_as_worker()
 		while (*alive)
 		{
 			std::unique_lock<std::mutex> __lock(*mutex);
-#ifdef DEBUG
-			::printf("[Threadpool]线程池等待任务中\n");
-#endif
 			while (tasks->empty() && *alive)
 			{
 				cond->wait(__lock);
@@ -67,16 +64,10 @@ void stdx::_Threadpool::join_as_worker()
 				//执行任务
 				try
 				{
-#ifdef DEBUG
-					::printf("[Threadpool]线程池正在获取任务\n");
-#endif
 					runable t = std::move(tasks->front());
 					//从queue中pop
 					tasks->pop();
 					__lock.unlock();
-#ifdef DEBUG
-					::printf("[Threadpool]线程池获取任务成功\n");
-#endif
 					if (t)
 					{
 						t();
@@ -92,9 +83,6 @@ void stdx::_Threadpool::join_as_worker()
 				catch (...)
 				{
 				}
-#ifdef DEBUG
-				::printf("[Threadpool]当前剩余未处理任务数:%zu\n", tasks->size());
-#endif
 			}
 			else
 			{
@@ -105,46 +93,9 @@ void stdx::_Threadpool::join_as_worker()
 	handle(m_task_queue,m_cv,m_mutex,m_alive);
 }
 
-//uint32_t stdx::_Threadpool::expand_number_of_threads()
-//{
-//	if (m_cpu_cores < 2)
-//	{
-//		return m_cpu_cores;
-//	}
-//	if (m_cpu_cores > 8)
-//	{
-//		return 16;
-//	}
-//	return m_cpu_cores*2;
-//}
-//
-//bool stdx::_Threadpool::need_expand() const
-//{
-//	if (*m_alive_count < (6 * m_cpu_cores))
-//	{
-//		if (m_task_queue->size() > *m_free_count)
-//		{
-//			return true;
-//		}
-//	}
-//	return false;
-//}
-//
-//void stdx::_Threadpool::expand(uint32_t number_of_threads)
-//{
-//	for (size_t i = 0; i < number_of_threads; i++)
-//	{
-//		add_thread();
-//	}
-//}
-
 //添加线程
 void stdx::_Threadpool::add_thread() noexcept
 {
-#ifdef DEBUG
-	printf("[Threadpool]正在创建新线程\n");
-#endif
-
 	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex,std::shared_ptr<bool> alive)
 	{
 		//如果存活
@@ -152,9 +103,6 @@ void stdx::_Threadpool::add_thread() noexcept
 		{
 			std::unique_lock<std::mutex> __lock(*mutex);
 			//等待通知
-#ifdef DEBUG
-			::printf("[Threadpool]线程池等待任务中\n");
-#endif
 			while (tasks->empty() && *alive)
 			{
 				cond->wait(__lock);
@@ -165,16 +113,10 @@ void stdx::_Threadpool::add_thread() noexcept
 				//执行任务
 				try
 				{
-#ifdef DEBUG
-					::printf("[Threadpool]线程池正在获取任务\n");
-#endif
 					runable t = std::move(tasks->front());
 					//从queue中pop
 					tasks->pop();
 					__lock.unlock();
-#ifdef DEBUG
-					::printf("[Threadpool]线程池获取任务成功\n");
-#endif
 					if (t)
 					{
 						t();
@@ -190,9 +132,6 @@ void stdx::_Threadpool::add_thread() noexcept
 				catch (...)
 				{
 				}
-#ifdef DEBUG
-				::printf("[Threadpool]当前剩余未处理任务数:%zu\n", tasks->size());
-#endif
 			}
 			else
 			{

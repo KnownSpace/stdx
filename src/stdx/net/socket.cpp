@@ -48,6 +48,19 @@ void clean(epoll_event* ptr);
 #endif // LINUX
 
 
+std::once_flag stdx::_NetworkIOService::_once_flag;
+
+std::shared_ptr<stdx::_NetworkIOService> stdx::_NetworkIOService::_instance(nullptr);
+
+std::shared_ptr<stdx::_NetworkIOService> stdx::_NetworkIOService::get_instance()
+{
+	std::call_once(stdx::_NetworkIOService::_once_flag, []() 
+	{
+		stdx::_NetworkIOService::_instance = std::make_shared<stdx::_NetworkIOService>();
+	});
+	return stdx::_NetworkIOService::_instance;
+}
+
 stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_iocp()
@@ -1098,9 +1111,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	{
 		stdx::threadpool::loop_run(m_token,[](stdx::reactor reactor)
 			{
-#ifdef DEBUG
-				::printf("[Epoll]检测IO请求中\n");
-#endif // DEBUG
 				try
 				{
 					reactor.get<stdx::network_io_context_finder>([reactor](epoll_event* ev_ptr) mutable
@@ -1235,9 +1245,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				catch (const std::exception&)
 				{
 				}
-#ifdef DEBUG
-				::printf("[Epoll]反应器线程退出\n");
-#endif // DEBUG
 			}, m_reactor);
 	}
 #endif

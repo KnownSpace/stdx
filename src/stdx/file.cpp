@@ -8,7 +8,7 @@
 #else
 #include <sys/sendfile.h>
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
 #endif
 
 #ifdef _STDX_HAS_FILE
@@ -27,6 +27,19 @@ DWORD stdx::forward_file_shared_model(const stdx::file_shared_model & shared_mod
 stdx::file_enum_value_t stdx::forward_file_open_type(const stdx::file_open_type & open_type)
 {
 	return static_cast<stdx::file_enum_value_t>(open_type);
+}
+
+std::once_flag stdx::_FileIOService::_once_flag;
+
+std::shared_ptr<stdx::_FileIOService> stdx::_FileIOService::_instance(nullptr);
+
+std::shared_ptr<stdx::_FileIOService> stdx::_FileIOService::get_instance()
+{
+	std::call_once(stdx::_FileIOService::_once_flag, []() 
+	{
+		stdx::_FileIOService::_instance = std::make_shared<stdx::_FileIOService>();
+	});
+	return stdx::_FileIOService::_instance;
 }
 
 stdx::_FileIOService::_FileIOService()
@@ -75,19 +88,25 @@ stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & 
 #else
 stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & path, stdx::file_enum_value_t access_type, stdx::file_enum_value_t file_open_type, stdx::file_enum_value_t model)
 {
+#ifndef STDX_NOT_USE_NATIVE_AIO
 	int fd = ::open(path.c_str(), access_type | file_open_type | O_DIRECT, model);
+#else
+	int fd = ::open(path.c_str(), access_type | file_open_type, model);
+#endif
 	if (fd == -1)
 	{
 		_ThrowLinuxError
 	}
 	return fd;
 }
-#endif
 
-#ifdef LINUX
 stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & path, stdx::file_enum_value_t access_type, stdx::file_enum_value_t open_type)
 {
+#ifndef STDX_NOT_USE_NATIVE_AIO
 	int fd = ::open(path.c_str(), access_type | open_type | O_DIRECT);
+#else
+	int fd = ::open(path.c_str(), access_type | open_type);
+#endif
 	if (fd == -1)
 	{
 		_ThrowLinuxError
@@ -193,6 +212,8 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	::printf("[File IO Service]IO操作已投递\n");
 #endif // DEBUG
 #else
+#ifndef STDX_NOT_USE_NATIVE_AIO
+	//Native AIO
 	auto  r_size = size;
 	auto tmp = size % 512;
 	if (tmp != 0)
@@ -261,6 +282,42 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 		delete ptr;
 		callback(file_read_event(), std::current_exception());
 	}
+#else
+	//Buffer IO
+	char* buf =  (char*)stdx::calloc(size, sizeof(char));
+	if (buf == nullptr)
+	{
+		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
+	stdx::threadpool::run([file, buf, size, offset, callback]()
+	{
+		ssize_t r = ::pread(file, buf, size, offset);
+		std::exception_ptr err(nullptr);
+		try
+		{
+			if (r == -1)
+			{
+				_ThrowLinuxError
+			}
+		}
+		catch (const std::exception&)
+		{
+			err = std::current_exception();
+			callback(stdx::file_read_event(), err);
+			return;
+		}
+		file_read_event ev;
+		if (r == 0)
+		{
+			ev.eof = true;
+		}
+		ev.buffer = stdx::buffer(r,buf);
+		ev.file = file;
+		ev.offset = offset;
+		callback(ev, err);
+	});
+#endif
 #endif
 	return;
 }
@@ -332,13 +389,15 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	::printf("[File IO Service]IO操作已投递\n");
 #endif // DEBUG
 #else
+#ifndef STDX_NOT_USE_NATIVE_AIO
+	//Native AIO
 	auto  r_size = size;
 	auto tmp = size % 512;
 	if (tmp != 0)
 	{
 		r_size += (512 - tmp);
 	}
-	char* buf = (char*)calloc(r_size, sizeof(char));
+	char* buf = (char*)stdx::calloc(r_size, sizeof(char));
 	if (buf == nullptr)
 	{
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
@@ -404,6 +463,40 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 		delete ptr;
 		callback(file_write_event(), std::current_exception());
 	}
+#else
+	//Buffer IO
+	char* buf = (char*)stdx::calloc(size,sizeof(char));
+	if (buf == nullptr)
+	{
+		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
+	memcpy(buf, buffer, size);
+	stdx::threadpool::run([file,buf,size,offset,callback]()
+	{
+		ssize_t r = ::pwrite(file,buf,size,offset);
+		std::exception_ptr err(nullptr);
+		stdx::free(buf);
+		try
+		{
+			if (r == -1)
+			{
+				_ThrowLinuxError
+			}
+
+		}
+		catch (const std::exception&)
+		{
+			err = std::current_exception();
+			callback(stdx::file_write_event(),err);
+			return;
+		}
+		file_write_event ev;
+		ev.file = file;
+		ev.size = r;
+		callback(ev, err);
+	});
+#endif
 #endif
 	return;
 }
@@ -487,16 +580,18 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			}, m_iocp);
 	}
 #else
+#ifndef STDX_NOT_USE_NATIVE_AIO
+
 #ifdef DEBUG
 	::printf("[File IO Service]正在初始化IO服务\n");
 #endif
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token,[](aiocp_t aiocp)
+		stdx::threadpool::loop_run(m_token, [](aiocp_t aiocp)
 			{
 				std::exception_ptr error(nullptr);
 				int64_t res = 0;
-				auto* context_ptr = aiocp.get(res,STDX_LAZY_MAX_TIME);
+				auto* context_ptr = aiocp.get(res, STDX_LAZY_MAX_TIME);
 #ifdef DEBUG
 				::printf("[Native AIO]IO操作完成\n");
 #endif
@@ -534,6 +629,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				}
 			}, m_aiocp);
 	}
+#endif
 #endif
 }
 

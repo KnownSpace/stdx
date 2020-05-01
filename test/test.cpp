@@ -95,12 +95,13 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				if (file.exist())
 				{
 					auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
-					return stream.read_to_end(0).then([](stdx::file_read_event ev) 
+					return stream.read_to_end(0).then([stream](stdx::file_read_event ev) mutable
 					{
 							stdx::http_response response(200);
 							response.response_header().add_header(U("Content-Type"), U("text/html"));
 							response.response_header().add_header(U("Server"), U("ELanguage"));
 							response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
+							stream.close();
 							return response;
 					});
 				}

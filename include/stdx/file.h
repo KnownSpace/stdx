@@ -167,7 +167,7 @@ namespace stdx
 		{}
 		native_file_handle file;
 		size_t size;
-		};
+	};
 
 
 #ifdef WIN32
@@ -278,6 +278,8 @@ namespace stdx
 			close(file);
 #endif
 		}
+
+		static std::shared_ptr<_FileIOService> get_instance();
 	private:
 #ifdef WIN32
 		iocp_t m_iocp;
@@ -288,6 +290,10 @@ namespace stdx
 		stdx::cancel_token m_token;
 
 		void init_threadpoll() noexcept;
+
+		static std::once_flag _once_flag;
+
+		static std::shared_ptr<_FileIOService> _instance;
 	};
 
 	//文件IO服务
@@ -300,7 +306,7 @@ namespace stdx
 #endif
 	public:
 		file_io_service()
-			:m_impl(std::make_shared<_FileIOService>())
+			:m_impl(stdx::_FileIOService::get_instance())
 		{}
 		file_io_service(const impl_t& impl)
 			:m_impl(impl)

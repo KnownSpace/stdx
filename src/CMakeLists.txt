@@ -31,8 +31,8 @@ if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
 	add_definitions(-DLINUX)
 	message(STATUS "Current platform: Linux ")
 	target_link_libraries(libstdx PUBLIC dl)
-	if(USE_NATIVE_AIO)
-		add_definitions(-DSTDX_USE_NATIVE_AIO)
+	if(NOT_USE_NATIVE_AIO)
+		add_definitions(-DSTDX_NOT_USE_NATIVE_AIO)
 	endif()
 endif()
 
@@ -60,6 +60,10 @@ else()
 	else()
 		target_compile_options(libstdx  PUBLIC "/O2")
 	endif()
+endif()
+
+if(NOT_LIMITED_CPU_USING)
+	add_definitions(-DSTDX_NOT_LIMITED_CPU_USING)
 endif()
 
 #类Unix使用pthread
