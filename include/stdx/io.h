@@ -628,6 +628,120 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
+
+	template<typename _IOContext>
+	class _BIOPoller
+	{
+	public:
+		_BIOPoller()
+			:m_lock()
+			,m_cv()
+			,m_list()
+		{}
+
+		~_BIOPoller() = default;
+
+		_IOContext* get()
+		{
+			std::unique_lock<std::mutex> lock(m_lock);
+			while (m_list.empty())
+			{
+				m_cv.wait(lock);
+			}
+			_IOContext* p = m_list.front();
+			m_list.pop_front();
+			return p;
+		}
+
+		_IOContext* get(size_t ms)
+		{
+			std::unique_lock<std::mutex> lock(m_lock);
+			while (m_list.empty())
+			{
+				auto status = m_cv.wait_for(lock,std::chrono::milliseconds(ms));
+				if (status == std::cv_status::timeout)
+				{
+					return nullptr;
+				}
+			}
+			_IOContext* p = m_list.front();
+			m_list.pop_front();
+			return p;
+		}
+
+		void push(_IOContext* p)
+		{
+			std::unique_lock<std::mutex> lock(m_lock);
+			m_list.push_back(p);
+			m_cv.notify_all();
+		}
+
+	private:
+		std::mutex m_lock;
+		std::condition_variable m_cv;
+		std::list<_IOContext*> m_list;
+	};
+
+	template<typename _IOContext>
+	class bio_poller
+	{
+		using impl_t = std::shared_ptr<stdx::_BIOPoller<_IOContext>>;
+		using self_t = stdx::bio_poller<_IOContext>;
+	public:
+		bio_poller()
+			:m_impl(std::make_shared<_BIOPoller<_IOContext>>())
+		{}
+
+		bio_poller(const self_t& other)
+			:m_impl(other.m_impl)
+		{}
+
+		bio_poller(self_t&& other) noexcept
+			:m_impl(other.m_impl)
+		{}
+
+		self_t& operator=(const self_t& other)
+		{
+			m_impl = other.m_impl;
+			return *this;
+		}
+
+		self_t &operator=(self_t &&other) noexcept
+		{
+			m_impl = other.m_impl;
+			return *this;
+		}
+
+		~bio_poller() = default;
+
+		_IOContext* get()
+		{
+			return m_impl->get();
+		}
+
+		_IOContext* get(size_t ms)
+		{
+			return m_impl->get(ms);
+		}
+
+		void push(_IOContext* p)
+		{
+			return m_impl->push(p);
+		}
+		
+		bool operator==(const self_t&& other) const
+		{
+			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
+	private:
+		impl_t m_impl;
+	};
 }
 
 #undef _ThrowLinuxError

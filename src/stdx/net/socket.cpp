@@ -1064,7 +1064,15 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	{
 		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
 			{
-				auto* context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+				stdx::network_io_context* context_ptr = nullptr;
+				try
+				{
+					context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+				}
+				catch (const std::exception&)
+				{
+
+				}
 				if (context_ptr == nullptr)
 				{
 					return;

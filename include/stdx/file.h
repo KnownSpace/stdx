@@ -38,6 +38,17 @@ namespace stdx
 	using native_file_handle = int;
 #endif
 
+#ifdef LINUX
+	struct file_bio_op_code
+	{
+		enum
+		{
+			write = 0,
+			read = 1
+		};
+	};
+#endif
+
 	struct file_io_context
 	{
 		file_io_context()
@@ -60,6 +71,10 @@ namespace stdx
 		uint64_t offset;
 		bool eof;
 		std::function<void(file_io_context*, std::exception_ptr)>* callback;
+#ifdef LINUX
+		int32_t op_code;
+#endif
+
 };
 	//文件读取完成事件
 	struct file_read_event
@@ -243,15 +258,14 @@ namespace stdx
 #ifdef WIN32
 		using iocp_t = stdx::iocp<file_io_context>;
 #else
+#ifdef STDX_USE_NATIVE_AIO
 		using iocp_t = stdx::aiocp<file_io_context>;
 		using aiocp_t = stdx::aiocp<file_io_context>;
+#else
+		using iocp_t = stdx::bio_poller<file_io_context>;
+#endif
 #endif
 		_FileIOService();
-
-#ifdef LINUX
-		_FileIOService(uint32_t nr_events);
-#endif // LINUX
-
 
 		delete_copy(_FileIOService);
 
@@ -281,11 +295,7 @@ namespace stdx
 
 		static std::shared_ptr<_FileIOService> get_instance();
 	private:
-#ifdef WIN32
 		iocp_t m_iocp;
-#else
-		iocp_t m_aiocp;
-#endif // WIN32
 
 		stdx::cancel_token m_token;
 
@@ -301,9 +311,6 @@ namespace stdx
 	{
 		using impl_t = std::shared_ptr<_FileIOService>;
 		using iocp_t = typename _FileIOService::iocp_t;
-#ifdef LINUX
-		using aiocp_t = typename _FileIOService::aiocp_t;
-#endif
 	public:
 		file_io_service()
 			:m_impl(stdx::_FileIOService::get_instance())
