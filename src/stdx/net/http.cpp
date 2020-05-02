@@ -2061,7 +2061,26 @@ stdx::http_form_type stdx::make_http_form_type_by_string(const stdx::string& typ
 
 std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() const
 {
-	std::vector<byte_t>&& body_byte = m_form->to_bytes();
+	if (m_header->method() == stdx::http_method::get)
+	{
+		if (!m_form->empty())
+		{
+			if (m_header->request_url().find(U('?')) == stdx::string::npos)
+			{
+				if (m_form->form_type() == stdx::http_form_type::urlencoded)
+				{
+
+					auto&& body = m_form->to_bytes();
+					std::string str(body.begin(), body.end());
+					body.clear();
+					m_header->request_url().append(stdx::string::from_u8_string(str));
+					std::string&& bytes_str = m_header->to_string().to_u8_string();
+					body = std::vector<unsigned char>(bytes_str.begin(), bytes_str.end());
+					return body;
+				}
+			}
+		}
+	}
 	if (!m_header->exist(U("Content-Type")))
 	{
 		if (m_form->form_type() == stdx::http_form_type::multipart)
@@ -2078,6 +2097,7 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 			m_header->add_header(U("Content-Type"), content_type);
 		}
 	}
+	std::vector<byte_t>&& body_byte = m_form->to_bytes();
 	if (!m_header->exist(U("Content-Length")))
 	{
 		const unsigned long long int& tmp = body_byte.size();
@@ -2557,8 +2577,25 @@ stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned cha
 	stdx::string&& header = stdx::string::from_u8_string(str.substr(0, pos));
 	auto&& tmp = stdx::http_request_header::from_string(header);
 	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(tmp));
+	if (_header->method() == stdx::http_method::get)
+	{
 
-	if ((pos+4)!=str.size())
+		size_t pos = _header->request_url().find('?');
+		if (pos != stdx::string::npos)
+		{
+			stdx::string &&arg_str = _header->request_url().substr(pos + 1, _header->request_url().size()-pos-1);
+			if (!arg_str.empty())
+			{
+				stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
+				std::vector<unsigned char> vec(arg_str.begin(), arg_str.end());
+				auto _form = stdx::make_http_form(form_type, vec, U(""));
+				_header->request_url().erase(pos, _header->request_url().size() - pos);
+				stdx::http_request req(_header, _form);
+				return req;
+			}
+		}
+	}
+	if ((pos + 4) != str.size())
 	{
 		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
 		stdx::string boundary(U(""));

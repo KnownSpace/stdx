@@ -745,11 +745,6 @@ namespace stdx
 
 	using http_form_ptr = std::shared_ptr<stdx::http_form>;
 
-	//enum class http_response_body_type
-	//{
-
-	//};
-
 	struct http_response_body:public stdx::http_body
 	{
 	public:
