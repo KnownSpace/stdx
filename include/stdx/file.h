@@ -27,6 +27,11 @@
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
 #define _STDX_HAS_FILE
+#ifdef STDX_USE_NATIVE_AIO
+#ifndef STDX_NATIVE_AIO_EVENTS
+#define STDX_NATIVE_AIO_EVENTS 2048
+#endif
+#endif
 #endif
 
 #ifdef _STDX_HAS_FILE

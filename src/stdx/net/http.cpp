@@ -2569,47 +2569,49 @@ stdx::http_form_type stdx::get_http_form_type_and_boundary(const stdx::string& c
 stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned char>& bytes)
 {
 	std::string str(bytes.begin(), bytes.end());
-	size_t pos = str.find("\r\n\r\n");
+	size_t pos = str.rfind("\r\n\r\n");
 	if (pos == std::string::npos)
 	{
 		throw std::invalid_argument("invalid request data");
 	}
 	stdx::string&& header = stdx::string::from_u8_string(str.substr(0, pos));
-	auto&& tmp = stdx::http_request_header::from_string(header);
-	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(tmp));
+	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(stdx::http_request_header::from_string(header)));
 	if (_header->method() == stdx::http_method::get)
 	{
-
-		size_t pos = _header->request_url().find('?');
+		stdx::string& url = _header->request_url();
+		size_t pos = url.find(U('?'));
 		if (pos != stdx::string::npos)
 		{
-			stdx::string &&arg_str = _header->request_url().substr(pos + 1, _header->request_url().size()-pos-1);
-			if (!arg_str.empty())
+			size_t arg_begin = pos + 1, arg_end = url.size();
+			if (arg_begin != arg_end)
 			{
-				stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
-				std::vector<unsigned char> vec(arg_str.begin(), arg_str.end());
-				auto _form = stdx::make_http_form(form_type, vec, U(""));
-				_header->request_url().erase(pos, _header->request_url().size() - pos);
+				size_t arg_size = arg_end - arg_begin;
+				stdx::string&& arg_str = url.substr(arg_begin, arg_size);
+				url.erase(pos, arg_size + 1);
+				std::string&& tmp = arg_str.to_u8_string();
+				auto _form = stdx::make_http_form(stdx::http_form_type::urlencoded, tmp, U(""));
 				stdx::http_request req(_header, _form);
 				return req;
 			}
 		}
-	}
-	if ((pos + 4) != str.size())
-	{
-		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
-		stdx::string boundary(U(""));
-		stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
-		if (_header->exist(U("Content-Type")))
-		{
-			form_type = stdx::get_http_form_type_and_boundary(_header->operator[](U("Content-Type")), boundary);
-		}
-		auto _form = stdx::make_http_form(form_type, vec, boundary);
-		stdx::http_request req(_header, _form);
+		stdx::http_request req(_header);
 		return req;
 	}
 	else
 	{
+		if ((pos + 4) != str.size())
+		{
+			std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
+			stdx::string boundary(U(""));
+			stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
+			if (_header->exist(U("Content-Type")))
+			{
+				form_type = stdx::get_http_form_type_and_boundary(_header->operator[](U("Content-Type")), boundary);
+			}
+			auto _form = stdx::make_http_form(form_type, vec, boundary);
+			stdx::http_request req(_header, _form);
+			return req;
+		}
 		stdx::http_request req(_header);
 		return req;
 	}
@@ -2618,30 +2620,51 @@ stdx::http_request stdx::http_request::from_bytes(const std::vector<unsigned cha
 stdx::http_request stdx::http_request::from_bytes(const std::string& bytes)
 {
 	const std::string &str = bytes;
-	size_t pos = str.find("\r\n\r\n");
+	size_t pos = str.rfind("\r\n\r\n");
 	if (pos == std::string::npos)
 	{
 		throw std::invalid_argument("invalid request data");
 	}
 	stdx::string&& header = stdx::string::from_u8_string(str.substr(0, pos));
-	auto&& tmp = stdx::http_request_header::from_string(header);
-	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(tmp));
-
-	if ((pos + 4) != str.size())
+	std::shared_ptr<stdx::http_request_header> _header = std::make_shared<stdx::http_request_header>(std::move(stdx::http_request_header::from_string(header)));
+	if (_header->method() == stdx::http_method::get)
 	{
-		std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
-		stdx::string boundary(U(""));
-		stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
-		if (_header->exist(U("Content-Type")))
+		stdx::string& url = _header->request_url();
+		size_t pos =url.find(U('?'));
+		if (pos != stdx::string::npos)
 		{
-			form_type = stdx::get_http_form_type_and_boundary(_header->operator[](U("Content-Type")), boundary);
+			size_t arg_begin = pos + 1,arg_end = url.size();
+			if (arg_begin != arg_end)
+			{
+				size_t arg_size = arg_end - arg_begin;
+				stdx::string&& arg_str = url.substr(arg_begin, arg_size);
+				/*url.erase(pos, arg_size+1);*/
+				_header->request_url().erase(pos, arg_size+1);
+				std::string&& tmp = arg_str.to_u8_string();
+				auto _form = stdx::make_http_form(stdx::http_form_type::urlencoded,tmp, U(""));
+				stdx::http_request req(_header, _form);
+				return req;
+			}
+			::printf("1\n");
 		}
-		auto _form = stdx::make_http_form(form_type, vec, boundary);
-		stdx::http_request req(_header, _form);
+		stdx::http_request req(_header);
 		return req;
 	}
 	else
 	{
+		if ((pos + 4) != str.size())
+		{
+			std::vector<unsigned char> vec(bytes.cbegin() + pos + 4, bytes.cend());
+			stdx::string boundary(U(""));
+			stdx::http_form_type form_type = stdx::http_form_type::urlencoded;
+			if (_header->exist(U("Content-Type")))
+			{
+				form_type = stdx::get_http_form_type_and_boundary(_header->operator[](U("Content-Type")), boundary);
+			}
+			auto _form = stdx::make_http_form(form_type, vec, boundary);
+			stdx::http_request req(_header, _form);
+			return req;
+		}
 		stdx::http_request req(_header);
 		return req;
 	}

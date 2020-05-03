@@ -47,9 +47,6 @@ stdx::_FileIOService::_FileIOService()
 	:m_iocp()
 #else
 #ifdef STDX_USE_NATIVE_AIO
-#ifndef STDX_NATIVE_AIO_EVENTS
-#define STDX_NATIVE_AIO_EVENTS 2048
-#endif
 	:m_iocp(STDX_NATIVE_AIO_EVENTS)
 #else
 	:m_iocp()

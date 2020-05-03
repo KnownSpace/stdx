@@ -1143,17 +1143,16 @@ namespace stdx
 	};
 #pragma endregion
 
-	template<typename _T,typename ..._Args>
-	inline stdx::task<_T> complete_task(_Args ...args)
+	template<typename _T>
+	inline stdx::task<_T> complete_task(const _T &arg)
 	{
 		stdx::task_completion_event<_T> ev;
-		ev.set_value(args...);
+		ev.set_value(arg);
 		ev.run_on_this_thread();
 		return ev.get_task();
 	}
 
-	template<>
-	inline stdx::task<void> complete_task<void>()
+	inline stdx::task<void> complete_task()
 	{
 		stdx::task_completion_event<void> ev;
 		ev.set_value();
@@ -1162,4 +1161,13 @@ namespace stdx
 	}
 
 	extern stdx::task<void> lazy(uint64_t ms);
+
+	template<typename _T>
+	inline stdx::task<_T> error_task(const std::exception_ptr &err)
+	{
+		stdx::task_completion_event<_T> ev;
+		ev.set_exception(err);
+		ev.run_on_this_thread();
+		return ev.get_task();
+	}
 }

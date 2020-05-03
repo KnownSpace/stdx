@@ -84,10 +84,9 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				{
 					stdx::http_response response(404);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					response.response_header().add_header(U("Server"), U("ELanguage"));
 					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
 					response.response_body().push(body);
-					return stdx::complete_task<stdx::http_response>(response);
+					return stdx::complete_task(response);
 				}
 				stdx::string path = U(".");
 				path.append(request.request_header().request_url());
@@ -99,7 +98,6 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 					{
 							stdx::http_response response(200);
 							response.response_header().add_header(U("Content-Type"), U("text/html"));
-							response.response_header().add_header(U("Server"), U("ELanguage"));
 							response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
 							stream.close();
 							return response;
@@ -109,10 +107,9 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				{
 					stdx::http_response response(404);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					response.response_header().add_header(U("Server"), U("ELanguage"));
 					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
 					response.response_body().push(body);
-					return stdx::complete_task<stdx::http_response>(response);
+					return stdx::complete_task(response);
 				}
 			}
 			catch (const std::exception& err)
@@ -120,10 +117,9 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				stdx::perrorf(U("请求处理出错:{0}\n"), err.what());
 				stdx::http_response response(502);
 				response.response_header().add_header(U("Content-Type"), U("text/html"));
-				response.response_header().add_header(U("Server"), U("ELanguage"));
 				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
 				response.response_body().push(body);
-				return stdx::complete_task<stdx::http_response>(response);
+				return stdx::complete_task(response);
 			}
 		})
 		.then([c](stdx::http_response res) mutable 
