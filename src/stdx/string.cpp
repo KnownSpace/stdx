@@ -200,31 +200,6 @@ void stdx::string::append(const string& other)
 	m_data.append(other.m_data);
 }
 
-bool stdx::string::begin_with(const char_t* str) const
-{
-	if (str == nullptr)
-	{
-		throw std::invalid_argument("str could not be null");
-	}
-#ifdef WIN32
-	size_t size = wcslen(str);
-#else
-	size_t size = strlen(str);
-#endif
-	if (size > this->size())
-	{
-		return false;
-	}
-	for (size_t i = 0; i < size; i++)
-	{
-		if (str[i] != m_data.at(i))
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
 bool stdx::string::begin_with(const char_t* str,size_type n) const
 {
 	if (str == nullptr)
@@ -264,32 +239,6 @@ bool stdx::string::begin_with(const stdx::string& other) const
 	for (typename stdx::string::size_type i = 0,size = other.size(); i < size; i++)
 	{
 		if (at(i) != other.at(i))
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-bool stdx::string::end_with(const char_t* str) const
-{
-	if (str == nullptr)
-	{
-		throw std::invalid_argument("str could not be null");
-	}
-#ifdef WIN32
-	size_t size = wcslen(str);
-#else
-	size_t size = strlen(str);
-#endif
-	if (size > this->size())
-	{
-		return false;
-	}
-	typename stdx::string::size_type off = this->size() - size;
-	for (size_t i = 0; i < size; i++)
-	{
-		if (m_data.at(off+i) != str[i])
 		{
 			return false;
 		}
