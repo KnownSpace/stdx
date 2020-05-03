@@ -660,41 +660,41 @@ namespace stdx
 	};
 
 	//上一个Task返回新的Task<void>,用户选择忽略的情况
-	//template<typename Result>
-	//struct _TaskContinuationBuilder<stdx::task<void>, Result, void>
-	//{
-	//	template<typename Fn>
-	//	static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<stdx::task<void>> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
-	//	{
-	//		promise_ptr<stdx::task_result<void>> promise = stdx::make_promise_ptr<stdx::task_result<void>>();
-	//		auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<stdx::task_result<void>> result)
-	//			{
-	//				result.wait();
-	//				fn();
-	//			}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
-	//		auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> future, promise_ptr<stdx::task_result<void>> input_promise)
-	//			{
-	//				auto task = future.get();
-	//				auto x = task.then([input_promise, t](stdx::task_result<void> r) mutable
-	//					{
-	//						input_promise->set_value(r);
-	//						t->run_on_this_thread();
-	//					});
-	//			}, t, future, promise);
-	//		lock.lock();
-	//		if ((*state == task_state::complete) || (*state == task_state::error))
-	//		{
-	//			//解锁
-	//			lock.unlock();
-	//			//运行
-	//			start->run();
-	//			return t;
-	//		}
-	//		*next = start;
-	//		lock.unlock();
-	//		return t;
-	//	}
-	//};
+	template<typename Result>
+	struct _TaskContinuationBuilder<stdx::task<void>, Result, void>
+	{
+		template<typename Fn>
+		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<stdx::task<void>> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
+		{
+			promise_ptr<stdx::task_result<void>> promise = stdx::make_promise_ptr<stdx::task_result<void>>();
+			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<stdx::task_result<void>> result)
+				{
+					result.wait();
+					return fn();
+				}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
+			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> future, promise_ptr<stdx::task_result<void>> input_promise)
+				{
+					auto task = future.get();
+					auto x = task.then([input_promise, t](stdx::task_result<void> r) mutable
+						{
+							input_promise->set_value(r);
+							t->run_on_this_thread();
+						});
+				}, t, future, promise);
+			lock.lock();
+			if ((*state == task_state::complete) || (*state == task_state::error))
+			{
+				//解锁
+				lock.unlock();
+				//运行
+				start->run();
+				return t;
+			}
+			*next = start;
+			lock.unlock();
+			return t;
+		}
+	};
 
 	//上一个Task返回新的Task,用户选择忽略的情况
 	template<typename Input, typename Result>
@@ -902,31 +902,31 @@ namespace stdx
 					return promise->get_future().get();
 				}, m_promise)
 		{}
-				~_TaskCompleteEvent() = default;
-				void set_value(_R&& value)
-				{
-					m_promise->set_value(value);
-				}
-				void set_value(const _R& value)
-				{
-					m_promise->set_value(value);
-				}
-				void set_exception(const std::exception_ptr& error)
-				{
-					m_promise->set_exception(error);
-				}
-				stdx::task<_R> get_task()
-				{
-					return m_task;
-				}
-				void run()
-				{
-					m_task.run();
-				}
-				void run_on_this_thread()
-				{
-					m_task.run_on_this_thread();
-				}
+		~_TaskCompleteEvent() = default;
+		void set_value(_R&& value)
+		{
+			m_promise->set_value(value);
+		}
+		void set_value(const _R& value)
+		{
+			m_promise->set_value(value);
+		}
+		void set_exception(const std::exception_ptr& error)
+		{
+			m_promise->set_exception(error);
+		}
+		stdx::task<_R> get_task()
+		{
+			return m_task;
+		}
+		void run()
+		{
+			m_task.run();
+		}
+		void run_on_this_thread()
+		{
+			m_task.run_on_this_thread();
+		}
 	private:
 		promise_ptr<_R> m_promise;
 		stdx::task<_R> m_task;
@@ -945,27 +945,27 @@ namespace stdx
 				}, m_promise)
 		{
 		}
-				~_TaskCompleteEvent() = default;
-				void set_value()
-				{
-					m_promise->set_value();
-				}
-				void set_exception(const std::exception_ptr& error)
-				{
-					m_promise->set_exception(error);
-				}
-				stdx::task<void> get_task()
-				{
-					return m_task;
-				}
-				void run()
-				{
-					m_task.run();
-				}
-				void run_on_this_thread()
-				{
-					m_task.run_on_this_thread();
-				}
+		~_TaskCompleteEvent() = default;
+		void set_value()
+		{
+			m_promise->set_value();
+		}
+		void set_exception(const std::exception_ptr& error)
+		{
+			m_promise->set_exception(error);
+		}
+		stdx::task<void> get_task()
+		{
+			return m_task;
+		}
+		void run()
+		{
+			m_task.run();
+		}
+		void run_on_this_thread()
+		{
+			m_task.run_on_this_thread();
+		}
 	private:
 		promise_ptr<void> m_promise;
 		stdx::task<void> m_task;

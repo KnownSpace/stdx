@@ -202,10 +202,39 @@ void stdx::string::append(const string& other)
 
 bool stdx::string::begin_with(const char_t* str) const
 {
+	if (str == nullptr)
+	{
+		throw std::invalid_argument("str could not be null");
+	}
 #ifdef WIN32
 	size_t size = wcslen(str);
 #else
 	size_t size = strlen(str);
+#endif
+	if (size > this->size())
+	{
+		return false;
+	}
+	for (size_t i = 0; i < size; i++)
+	{
+		if (str[i] != m_data.at(i))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool stdx::string::begin_with(const char_t* str,size_type n) const
+{
+	if (str == nullptr)
+	{
+		throw std::invalid_argument("str could not be null");
+	}
+#ifdef WIN32
+	size_t size = wcsnlen(str,n);
+#else
+	size_t size = strnlen(str,n);
 #endif
 	if (size > this->size())
 	{
@@ -226,7 +255,7 @@ bool stdx::string::begin_with(const char_t &ch) const
 	return ch == front();
 }
 
-bool stdx::string::begin_with(const string& other) const
+bool stdx::string::begin_with(const stdx::string& other) const
 {
 	if (size() < other.size())
 	{
@@ -244,6 +273,10 @@ bool stdx::string::begin_with(const string& other) const
 
 bool stdx::string::end_with(const char_t* str) const
 {
+	if (str == nullptr)
+	{
+		throw std::invalid_argument("str could not be null");
+	}
 #ifdef WIN32
 	size_t size = wcslen(str);
 #else
@@ -264,12 +297,38 @@ bool stdx::string::end_with(const char_t* str) const
 	return true;
 }
 
+bool stdx::string::end_with(const char_t* str,size_type n) const
+{
+	if (str == nullptr)
+	{
+		throw std::invalid_argument("str could not be null");
+	}
+#ifdef WIN32
+	size_t size = wcsnlen(str,n);
+#else
+	size_t size = strnlen(str,n);
+#endif
+	if (size > this->size())
+	{
+		return false;
+	}
+	typename stdx::string::size_type off = this->size() - size;
+	for (size_t i = 0; i < size; i++)
+	{
+		if (m_data.at(off + i) != str[i])
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 bool stdx::string::end_with(char_t ch) const
 {
 	return (back() == ch);
 }
 
-bool stdx::string::end_with(const string& other) const
+bool stdx::string::end_with(const stdx::string& other) const
 {
 	if (size() < other.size())
 	{

@@ -443,10 +443,12 @@ namespace stdx
 		}
 
 		bool begin_with(const char_t *str) const;
+		bool begin_with(const char_t* str,size_type n) const;
 		bool begin_with(const char_t &ch) const;
 		bool begin_with(const stdx::string&other) const;
 
 		bool end_with(const char_t* str) const;
+		bool end_with(const char_t* str,size_type n) const;
 		bool end_with(char_t ch) const;
 		bool end_with(const stdx::string& other) const;
 
