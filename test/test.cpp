@@ -1,12 +1,9 @@
 ﻿#include <iostream>
 #include <stdx/file.h>
-#include <stdx/string.h>
 #include <stdx/net/http.h>
-#include <stdx/traits/convertable.h>
 #include <stdx/net/socket.h>
 #include <list>
-#include <stdx/object_pool.h>
-#include <stdx/factory.h>
+#include <stdx/logger.h>
 
 void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 {
@@ -80,6 +77,10 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				auto e = r.get();
 				std::string tmp(e.buffer, e.size);
 				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
+				if (request.request_header().request_url() == U("/"))
+				{
+					request.request_header().request_url().append(U("index.html"));
+				}
 				if (request.request_header().request_url().end_with(U("/")))
 				{
 					stdx::http_response response(404);
@@ -97,7 +98,7 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 					return stream.read_to_end(0).then([stream](stdx::file_read_event ev) mutable
 					{
 							stdx::http_response response(200);
-							response.response_header().add_header(U("Content-Type"), U("text/html"));
+							//response.response_header().add_header(U("Content-Type"), U("text/html"));
 							response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
 							stream.close();
 							return response;
@@ -147,70 +148,48 @@ int main(int argc, char** argv)
 #ifdef ENABLE_WEB
 #pragma region web_test
 	stdx::file_io_service file_io_service;
-	stdx::file doc(file_io_service, U("./index.html"));
-	if (!doc.exist())
+	stdx::network_io_service service;
+	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
+	try
 	{
-		stdx::perrorf(U("Error:File {0} does not exist"), doc.path());
+		stdx::ipv4_addr addr(U("0.0.0.0"), 8080);
+		if (argc != 1)
+		{
+			addr.port(std::stoul(argv[1]));
+		}
+		s.bind(addr);
+		s.listen(65535);
+		stdx::printf(U("Listen: {0}:{1}\n"), addr.ip(), addr.port());
+	}
+	catch (std::exception& e)
+	{
+		stdx::perrorf(U("Error:{0}\n"), e.what());
 		return -1;
 	}
-	std::string doc_content;
-	auto stream = doc.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
-	stream.read_to_end(0).then([&doc_content](stdx::task_result<stdx::file_read_event> r) mutable
+	stdx::spin_lock lock;
+	uint32_t num = 0;
+	s.accept_until_error([file_io_service](stdx::network_connected_event ev)  mutable
 		{
+			//handle_client(ev,doc_content);
+			handle_client_file(ev, file_io_service);
+		},
+		[](std::exception_ptr error)
+		{
+			stdx::printf(U("监听关闭\n"));
 			try
 			{
-				stdx::printf(U("读取文件完成\n"));
-				auto&& e = r.get();
-				doc_content = std::string(e.buffer, e.buffer.size());
+				if (error)
+				{
+					std::rethrow_exception(error);
+				}
 			}
 			catch (const std::exception& err)
 			{
-				stdx::perrorf(U("Error:{0}"), err.what());
-				std::terminate();
+				stdx::perrorf(U("Accept Error:{0}"), err.what());
 			}
-		}).wait();
-		stdx::network_io_service service;
-		stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
-		try
-		{
-			stdx::ipv4_addr addr(U("0.0.0.0"), 8080);
-			if (argc != 1)
-			{
-				addr.port(std::stoul(argv[1]));
-			}
-			s.bind(addr);
-			s.listen(65535);
-			stdx::printf(U("Listen: {0}:{1}\n"), addr.ip(), addr.port());
-		}
-		catch (std::exception& e)
-		{
-			stdx::perrorf(U("Error:{0}\n"), e.what());
-			return -1;
-		}
-		stdx::spin_lock lock;
-		uint32_t num = 0;
-		s.accept_until_error([doc_content,file_io_service](stdx::network_connected_event ev)  mutable
-			{
-				//handle_client(ev,doc_content);
-				handle_client_file(ev, file_io_service);
-			},
-			[](std::exception_ptr error)
-			{
-				stdx::printf(U("监听关闭\n"));
-				try
-				{
-					if (error)
-					{
-						std::rethrow_exception(error);
-					}
-				}
-				catch (const std::exception& err)
-				{
-					stdx::perrorf(U("Accept Error:{0}"), err.what());
-				}
-			});
-		stdx::threadpool::join_as_worker();
-		s.close();
+		});
+	stdx::threadpool::join_as_worker();
+	s.close();
 #pragma endregion
 #endif
 		return 0;
