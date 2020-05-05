@@ -602,7 +602,7 @@ stdx::string stdx::http_header::to_string() const
 	for (auto begin = m_headers.begin(),end = m_headers.end();begin != end;begin++)
 	{
 		str.append(begin->first);
-		str.append(U(" :"));
+		str.append(U(": "));
 		str.append(begin->second);
 		str.append(U("\r\n"));
 	}
@@ -789,6 +789,29 @@ typename stdx::http_header::iterator_t stdx::http_header::end()
 typename stdx::http_header::const_iterator_t stdx::http_header::cend()
 {
 	return m_headers.cend();
+}
+
+bool stdx::http_header::is_keepalive() const
+{
+	auto i = m_headers.find(U("Connection")),end = m_headers.end();
+	if (m_version == stdx::http_version::http_1_0)
+	{
+		if (i == end)
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (i != end)
+		{
+			if (i->second == U("close"))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 stdx::string stdx::http_version_string(stdx::http_version version)

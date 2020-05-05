@@ -1,5 +1,6 @@
 #pragma once
 #include <stdx/net/socket.h>
+#include <stdx/file.h>
 
 namespace stdx
 {
@@ -11,7 +12,7 @@ namespace stdx
 
 		using output_t = _Output;
 
-		virtual void open(const stdx::string& ip,uint64_t port) = 0;
+		virtual void open() = 0;
 
 		virtual void close() = 0;
 
@@ -27,16 +28,21 @@ namespace stdx
 				{
 					auto ev = r.get();
 					fn(ev);
+					return false;
 				}
 				catch (const std::exception&)
 				{
 					on_error(std::current_exception());
-					return false;
+					return true;
 				}
 			});
 		}
 
-		virtual stdx::task<void> write(const output_t &package) = 0;
+		virtual stdx::task<size_t> write(const output_t &package) = 0;
+
+		virtual stdx::task<size_t> write(const char* buf, size_t size) = 0;
+
+		virtual stdx::task<void> write_file(stdx::file_handle file) = 0;
 
 		virtual bool is_connected() const = 0;
 
@@ -80,14 +86,14 @@ namespace stdx
 			return *this;
 		}
 
-		void open(const stdx::string& ip, uint64_t port)
+		void open()
 		{
-			return m_impl->open(ip, port);
+			return m_impl->open();
 		}
 
 		void close()
 		{
-			return close();
+			return m_impl->close();
 		}
 
 		stdx::task<_Input> read()
@@ -105,7 +111,7 @@ namespace stdx
 			return m_impl->read_until_error(std::move(fn), std::move(on_error));
 		}
 
-		stdx::task<void> write(const _Output& package)
+		stdx::task<size_t> write(const _Output& package)
 		{
 			return m_impl->write(package);
 		}
@@ -162,11 +168,12 @@ namespace stdx
 				{
 					conn_t conn = r.get();
 					fn(conn);
+					return false;
 				}
 				catch (const std::exception&)
 				{
 					on_error(std::current_exception());
-					return false;
+					return true;
 				}
 			});
 		}
@@ -182,7 +189,7 @@ namespace stdx
 	template<typename _Input, typename _Output = _Input>
 	class listener
 	{
-		using impl_t = std::shared_ptr<stdx::basic_listener>;
+		using impl_t = std::shared_ptr<stdx::basic_listener<_Input,_Output>>;
 		using self_t = stdx::listener<_Input,_Output>;
 		using conn_t = stdx::connection<_Input,_Output>;
 	public:

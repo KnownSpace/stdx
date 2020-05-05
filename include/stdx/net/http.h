@@ -237,6 +237,8 @@ namespace stdx
 		iterator_t end();
 
 		const_iterator_t cend();
+
+		bool is_keepalive() const;
 	private:
 		stdx::http_version m_version;
 		map_t m_headers;

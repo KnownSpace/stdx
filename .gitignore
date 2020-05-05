@@ -263,3 +263,8 @@ __pycache__/
 /out
 /lib
 *.zip
+
+#TODO Source File
+/src/stdx/net/http_connection.cpp
+/include/stdx/net/http_connection.h
+/test/test.cpp

@@ -56,6 +56,8 @@ namespace stdx
 
 		char *to_raw();
 
+		void free();
+
 	private:
 		size_t m_size;
 		char *m_data;
@@ -142,11 +144,16 @@ namespace stdx
 		{
 			return m_impl == other.m_impl;
 		}
+
 		char *to_raw()
 		{
 			return m_impl->to_raw();
 		}
 
+		void free()
+		{
+			return m_impl->free();
+		}
 	private:
 		impl_t m_impl;
 	};

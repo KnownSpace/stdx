@@ -931,6 +931,11 @@ stdx::string stdx::to_string(void* p)
 	return stdx::string(buf);
 }
 
+stdx::string stdx::to_string(const std::exception& err)
+{
+	return stdx::string::from_native_string(err.what());
+}
+
 void stdx::string::erase(const stdx::string& target)
 {
 	for (size_t pos(m_data.find(target.m_data)); pos != npos; pos = m_data.find(target.m_data))

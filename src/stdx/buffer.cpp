@@ -13,10 +13,7 @@ stdx::_Buffer::_Buffer(size_t size, char* data)
 
 stdx::_Buffer::~_Buffer()
 {
-	if (m_data && (m_size != 0))
-	{
-		stdx::free(m_data);
-	}
+	free();
 }
 
 void stdx::_Buffer::init(const size_t& size)
@@ -120,6 +117,16 @@ char* stdx::_Buffer::to_raw()
 	char* buf = m_data;
 	m_data = nullptr;
 	return buf;
+}
+
+void stdx::_Buffer::free()
+{
+	m_size = 0;
+	if (m_data)
+	{
+		stdx::free(m_data);
+		m_data = nullptr;
+	}
 }
 
 stdx::buffer stdx::make_buffer(size_t size)

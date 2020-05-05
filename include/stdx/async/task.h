@@ -337,7 +337,7 @@ namespace stdx
 			catch (const std::exception&)
 			{
 				//加锁
-				lock.lock();
+				std::unique_lock<stdx::spin_lock> _lock(lock);
 				//设置状态为错误
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
@@ -345,33 +345,24 @@ namespace stdx
 				if (*next)
 				{
 					//解锁
-					lock.unlock();
+					_lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
-					future.wait();
-					return;
 				}
-				//解锁
-				lock.unlock();
-				future.wait();
 				return;
 			}
 			//加锁
-			lock.lock();
+			std::unique_lock<stdx::spin_lock> _lock(lock);
+			//设置状态为完成
+			*state = task_state::complete;
 			//如果有callback
 			if (*next)
 			{
-				*state = task_state::complete;
 				//解锁
-				lock.unlock();
+				_lock.unlock();
 				//运行callback
 				(*next)->run_on_this_thread();
-				return;
 			}
-			//设置状态为完成
-			*state = task_state::complete;
-			//解锁
-			lock.unlock();
 			return;
 		}
 	};
@@ -392,7 +383,7 @@ namespace stdx
 			catch (const std::exception&)
 			{
 				//加锁
-				lock.lock();
+				std::unique_lock<stdx::spin_lock> _lock(lock);
 				//设置状态为错误
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
@@ -400,33 +391,22 @@ namespace stdx
 				if (*next)
 				{
 					//解锁
-					lock.unlock();
+					_lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
-					future.wait();
-					return;
 				}
-				//解锁
-				lock.unlock();
-				future.wait();
 				return;
 			}
-			//加锁
-			lock.lock();
+			std::unique_lock<stdx::spin_lock> _lock(lock);
 			//如果有callback
+			*state = task_state::complete;
 			if (*next)
 			{
-				*state = task_state::complete;
 				//解锁
-				lock.unlock();
+				_lock.unlock();
 				//运行callback
 				(*next)->run_on_this_thread();
-				return;
 			}
-			//设置状态为完成
-			*state = task_state::complete;
-			//解锁
-			lock.unlock();
 			return;
 		}
 	};
@@ -566,7 +546,7 @@ namespace stdx
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> result)
 				{
 					return fn(result.get());
-				}, fn, (std::shared_future<Input>)promise->get_future());
+				}, fn, promise->get_future().share());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
 				{
 					try
@@ -612,7 +592,7 @@ namespace stdx
 				{
 					//使用future来制作task_result
 					return fn(stdx::task_result<Input>(result));
-				}, fn, (std::shared_future<Input>)promise->get_future());
+				}, fn,promise->get_future().share());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
 				{
 					try
@@ -671,7 +651,7 @@ namespace stdx
 				{
 					result.wait();
 					return fn();
-				}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
+				}, fn, promise->get_future().share());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> future, promise_ptr<stdx::task_result<void>> input_promise)
 				{
 					auto task = future.get();
@@ -708,7 +688,7 @@ namespace stdx
 				{
 					result.wait();
 					return fn();
-				}, fn, (std::shared_future<void>)promise->get_future());
+				}, fn,promise->get_future().share());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<void> input_promise)
 				{
 					auto task = future.get();

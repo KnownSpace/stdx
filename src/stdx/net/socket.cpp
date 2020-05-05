@@ -362,9 +362,7 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 		{
 			try
 			{
-				std::string _ERROR_STR("windows WSA error:");
-				_ERROR_STR.append(std::to_string(WSAEDISCON));
-				throw std::system_error(std::error_code(WSAEDISCON, std::system_category()), _ERROR_STR.c_str());
+				throw std::system_error(std::error_code(WSAEDISCON, std::system_category()));
 			}
 			catch (const std::exception&)
 			{

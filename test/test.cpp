@@ -4,6 +4,7 @@
 #include <stdx/net/socket.h>
 #include <list>
 #include <stdx/logger.h>
+#include <stdx/net/http_connection.h>
 
 void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 {
@@ -19,7 +20,6 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				{
 					stdx::http_response response(200);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					response.response_header().add_header(U("Server"), U("ELanguage"));
 					std::string body = stdx::ansi_to_utf8(doc_content);
 					const unsigned long long int& tmp = body.size();
 					response.response_header().add_header(U("Content-Length"), stdx::to_string(tmp));
@@ -30,7 +30,6 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				{
 					stdx::http_response response(404);
 					response.response_header().add_header(U("Content-Type"), U("text/html"));
-					response.response_header().add_header(U("Server"), U("ELanguage"));
 					stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
 					response.response_body().push(body);
 					return response;
@@ -41,7 +40,6 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 				stdx::perrorf(U("请求处理出错:{0}\n"), err.what());
 				stdx::http_response response(502);
 				response.response_header().add_header(U("Content-Type"), U("text/html"));
-				response.response_header().add_header(U("Server"), U("ELanguage"));
 				stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
 				response.response_body().push(body);
 				return response;
@@ -67,10 +65,10 @@ void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 			});
 }
 
-void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_service &io_service)
+void handle_client_file(stdx::network_connected_event ev, const stdx::file_io_service& io_service)
 {
 	stdx::socket c(ev.connection);
-	auto t = c.recv(4096).then([io_service,c](stdx::task_result<stdx::network_recv_event> r) mutable
+	auto t = c.recv(4096).then([io_service, c](stdx::task_result<stdx::network_recv_event> r) mutable
 		{
 			try
 			{
@@ -91,18 +89,18 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				}
 				stdx::string path = U(".");
 				path.append(request.request_header().request_url());
-				stdx::file file(io_service,path);
+				stdx::file file(io_service, path);
 				if (file.exist())
 				{
 					auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
 					return stream.read_to_end(0).then([stream](stdx::file_read_event ev) mutable
-					{
+						{
 							stdx::http_response response(200);
 							//response.response_header().add_header(U("Content-Type"), U("text/html"));
 							response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
 							stream.close();
 							return response;
-					});
+						});
 				}
 				else
 				{
@@ -123,23 +121,96 @@ void handle_client_file(stdx::network_connected_event ev,const stdx::file_io_ser
 				return stdx::complete_task(response);
 			}
 		})
-		.then([c](stdx::http_response res) mutable 
-		{
-			auto&& bytes = res.to_bytes();
-			return c.send((const char*)bytes.data(), bytes.size());
-		})
-		.then([c](stdx::task_result<stdx::network_send_event> r) mutable
-		{
-			try
+		.then([c](stdx::http_response res) mutable
 			{
-				c.close();
-				auto e = r.get();
-			}
-			catch (const std::exception& err)
+				auto&& bytes = res.to_bytes();
+				return c.send((const char*)bytes.data(), bytes.size());
+			})
+			.then([c](stdx::task_result<stdx::network_send_event> r) mutable
+				{
+					try
+					{
+						c.close();
+						auto e = r.get();
+					}
+					catch (const std::exception& err)
+					{
+						stdx::perrorf(U("发送失败:{0}\n"), err.what());
+					}
+				});
+}
+
+void handle_request(stdx::http_connection conn, stdx::http_request request,stdx::file_io_service &io_service)
+{
+	bool keep = request.request_header().is_keepalive();
+	if (request.request_header().request_url() == U("/"))
+	{
+		request.request_header().request_url().append(U("index.html"));
+	}
+	if (request.request_header().request_url().end_with(U("/")))
+	{
+		stdx::http_response response(404);
+		if (keep)
+		{
+			response.response_header().add_header(U("Connection"), U("keep-alive"));
+		}
+		response.response_header().add_header(U("Content-Type"), U("text/html"));
+		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+		response.response_body().push(body);
+		conn.write(response)
+			.then([conn,keep](size_t ev) mutable
 			{
-				stdx::perrorf(U("发送失败:{0}\n"), err.what());
-			}
-		});
+				if (!keep)
+				{
+					conn.close();
+				}
+			});
+		return;
+	}
+	stdx::string path = U(".");
+	path.append(request.request_header().request_url());
+	stdx::file file(io_service, path);
+	if (file.exist())
+	{
+		auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
+		stream.read_to_end(0).then([stream,conn,keep](stdx::file_read_event ev) mutable
+			{
+				stream.close();
+				stdx::http_response response(200);
+				if (keep)
+				{
+					response.response_header().add_header(U("Connection"), U("keep-alive"));
+				}
+				response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
+				ev.buffer.free();
+				return conn.write(response)
+					.then([conn, keep](stdx::task_result<size_t> ev) mutable
+						{
+							if (!keep)
+							{
+								conn.close();
+							}
+						});
+			});
+	}
+	else
+	{
+		stdx::http_response response(404);
+		if (keep)
+		{
+			response.response_header().add_header(U("Connection"), U("keep-alive"));
+		}
+		response.response_header().add_header(U("Content-Type"), U("text/html"));
+		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+		response.response_body().push(body);
+		conn.write(response).then([conn, keep](size_t ev) mutable
+			{
+				if (!keep)
+				{
+					conn.close();
+				}
+			});
+	}
 }
 
 int main(int argc, char** argv)
@@ -168,10 +239,30 @@ int main(int argc, char** argv)
 	}
 	stdx::spin_lock lock;
 	uint32_t num = 0;
-	s.accept_until_error([file_io_service](stdx::network_connected_event ev)  mutable
+	std::list<stdx::http_connection> keeper;
+	s.accept_until_error([file_io_service,&keeper](stdx::network_connected_event ev)  mutable
 		{
 			//handle_client(ev,doc_content);
-			handle_client_file(ev, file_io_service);
+			//handle_client_file(ev, file_io_service);
+			stdx::http_connection conn = stdx::open_http_connection(ev.connection);
+			conn.open();
+			conn.read_until_error([conn,file_io_service](stdx::http_request req) mutable
+			{
+				handle_request(conn,req,file_io_service);
+			}, [](std::exception_ptr err) 
+			{
+				try
+				{
+					if (err)
+					{
+						std::rethrow_exception(err);
+					}
+				}
+				catch (const std::exception& err)
+				{
+					stdx::perrorf(U("Handle Error:{0}"), err.what());
+				}
+			});
 		},
 		[](std::exception_ptr error)
 		{
