@@ -830,16 +830,16 @@ stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, 
 void stdx::_FileStream::close()
 {
 #ifdef WIN32
-	if (m_file != INVALID_HANDLE_VALUE)
+	native_file_handle file = m_file.exchange(INVALID_HANDLE_VALUE);
+	if (file != INVALID_HANDLE_VALUE)
 	{
-		m_io_service.close_file(m_file);
-		m_file = INVALID_HANDLE_VALUE;
+		m_io_service.close_file(file);
 	}
 #else
-	if (m_file != -1)
+	native_file_handle file = m_file.exchange(-1);
+	if (file != -1)
 	{
-		m_io_service.close_file(m_file);
-		m_file = -1;
+		m_io_service.close_file(file);
 	}
 #endif
 }

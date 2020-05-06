@@ -44,3 +44,46 @@ stdx::logger stdx::make_default_logger()
 {
 	return stdx::logger(std::make_shared<stdx::_Logger>());
 }
+
+#ifdef WIN32
+stdx::_ANSIColorSupport::_ANSIColorSupport()
+{
+	HANDLE std_out = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD mode = 0;
+	if (GetConsoleMode(std_out, &mode) != FALSE)
+	{
+		mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+		if (SetConsoleMode(std_out, mode) == FALSE)
+		{
+#ifdef DEBUG
+			::printf("启用ANSI 转义支持失败\n");
+#endif
+		}
+	}
+	else
+	{
+#ifdef DEBUG
+		::printf("启用ANSI 转义支持失败\n");
+#endif
+	}
+	HANDLE std_err = GetStdHandle(STD_ERROR_HANDLE);
+	if (GetConsoleMode(std_err, &mode) != FALSE)
+	{
+		mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+		if (SetConsoleMode(std_out, mode) == FALSE)
+		{
+#ifdef DEBUG
+			::printf("启用ANSI 转义支持失败\n");
+#endif
+		}
+	}
+	else
+	{
+#ifdef DEBUG
+		::printf("启用ANSI 转义支持失败\n");
+#endif
+	}
+}
+
+stdx::_ANSIColorSupport stdx::_ansi_color_support;
+#endif

@@ -5,6 +5,7 @@
 #include <list>
 #include <stdx/logger.h>
 #include <stdx/net/http_connection.h>
+#include <stdx/debug.h>
 
 void handle_client(stdx::network_connected_event ev,std::string &doc_content)
 {
@@ -142,6 +143,7 @@ void handle_client_file(stdx::network_connected_event ev, const stdx::file_io_se
 
 void handle_request(stdx::http_connection conn, stdx::http_request request,stdx::file_io_service &io_service)
 {
+	stdx::debug_tracker tracker;
 	bool keep = request.request_header().is_keepalive();
 	if (request.request_header().request_url() == U("/"))
 	{
@@ -153,6 +155,10 @@ void handle_request(stdx::http_connection conn, stdx::http_request request,stdx:
 		if (keep)
 		{
 			response.response_header().add_header(U("Connection"), U("keep-alive"));
+		}
+		else
+		{
+			response.response_header().add_header(U("Connection"), U("close"));
 		}
 		response.response_header().add_header(U("Content-Type"), U("text/html"));
 		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
@@ -173,7 +179,7 @@ void handle_request(stdx::http_connection conn, stdx::http_request request,stdx:
 	if (file.exist())
 	{
 		auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
-		stream.read_to_end(0).then([stream,conn,keep](stdx::file_read_event ev) mutable
+		stream.read_to_end(0).then([stream,conn,keep,tracker](stdx::file_read_event ev) mutable
 			{
 				stream.close();
 				stdx::http_response response(200);
@@ -181,10 +187,14 @@ void handle_request(stdx::http_connection conn, stdx::http_request request,stdx:
 				{
 					response.response_header().add_header(U("Connection"), U("keep-alive"));
 				}
-				response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
+				else
+				{
+					response.response_header().add_header(U("Connection"), U("close"));
+				}
+				response.response_body().push(ev.buffer, ev.buffer.size());
 				ev.buffer.free();
 				return conn.write(response)
-					.then([conn, keep](stdx::task_result<size_t> ev) mutable
+					.then([conn, keep,tracker](stdx::task_result<size_t> ev) mutable
 						{
 							if (!keep)
 							{
@@ -199,6 +209,10 @@ void handle_request(stdx::http_connection conn, stdx::http_request request,stdx:
 		if (keep)
 		{
 			response.response_header().add_header(U("Connection"), U("keep-alive"));
+		}
+		else
+		{
+			response.response_header().add_header(U("Connection"), U("close"));
 		}
 		response.response_header().add_header(U("Content-Type"), U("text/html"));
 		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
@@ -239,12 +253,11 @@ int main(int argc, char** argv)
 	}
 	stdx::spin_lock lock;
 	uint32_t num = 0;
-	std::list<stdx::http_connection> keeper;
-	s.accept_until_error([file_io_service,&keeper](stdx::network_connected_event ev)  mutable
+	s.accept_until_error([file_io_service](stdx::network_connected_event ev)  mutable
 		{
 			//handle_client(ev,doc_content);
-			//handle_client_file(ev, file_io_service);
-			stdx::http_connection conn = stdx::open_http_connection(ev.connection);
+			handle_client_file(ev, file_io_service);
+			/*stdx::http_connection conn = stdx::open_http_connection(ev.connection);
 			conn.open();
 			conn.read_until_error([conn,file_io_service](stdx::http_request req) mutable
 			{
@@ -262,7 +275,7 @@ int main(int argc, char** argv)
 				{
 					stdx::perrorf(U("Handle Error:{0}"), err.what());
 				}
-			});
+			});*/
 		},
 		[](std::exception_ptr error)
 		{
@@ -280,7 +293,6 @@ int main(int argc, char** argv)
 			}
 		});
 	stdx::threadpool::join_as_worker();
-	s.close();
 #pragma endregion
 #endif
 		return 0;

@@ -169,4 +169,16 @@ namespace stdx
 	}
 
 	extern stdx::logger make_default_logger();
+
+#ifdef WIN32
+	class _ANSIColorSupport
+	{
+	public:
+		_ANSIColorSupport();
+		~_ANSIColorSupport() = default;
+
+	private:
+	};
+	extern stdx::_ANSIColorSupport _ansi_color_support;
+#endif
 }

@@ -122,10 +122,15 @@ char* stdx::_Buffer::to_raw()
 void stdx::_Buffer::free()
 {
 	m_size = 0;
-	if (m_data)
+	/*if (m_data)
 	{
 		stdx::free(m_data);
 		m_data = nullptr;
+	}*/
+	ptr_t p = m_data.exchange(nullptr);
+	if (p)
+	{
+		stdx::free(p);
 	}
 }
 

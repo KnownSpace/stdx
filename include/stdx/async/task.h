@@ -337,7 +337,7 @@ namespace stdx
 			catch (const std::exception&)
 			{
 				//加锁
-				std::unique_lock<stdx::spin_lock> _lock(lock);
+				lock.lock();
 				//设置状态为错误
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
@@ -345,24 +345,33 @@ namespace stdx
 				if (*next)
 				{
 					//解锁
-					_lock.unlock();
+					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
+					future.wait();
+					return;
 				}
+				//解锁
+				lock.unlock();
+				future.wait();
 				return;
 			}
 			//加锁
-			std::unique_lock<stdx::spin_lock> _lock(lock);
-			//设置状态为完成
-			*state = task_state::complete;
+			lock.lock();
 			//如果有callback
 			if (*next)
 			{
+				*state = task_state::complete;
 				//解锁
-				_lock.unlock();
+				lock.unlock();
 				//运行callback
 				(*next)->run_on_this_thread();
+				return;
 			}
+			//设置状态为完成
+			*state = task_state::complete;
+			//解锁
+			lock.unlock();
 			return;
 		}
 	};
@@ -383,7 +392,7 @@ namespace stdx
 			catch (const std::exception&)
 			{
 				//加锁
-				std::unique_lock<stdx::spin_lock> _lock(lock);
+				lock.lock();
 				//设置状态为错误
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
@@ -391,22 +400,33 @@ namespace stdx
 				if (*next)
 				{
 					//解锁
-					_lock.unlock();
+					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
+					future.wait();
+					return;
 				}
+				//解锁
+				lock.unlock();
+				future.wait();
 				return;
 			}
-			std::unique_lock<stdx::spin_lock> _lock(lock);
+			//加锁
+			lock.lock();
 			//如果有callback
-			*state = task_state::complete;
 			if (*next)
 			{
+				*state = task_state::complete;
 				//解锁
-				_lock.unlock();
+				lock.unlock();
 				//运行callback
 				(*next)->run_on_this_thread();
+				return;
 			}
+			//设置状态为完成
+			*state = task_state::complete;
+			//解锁
+			lock.unlock();
 			return;
 		}
 	};
@@ -546,7 +566,7 @@ namespace stdx
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> result)
 				{
 					return fn(result.get());
-				}, fn, promise->get_future().share());
+				}, fn, (std::shared_future<Input>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
 				{
 					try
@@ -592,7 +612,7 @@ namespace stdx
 				{
 					//使用future来制作task_result
 					return fn(stdx::task_result<Input>(result));
-				}, fn,promise->get_future().share());
+				}, fn, (std::shared_future<Input>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<Input> input_promise)
 				{
 					try
@@ -651,7 +671,7 @@ namespace stdx
 				{
 					result.wait();
 					return fn();
-				}, fn, promise->get_future().share());
+				}, fn, (std::shared_future<stdx::task_result<void>>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<void>> future, promise_ptr<stdx::task_result<void>> input_promise)
 				{
 					auto task = future.get();
@@ -688,7 +708,7 @@ namespace stdx
 				{
 					result.wait();
 					return fn();
-				}, fn,promise->get_future().share());
+				}, fn, (std::shared_future<void>)promise->get_future());
 			auto start = stdx::make_task_ptr<void>([](std::shared_ptr<_Task<Result>> t, std::shared_future<stdx::task<Input>> future, promise_ptr<void> input_promise)
 				{
 					auto task = future.get();
@@ -882,31 +902,31 @@ namespace stdx
 					return promise->get_future().get();
 				}, m_promise)
 		{}
-		~_TaskCompleteEvent() = default;
-		void set_value(_R&& value)
-		{
-			m_promise->set_value(value);
-		}
-		void set_value(const _R& value)
-		{
-			m_promise->set_value(value);
-		}
-		void set_exception(const std::exception_ptr& error)
-		{
-			m_promise->set_exception(error);
-		}
-		stdx::task<_R> get_task()
-		{
-			return m_task;
-		}
-		void run()
-		{
-			m_task.run();
-		}
-		void run_on_this_thread()
-		{
-			m_task.run_on_this_thread();
-		}
+				~_TaskCompleteEvent() = default;
+				void set_value(_R&& value)
+				{
+					m_promise->set_value(value);
+				}
+				void set_value(const _R& value)
+				{
+					m_promise->set_value(value);
+				}
+				void set_exception(const std::exception_ptr& error)
+				{
+					m_promise->set_exception(error);
+				}
+				stdx::task<_R> get_task()
+				{
+					return m_task;
+				}
+				void run()
+				{
+					m_task.run();
+				}
+				void run_on_this_thread()
+				{
+					m_task.run_on_this_thread();
+				}
 	private:
 		promise_ptr<_R> m_promise;
 		stdx::task<_R> m_task;
@@ -925,27 +945,27 @@ namespace stdx
 				}, m_promise)
 		{
 		}
-		~_TaskCompleteEvent() = default;
-		void set_value()
-		{
-			m_promise->set_value();
-		}
-		void set_exception(const std::exception_ptr& error)
-		{
-			m_promise->set_exception(error);
-		}
-		stdx::task<void> get_task()
-		{
-			return m_task;
-		}
-		void run()
-		{
-			m_task.run();
-		}
-		void run_on_this_thread()
-		{
-			m_task.run_on_this_thread();
-		}
+				~_TaskCompleteEvent() = default;
+				void set_value()
+				{
+					m_promise->set_value();
+				}
+				void set_exception(const std::exception_ptr& error)
+				{
+					m_promise->set_exception(error);
+				}
+				stdx::task<void> get_task()
+				{
+					return m_task;
+				}
+				void run()
+				{
+					m_task.run();
+				}
+				void run_on_this_thread()
+				{
+					m_task.run_on_this_thread();
+				}
 	private:
 		promise_ptr<void> m_promise;
 		stdx::task<void> m_task;
@@ -1124,7 +1144,7 @@ namespace stdx
 #pragma endregion
 
 	template<typename _T>
-	inline stdx::task<_T> complete_task(const _T &arg)
+	inline stdx::task<_T> complete_task(const _T& arg)
 	{
 		stdx::task_completion_event<_T> ev;
 		ev.set_value(arg);
@@ -1143,7 +1163,7 @@ namespace stdx
 	extern stdx::task<void> lazy(uint64_t ms);
 
 	template<typename _T>
-	inline stdx::task<_T> error_task(const std::exception_ptr &err)
+	inline stdx::task<_T> error_task(const std::exception_ptr& err)
 	{
 		stdx::task_completion_event<_T> ev;
 		ev.set_exception(err);

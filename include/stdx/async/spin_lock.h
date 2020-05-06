@@ -12,11 +12,11 @@ namespace stdx
 		_SpinLock();
 		~_SpinLock() = default;
 
-		void lock() volatile;
+		void lock();
 
-		void unlock() volatile noexcept;
+		void unlock() noexcept;
 	private:
-		alignas(16) volatile std::atomic<bool> m_locked;
+		volatile std::atomic<bool> m_locked;
 	};
 	class spin_lock
 	{

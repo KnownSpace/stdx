@@ -868,7 +868,7 @@ namespace stdx
 		io_service_t get_io_service() const;
 	private:
 		io_service_t m_io_service;
-		socket_t m_handle;
+		std::atomic<socket_t> m_handle;
 	};
 
 	struct network_connected_event;

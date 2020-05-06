@@ -4,7 +4,7 @@ stdx::_SpinLock::_SpinLock()
 	:m_locked(false)
 {}
 
-void stdx::_SpinLock::lock() volatile
+void stdx::_SpinLock::lock()
 {
 	bool exp = false;
 	while (!m_locked.compare_exchange_weak(exp, true))
@@ -14,7 +14,7 @@ void stdx::_SpinLock::lock() volatile
 	}
 }
 
-void stdx::_SpinLock::unlock() volatile noexcept
+void stdx::_SpinLock::unlock() noexcept
 {
 	m_locked.store(false);
 }

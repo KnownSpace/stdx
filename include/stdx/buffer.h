@@ -2,12 +2,15 @@
 #include <stdx/env.h>
 #include <memory>
 #include <stdx/string.h>
+#include <atomic>
 
 namespace stdx
 {
 	//自动释放缓存区实现
 	class _Buffer
 	{
+		using ptr_t = char*;
+		using data_t = std::atomic<ptr_t>;
 	public:
 		_Buffer();
 
@@ -35,12 +38,12 @@ namespace stdx
 
 		operator unsigned char* ()
 		{
-			return (unsigned char*)m_data;
+			return (unsigned char*)m_data.load();
 		}
 
 		operator const unsigned char* () const
 		{
-			return (const unsigned char*)m_data;
+			return (const unsigned char*)m_data.load();
 		}
 
 		void realloc(const size_t & size);
@@ -60,7 +63,7 @@ namespace stdx
 
 	private:
 		size_t m_size;
-		char *m_data;
+		data_t m_data;
 	};
 
 	//自动释放缓存区

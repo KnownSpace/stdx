@@ -29,7 +29,10 @@ namespace stdx
 		{
 			try
 			{
-				m_fn();
+				if (m_fn)
+				{
+					m_fn();
+				}
 			}
 			catch (const std::exception &err)
 			{

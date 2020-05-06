@@ -1094,6 +1094,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 							error = std::current_exception();
 						}
 						auto* call = context_ptr->callback;
+						if (call == nullptr)
+						{
+							return;
+						}
 						stdx::finally fin([call]()
 							{
 								delete call;
@@ -1478,16 +1482,16 @@ void stdx::_Socket::recv_until_error(const socket_size_t& size, std::function<vo
 void stdx::_Socket::close()
 {
 #ifdef WIN32
-	if (m_handle != INVALID_SOCKET)
+	socket_t sock = m_handle.exchange(INVALID_SOCKET);
+	if (sock != INVALID_SOCKET)
 	{
-		m_io_service.close(m_handle);
-		m_handle = INVALID_SOCKET;
+		m_io_service.close(sock);
 	}
 #else
-	if (m_handle != -1)
+	socket_t sock = m_handle.exchange(-1);
+	if (sock != -1)
 	{
-		m_io_service.close(m_handle);
-		m_handle = -1;
+		m_io_service.close(sock);
 	}
 #endif
 }

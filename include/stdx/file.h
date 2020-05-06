@@ -3,6 +3,7 @@
 #include <stdx/io.h>
 #include <stdx/async/task.h>
 #include <stdx/string.h>
+#include <atomic>
 
 #ifndef WIN32
 #define MAX_PATH 4096
@@ -444,7 +445,7 @@ namespace stdx
 		}
 	private:
 		io_service_t m_io_service;
-		native_file_handle m_file;
+		std::atomic<native_file_handle> m_file;
 	};
 
 	class file_stream
@@ -566,7 +567,7 @@ namespace stdx
 			CloseHandle(m_file);
 #else
 			::close(m_file);
-#endif // WIN32
+#endif
 		}
 		operator native_file_handle() const
 		{
