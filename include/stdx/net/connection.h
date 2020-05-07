@@ -69,7 +69,7 @@ namespace stdx
 		{}
 
 		connection(self_t &&other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		~connection() = default;
@@ -82,7 +82,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
@@ -207,7 +207,7 @@ namespace stdx
 		{}
 
 		listener(self_t &&other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		~listener() = default;
@@ -220,7 +220,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
@@ -358,7 +358,7 @@ namespace stdx
 		{}
 
 		server(self_t&& other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		~server() = default;
@@ -371,7 +371,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 

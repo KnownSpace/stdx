@@ -18,7 +18,7 @@ namespace stdx
 		{}
 
 		cancel_token(self_t&& other) noexcept
-			:m_value(other.m_value)
+			:m_value(std::move(other.m_value))
 		{}
 
 		~cancel_token() = default;
@@ -31,7 +31,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_value = other.m_value;
+			m_value = std::move(other.m_value);
 			return *this;
 		}
 

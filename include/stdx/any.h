@@ -59,7 +59,7 @@ namespace stdx
 
 		self_t& operator=(const self_t& other);
 
-		self_t& operator=(self_t&& other);
+		self_t& operator=(self_t&& other) noexcept;
 
 		~any() = default;
 

@@ -239,7 +239,7 @@ namespace stdx
 		{}
 
 		thread_local_storer(self_t &&other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		~thread_local_storer() = default;
@@ -252,7 +252,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 

@@ -25,12 +25,15 @@ namespace stdx
 		spin_lock()
 			:m_impl(std::make_shared<stdx::_SpinLock>())
 		{}
+
 		spin_lock(const spin_lock &other)
 			:m_impl(other.m_impl)
 		{}
+
 		spin_lock(spin_lock &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
+
 		~spin_lock() = default;
 		spin_lock &operator=(const spin_lock &other)
 		{

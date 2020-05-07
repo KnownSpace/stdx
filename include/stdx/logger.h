@@ -40,7 +40,7 @@ namespace stdx
 		{}
 
 		logger(self_t&& other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		~logger() = default;
@@ -53,7 +53,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 

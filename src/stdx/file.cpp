@@ -997,10 +997,23 @@ stdx::file::file(const file & other)
 {
 }
 
+stdx::file::file(file&& other) noexcept
+	:m_io_service(std::move(other.m_io_service))
+	,m_path(std::move(other.m_path))
+{
+}
+
+stdx::file& stdx::file::operator=(file&& other) noexcept
+{
+	m_path = std::move(other.m_path);
+	m_io_service = std::move(other.m_io_service);
+	return *this;
+}
+
 stdx::file& stdx::file::operator=(const file & other)
 {
-	m_path = other.m_path;
-	m_io_service = other.m_io_service;
+	stdx::file tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 

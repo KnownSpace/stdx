@@ -39,7 +39,7 @@ namespace stdx
 		{}
 
 		factory_unit(self_t&& other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		virtual ~factory_unit() =default;
@@ -52,7 +52,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
@@ -140,8 +140,8 @@ namespace stdx
 		{}
 
 		factories(self_t&& other) noexcept
-			:base_t(other)
-			,unit_t(other)
+			:base_t(std::move(other))
+			,unit_t(std::move(other))
 		{}
 
 		self_t& operator=(const self_t& other)
@@ -153,8 +153,8 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			base_t::operator=(other);
-			unit_t::operator=(other);
+			base_t::operator=(std::move(other));
+			unit_t::operator=(std::move(other));
 			return *this;
 		}
 
@@ -212,7 +212,7 @@ namespace stdx
 		{}
 
 		factories(self_t&& other) noexcept
-			:unit_t(other)
+			:unit_t(std::move(other))
 		{}
 
 		self_t& operator=(const self_t& other)
@@ -223,7 +223,7 @@ namespace stdx
 
 		self_t& operator=(self_t&& other) noexcept
 		{
-			unit_t::operator=(other);
+			unit_t::operator=(std::move(other));
 			return *this;
 		}
 

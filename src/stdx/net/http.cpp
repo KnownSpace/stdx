@@ -49,43 +49,35 @@ stdx::http_cookie::http_cookie(const stdx::http_cookie& other)
 {}
 
 stdx::http_cookie::http_cookie(stdx::http_cookie&& other) noexcept
-	:m_name(other.m_name)
-	,m_value(other.m_value)
-	,m_enable_max_age(other.m_enable_max_age)
-	,m_max_age(other.m_max_age)
-	,m_path(other.m_path)
-	,m_secure(other.m_secure)
-	,m_http_only(other.m_http_only)
-	,m_domain(other.m_domain)
-	,m_enable_expires(other.m_enable_expires)
-	,m_expires(other.m_expires)
+	:m_name(std::move(other.m_name))
+	,m_value(std::move(other.m_value))
+	,m_enable_max_age(std::move(other.m_enable_max_age))
+	,m_max_age(std::move(other.m_max_age))
+	,m_path(std::move(other.m_path))
+	,m_secure(std::move(other.m_secure))
+	,m_http_only(std::move(other.m_http_only))
+	,m_domain(std::move(other.m_domain))
+	,m_enable_expires(std::move(other.m_enable_expires))
+	,m_expires(std::move(other.m_expires))
 {}
 
 stdx::http_cookie& stdx::http_cookie::operator=(const stdx::http_cookie& other)
 {
-	m_name = other.m_name;
-	m_value = other.m_value;
-	m_enable_max_age = other.m_enable_max_age;
-	m_max_age = other.m_max_age;
-	m_path = other.m_path;
-	m_secure = other.m_secure;
-	m_http_only = other.m_http_only;
-	m_domain = other.m_domain;
-	m_enable_expires = other.m_enable_expires;
-	m_expires = other.m_expires;
+	stdx::http_cookie tmp(other);
+	stdx::atomic_copy(*this,std::move(tmp));
 	return *this;
 }
 
 stdx::http_cookie& stdx::http_cookie::operator=(stdx::http_cookie&& other) noexcept
 {
-	m_name = other.m_name;
-	m_value = other.m_value;
-	m_path = other.m_path;
-	m_secure = other.m_secure;
-	m_http_only = other.m_http_only;
-	m_domain = other.m_domain;
-	m_enable_expires = other.m_enable_expires;
-	m_expires = other.m_expires;
+	m_name = std::move(other.m_name);
+	m_value = std::move(other.m_value);
+	m_path = std::move(other.m_path);
+	m_secure = std::move(other.m_secure);
+	m_http_only = std::move(other.m_http_only);
+	m_domain = std::move(other.m_domain);
+	m_enable_expires = std::move(other.m_enable_expires);
+	m_expires = std::move(other.m_expires);
 	return *this;
 }
 
@@ -578,21 +570,21 @@ stdx::http_header::http_header(const stdx::http_header& other)
 {}
 
 stdx::http_header::http_header(stdx::http_header&& other) noexcept
-	:m_version(other.m_version)
-	,m_headers(other.m_headers)
+	:m_version(std::move(other.m_version))
+	,m_headers(std::move(other.m_headers))
 {}
 
-stdx::http_header& stdx::http_header::operator=(const stdx::http_header& other)
+stdx::http_header& stdx::http_header::operator=(const stdx::http_header &other)
 {
-	m_version = other.m_version;
-	m_headers = other.m_headers;
+	stdx::http_header tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 stdx::http_header& stdx::http_header::operator=(stdx::http_header&& other) noexcept
 {
-	m_version = other.m_version;
-	m_headers = other.m_headers;
+	m_version = std::move(other.m_version);
+	m_headers = std::move(other.m_headers);
 	return *this;
 }
 
@@ -1220,27 +1212,25 @@ stdx::http_request_header::http_request_header(const stdx::http_request_header& 
 {}
 
 stdx::http_request_header::http_request_header(stdx::http_request_header&& other) noexcept
-	:stdx::http_header(other)
+	:stdx::http_header(std::move(other))
 	, m_method(other.m_method)
-	, m_request_url(other.m_request_url)
-	, m_cookies(other.m_cookies)
+	, m_request_url(std::move(other.m_request_url))
+	, m_cookies(std::move(other.m_cookies))
 {}
 
-stdx::http_request_header& stdx::http_request_header::operator=(const stdx::http_request_header& other)
+stdx::http_request_header& stdx::http_request_header::operator=(const stdx::http_request_header &other)
 {
-	http_header::operator=(other);
-	m_method = other.m_method;
-	m_request_url = other.m_request_url;
-	m_cookies = other.m_cookies;
+	stdx::http_request_header tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 stdx::http_request_header& stdx::http_request_header::operator=(stdx::http_request_header&& other) noexcept
 {
-	http_header::operator=(other);
-	m_method = other.m_method;
-	m_request_url = other.m_request_url;
-	m_cookies = other.m_cookies;
+	http_header::operator=(std::move(other));
+	m_method = std::move(other.m_method);
+	m_request_url = std::move(other.m_request_url);
+	m_cookies = std::move(other.m_cookies);
 	return *this;
 }
 
@@ -1384,22 +1374,21 @@ stdx::http_response_header::http_response_header(const stdx::http_response_heade
 stdx::http_response_header::http_response_header(stdx::http_response_header&& other) noexcept
 	:stdx::http_header(other)
 	, m_status_code(other.m_status_code)
-	, m_set_cookies(other.m_set_cookies)
+	, m_set_cookies(std::move(other.m_set_cookies))
 {}
 
 stdx::http_response_header& stdx::http_response_header::operator=(const stdx::http_response_header& other)
 {
-	http_header::operator=(other);
-	m_status_code = other.m_status_code;
-	m_set_cookies = other.m_set_cookies;
+	stdx::http_response_header tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 stdx::http_response_header& stdx::http_response_header::operator=(stdx::http_response_header&& other) noexcept
 {
-	http_header::operator=(other);
-	m_status_code = other.m_status_code;
-	m_set_cookies = other.m_set_cookies;
+	http_header::operator=(std::move(other));
+	m_status_code = std::move(other.m_status_code);
+	m_set_cookies = std::move(other.m_set_cookies);
 	return *this;
 }
 
@@ -1509,21 +1498,21 @@ stdx::http_parameter::http_parameter(const stdx::http_parameter& other)
 {}
 
 stdx::http_parameter::http_parameter(stdx::http_parameter&& other) noexcept
-	:m_vector(other.m_vector)
-	,m_map(other.m_map)
+	:m_vector(std::move(other.m_vector))
+	,m_map(std::move(other.m_map))
 {}
 
 stdx::http_parameter& stdx::http_parameter::operator=(const stdx::http_parameter& other)
 {
-	m_vector = other.m_vector;
-	m_map = other.m_map;
+	stdx::http_parameter tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 stdx::http_parameter& stdx::http_parameter::operator=(stdx::http_parameter&& other) noexcept
 {
-	m_vector = other.m_vector;
-	m_map = other.m_map;
+	m_vector = std::move(other.m_vector);
+	m_map = std::move(other.m_map);
 	return *this;
 }
 
@@ -1713,7 +1702,7 @@ stdx::http_urlencoded_form::http_urlencoded_form(const self_t& other)
 {}
 
 stdx::http_urlencoded_form::http_urlencoded_form(self_t&& other) noexcept
-	:m_collection(other.m_collection)
+	:m_collection(std::move(other.m_collection))
 {}
 
 typename stdx::http_urlencoded_form::self_t& stdx::http_urlencoded_form::operator=(const stdx::http_urlencoded_form& other)
@@ -1724,7 +1713,7 @@ typename stdx::http_urlencoded_form::self_t& stdx::http_urlencoded_form::operato
 
 typename stdx::http_urlencoded_form::self_t& stdx::http_urlencoded_form::operator=(stdx::http_urlencoded_form&& other) noexcept
 {
-	m_collection = other.m_collection;
+	m_collection = std::move(other.m_collection);
 	return *this;
 }
 
@@ -1819,21 +1808,21 @@ stdx::http_multipart_form::http_multipart_form(const self_t& other)
 {}
 
 stdx::http_multipart_form::http_multipart_form(self_t&& other) noexcept
-	:m_boundary(other.m_boundary)
-	,m_collection(other.m_collection)
+	:m_boundary(std::move(other.m_boundary))
+	,m_collection(std::move(other.m_collection))
 {}
 
 stdx::http_multipart_form::self_t& stdx::http_multipart_form::operator=(const self_t& other)
 {
-	m_boundary = other.m_boundary;
-	m_collection = other.m_collection;
+	self_t tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 stdx::http_multipart_form::self_t& stdx::http_multipart_form::operator=(self_t&& other) noexcept
 {
-	m_boundary = other.m_boundary;
-	m_collection = other.m_collection;
+	m_boundary = std::move(other.m_boundary);
+	m_collection = std::move(other.m_collection);
 	return *this;
 }
 
@@ -1967,7 +1956,7 @@ stdx::http_text_form::http_text_form(const self_t& other)
 {}
 
 stdx::http_text_form::http_text_form(self_t&& other) noexcept
-	:m_collection(other.m_collection)
+	:m_collection(std::move(other.m_collection))
 {}
 
 stdx::http_text_form::self_t& stdx::http_text_form::operator=(const self_t& other)
@@ -1978,7 +1967,7 @@ stdx::http_text_form::self_t& stdx::http_text_form::operator=(const self_t& othe
 
 stdx::http_text_form::self_t& stdx::http_text_form::operator=(self_t&& other) noexcept
 {
-	m_collection = other.m_collection;
+	m_collection = std::move(other.m_collection);
 	return *this;
 }
 
@@ -2147,6 +2136,11 @@ stdx::http_request::http_request(const stdx::http_request& other)
 	,m_form(other.m_form)
 {}
 
+stdx::http_request::http_request(stdx::http_request&& other) noexcept
+	:m_header(std::move(other.m_header))
+	,m_form(std::move(other.m_form))
+{}
+
 stdx::http_request::http_request(const stdx::http_form_ptr& form)
 	: m_header(std::make_shared<stdx::http_request_header>())
 	, m_form(form)
@@ -2174,8 +2168,15 @@ stdx::http_request::http_request(stdx::http_method method, stdx::string url)
 
 stdx::http_request& stdx::http_request::operator=(const stdx::http_request & other)
 {
-	m_header = other.m_header;
-	m_form = other.m_form;
+	stdx::http_request tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
+	return *this;
+}
+
+stdx::http_request& stdx::http_request::operator=(stdx::http_request&& other) noexcept
+{
+	m_header = std::move(other.m_header);
+	m_form = std::move(other.m_form);
 	return *this;
 }
 
@@ -3021,6 +3022,11 @@ stdx::http_response::http_response(const stdx::http_response& other)
 	,m_body(other.m_body)
 {}
 
+stdx::http_response::http_response(stdx::http_response&& other) noexcept
+	:m_header(std::move(other.m_header))
+	,m_body(std::move(other.m_body))
+{}
+
 stdx::http_response::http_response(const body_t& body)
 	:m_header(std::make_shared<stdx::http_response_header>())
 	,m_body(body)
@@ -3043,8 +3049,15 @@ stdx::http_response::http_response(stdx::http_status_code_t status_code)
 
 stdx::http_response& stdx::http_response::operator=(const stdx::http_response& other)
 {
-	m_header = other.m_header;
-	m_body = other.m_body;
+	stdx::http_response tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
+	return *this;
+}
+
+stdx::http_response& stdx::http_response::operator=(stdx::http_response&& other) noexcept
+{
+	m_header = std::move(other.m_header);
+	m_body = std::move(other.m_body);
 	return *this;
 }
 

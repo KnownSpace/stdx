@@ -659,6 +659,10 @@ namespace stdx
 
 		file(const file& other);
 
+		file(file&& other) noexcept;
+
+		file& operator=(file&& other) noexcept;
+
 		file& operator=(const file& other);
 
 		bool operator==(const file& other) const;

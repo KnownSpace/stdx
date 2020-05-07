@@ -10,7 +10,7 @@ stdx::any::any(const self_t& other)
 {}
 
 stdx::any::any(self_t&& other) noexcept
-	:m_impl(other.m_impl)
+	:m_impl(std::move(other.m_impl))
 {}
 
 typename stdx::any::self_t& stdx::any::operator=(const self_t& other)
@@ -19,9 +19,9 @@ typename stdx::any::self_t& stdx::any::operator=(const self_t& other)
 	return *this;
 }
 
-typename stdx::any::self_t& stdx::any::operator=(self_t&& other)
+typename stdx::any::self_t& stdx::any::operator=(self_t&& other) noexcept
 {
-	m_impl = other.m_impl;
+	m_impl = std::move(other.m_impl);
 	return *this;
 }
 

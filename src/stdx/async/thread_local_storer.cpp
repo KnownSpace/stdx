@@ -11,7 +11,7 @@ stdx::memory_list::memory_list(const self_t& other)
 {}
 
 stdx::memory_list::memory_list(self_t&& other) noexcept
-	:m_list(other.m_list)
+	:m_list(std::move(other.m_list))
 {}
 
 stdx::memory_list::~memory_list()
@@ -25,7 +25,7 @@ typename stdx::memory_list::self_t& stdx::memory_list::operator=(const self_t& o
 
 typename stdx::memory_list::self_t& stdx::memory_list::operator=(self_t&& other) noexcept
 {
-	m_list = other.m_list;
+	m_list = std::move(other.m_list);
 	return *this;
 }
 

@@ -61,25 +61,20 @@ stdx::datetime::datetime(const tm& t)
 
 stdx::datetime& stdx::datetime::operator=(const stdx::datetime& other)
 {
-	m_year = other.m_year;
-	m_month = other.m_month;
-	m_day = other.m_day;
-	m_hour = other.m_hour;
-	m_minute = other.m_minute;
-	m_second = other.m_second;
-	m_millisecond = other.m_millisecond;
+	stdx::datetime tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 stdx::datetime& stdx::datetime::operator=(stdx::datetime &&other) noexcept
 {
-	m_year = other.m_year;
-	m_month = other.m_month;
-	m_day = other.m_day;
-	m_hour = other.m_hour;
-	m_minute = other.m_minute;
-	m_second = other.m_second;
-	m_millisecond = other.m_millisecond;
+	m_year = std::move(other.m_year);
+	m_month = std::move(other.m_month);
+	m_day = std::move(other.m_day);
+	m_hour = std::move(other.m_hour);
+	m_minute = std::move(other.m_minute);
+	m_second = std::move(other.m_second);
+	m_millisecond = std::move(other.m_millisecond);
 	return *this;
 }
 

@@ -697,7 +697,7 @@ namespace stdx
 		{}
 
 		bio_poller(self_t&& other) noexcept
-			:m_impl(other.m_impl)
+			:m_impl(std::move(other.m_impl))
 		{}
 
 		self_t& operator=(const self_t& other)
@@ -708,7 +708,7 @@ namespace stdx
 
 		self_t &operator=(self_t &&other) noexcept
 		{
-			m_impl = other.m_impl;
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 

@@ -186,29 +186,6 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitHeaderState:
 			m_model->arg.clear();
 			throw;
 		}
-		//m_model->body_buffer.append(m_model->arg.c_str()+pos+4, end - pos - 4);
-		//m_model->arg.clear();
-		//if (m_model->body_buffer.size() == size)
-		//{
-		//	try
-		//	{
-		//		auto form = _MakeForm();
-		//		_FinishParse(form);
-		//		return stdx::make_state_machine<stdx::_HttpRequestParserFinishState>(m_model);
-		//	}
-		//	catch (const std::invalid_argument&)
-		//	{
-		//		return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
-		//	}
-		//	catch (const std::exception&)
-		//	{
-		//		throw;
-		//	}
-		//}
-		//else if (m_model->body_buffer.size() > size)
-		//{
-		//	return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
-		//}
 		m_model->arg.erase(0, pos+4);
 		return stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
 	}
@@ -305,21 +282,21 @@ stdx::http_request_parser::http_request_parser(const self_t& other)
 {}
 
 stdx::http_request_parser::http_request_parser(self_t&& other) noexcept
-	:m_model(other.m_model)
-	,m_state_machine(other.m_state_machine)
+	:m_model(std::move(other.m_model))
+	,m_state_machine(std::move(other.m_state_machine))
 {}
 
 typename stdx::http_request_parser::self_t& stdx::http_request_parser::operator=(const self_t& other)
 {
-	m_model = other.m_model;
-	m_state_machine = other.m_state_machine;
+	stdx::http_request_parser tmp(other);
+	stdx::atomic_copy(*this, std::move(tmp));
 	return *this;
 }
 
 typename stdx::http_request_parser::self_t& stdx::http_request_parser::operator=(self_t&& other) noexcept
 {
-	m_model = other.m_model;
-	m_state_machine = other.m_state_machine;
+	m_model = std::move(other.m_model);
+	m_state_machine = std::move(other.m_state_machine);
 	return *this;
 }
 

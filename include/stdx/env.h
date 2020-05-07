@@ -56,9 +56,9 @@ extern void operator delete[](void* p, const std::nothrow_t& nothrow_value) noex
 
 
 #ifdef WIN32
-#define next_line CRLF
+#define NEWLINE CRLF
 #else
-#define next_line "\n"
+#define NEWLINE "\n"
 #endif
 
 #ifdef WIN32
@@ -250,4 +250,13 @@ namespace stdx
 	extern void little_endian_to_big_endian(char *buffer,size_t n);
 
 	extern void big_endian_to_little_endian(char *buffer,size_t n);
+}
+
+namespace stdx
+{
+	template<typename _T,typename = typename std::enable_if<std::is_nothrow_move_assignable<_T>::value>::type>
+	void atomic_copy(_T &left,_T &&right) noexcept
+	{
+		left = std::move(right);
+	}
 }

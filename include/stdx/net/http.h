@@ -191,7 +191,7 @@ namespace stdx
 
 		virtual ~http_header() = default;
 
-		stdx::http_header& operator=(const stdx::http_header& other);
+		stdx::http_header& operator=(const stdx::http_header &other);
 
 		stdx::http_header& operator=(stdx::http_header&& other) noexcept;
 
@@ -265,7 +265,7 @@ namespace stdx
 
 		virtual ~http_request_header() = default;
 
-		stdx::http_request_header& operator=(const stdx::http_request_header& other);
+		stdx::http_request_header& operator=(const stdx::http_request_header &other);
 
 		stdx::http_request_header& operator=(stdx::http_request_header&& other) noexcept;
 
@@ -895,6 +895,8 @@ namespace stdx
 
 		http_request(const stdx::http_request& other);
 
+		http_request(stdx::http_request&& other) noexcept;
+
 		template<typename _Form,class = typename std::enable_if<stdx::is_base_on<_Form,stdx::http_form>::value>::type>
 		http_request()
 			:m_header(std::make_shared<stdx::http_request_header>())
@@ -938,6 +940,8 @@ namespace stdx
 		~http_request() = default;
 
 		stdx::http_request& operator=(const stdx::http_request& other);
+
+		stdx::http_request& operator=(stdx::http_request&& other) noexcept;
 
 		bool operator==(const stdx::http_request& other) const;
 
@@ -1019,6 +1023,8 @@ namespace stdx
 
 		http_response(const stdx::http_response& other);
 
+		http_response(stdx::http_response&& other) noexcept;
+
 		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
 		http_response()
 			:m_header(std::make_shared<stdx::http_request_header>())
@@ -1060,6 +1066,8 @@ namespace stdx
 		~http_response() = default;
 
 		stdx::http_response& operator=(const stdx::http_response& other);
+
+		stdx::http_response& operator=(stdx::http_response&& other) noexcept;
 
 		bool operator==(const stdx::http_response& other) const;
 

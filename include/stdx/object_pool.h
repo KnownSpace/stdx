@@ -240,7 +240,7 @@ namespace stdx
 			:m_impl(impl)
 		{}
 
-		object_pool(const object_pool &other)
+		object_pool(const self_t &other)
 			:m_impl(other.m_impl)
 		{}
 
