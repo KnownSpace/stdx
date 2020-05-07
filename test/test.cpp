@@ -74,8 +74,9 @@ void handle_client_file(stdx::network_connected_event ev, const stdx::file_io_se
 			try
 			{
 				auto e = r.get();
-				std::string tmp(e.buffer, e.size);
-				stdx::http_request&& request = stdx::http_request::from_bytes(tmp);
+				stdx::http_request_parser parser(8*1024*1024);
+				parser.push(e.buffer,e.size);
+				stdx::http_request&& request = parser.pop();
 				if (request.request_header().request_url() == U("/"))
 				{
 					request.request_header().request_url().append(U("index.html"));
@@ -141,92 +142,6 @@ void handle_client_file(stdx::network_connected_event ev, const stdx::file_io_se
 				});
 }
 
-void handle_request(stdx::http_connection conn, stdx::http_request request,stdx::file_io_service &io_service)
-{
-	stdx::debug_tracker tracker;
-	bool keep = request.request_header().is_keepalive();
-	if (request.request_header().request_url() == U("/"))
-	{
-		request.request_header().request_url().append(U("index.html"));
-	}
-	if (request.request_header().request_url().end_with(U("/")))
-	{
-		stdx::http_response response(404);
-		if (keep)
-		{
-			response.response_header().add_header(U("Connection"), U("keep-alive"));
-		}
-		else
-		{
-			response.response_header().add_header(U("Connection"), U("close"));
-		}
-		response.response_header().add_header(U("Content-Type"), U("text/html"));
-		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
-		response.response_body().push(body);
-		conn.write(response)
-			.then([conn,keep](size_t ev) mutable
-			{
-				if (!keep)
-				{
-					conn.close();
-				}
-			});
-		return;
-	}
-	stdx::string path = U(".");
-	path.append(request.request_header().request_url());
-	stdx::file file(io_service, path);
-	if (file.exist())
-	{
-		auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
-		stream.read_to_end(0).then([stream,conn,keep,tracker](stdx::file_read_event ev) mutable
-			{
-				stream.close();
-				stdx::http_response response(200);
-				if (keep)
-				{
-					response.response_header().add_header(U("Connection"), U("keep-alive"));
-				}
-				else
-				{
-					response.response_header().add_header(U("Connection"), U("close"));
-				}
-				response.response_body().push(ev.buffer, ev.buffer.size());
-				ev.buffer.free();
-				return conn.write(response)
-					.then([conn, keep,tracker](stdx::task_result<size_t> ev) mutable
-						{
-							if (!keep)
-							{
-								conn.close();
-							}
-						});
-			});
-	}
-	else
-	{
-		stdx::http_response response(404);
-		if (keep)
-		{
-			response.response_header().add_header(U("Connection"), U("keep-alive"));
-		}
-		else
-		{
-			response.response_header().add_header(U("Connection"), U("close"));
-		}
-		response.response_header().add_header(U("Content-Type"), U("text/html"));
-		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
-		response.response_body().push(body);
-		conn.write(response).then([conn, keep](size_t ev) mutable
-			{
-				if (!keep)
-				{
-					conn.close();
-				}
-			});
-	}
-}
-
 int main(int argc, char** argv)
 {
 #define ENABLE_WEB
@@ -257,25 +172,6 @@ int main(int argc, char** argv)
 		{
 			//handle_client(ev,doc_content);
 			handle_client_file(ev, file_io_service);
-			/*stdx::http_connection conn = stdx::open_http_connection(ev.connection);
-			conn.open();
-			conn.read_until_error([conn,file_io_service](stdx::http_request req) mutable
-			{
-				handle_request(conn,req,file_io_service);
-			}, [](std::exception_ptr err) 
-			{
-				try
-				{
-					if (err)
-					{
-						std::rethrow_exception(err);
-					}
-				}
-				catch (const std::exception& err)
-				{
-					stdx::perrorf(U("Handle Error:{0}"), err.what());
-				}
-			});*/
 		},
 		[](std::exception_ptr error)
 		{

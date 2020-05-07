@@ -61,6 +61,11 @@ namespace stdx
 
 		void free();
 
+		bool check() const
+		{
+			return m_data != nullptr;
+		}
+
 	private:
 		size_t m_size;
 		data_t m_data;
@@ -156,6 +161,20 @@ namespace stdx
 		void free()
 		{
 			return m_impl->free();
+		}
+
+		operator bool() const
+		{
+			if (m_impl)
+			{
+				return m_impl->check();
+			}
+			return false;
+		}
+
+		bool check() const
+		{
+			return m_impl->check();
 		}
 	private:
 		impl_t m_impl;
