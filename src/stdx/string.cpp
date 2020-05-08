@@ -1021,7 +1021,9 @@ void stdx::_FormatString(stdx::string& format_string, std::initializer_list<stdx
 {
 	auto begin = args.begin();
 	stdx::string str(U("{0}"));
-	for (uint32_t i = 0, size = args.size(); i < size; i++)
+	stdx::uint64_union u;
+	u.value = args.size();
+	for (uint32_t i = 0, size = u.low; i < size; i++)
 	{
 		if (i != 0)
 		{

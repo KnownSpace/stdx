@@ -159,4 +159,27 @@ namespace stdx
 		std::shared_ptr<stdx::http_request_parser_model> m_model;
 		stdx::http_request_parser_state_machine m_state_machine;
 	};
+
+	class parse_error:public std::logic_error
+	{
+		using base_t = std::logic_error;
+		using self_t = stdx::parse_error;
+	public:
+		parse_error(const char* what)
+			:base_t(what)
+		{}
+
+		parse_error(const std::string &what)
+			:base_t(what)
+		{}
+
+		parse_error(const stdx::string &what)
+			:base_t(what.to_native_string())
+		{}
+
+		~parse_error() = default;
+
+	private:
+
+	};
 }

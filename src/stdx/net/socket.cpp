@@ -1098,10 +1098,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						{
 							return;
 						}
-						stdx::finally fin([call]()
-							{
-								delete call;
-							});
+						//stdx::finally fin([call]()
+						//	{
+						//		if (call)
+						//		{
+						//			delete call;
+						//		}
+						//	});
 						try
 						{
 							(*call)(context_ptr, error);
@@ -1109,6 +1112,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						catch (const std::exception&)
 						{
 						}
+						delete call;
 					});
 			}, m_iocp);
 

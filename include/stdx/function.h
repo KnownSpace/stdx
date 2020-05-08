@@ -157,10 +157,10 @@ namespace stdx
 	template<typename _t, typename _fn>
 	struct _ActionRunner
 	{
-		static _t run(_fn &&fn)
-		{
-			return fn();
-		}
+		//static _t run(_fn &&fn)
+		//{
+		//	return fn();
+		//}
 
 		static _t run(_fn &fn)
 		{
@@ -171,11 +171,11 @@ namespace stdx
 	template<typename _fn>
 	struct _ActionRunner<void, _fn>
 	{
-		static void run(_fn &&fn)
-		{
-			fn();
-			return;
-		}
+		//static void run(_fn &&fn)
+		//{
+		//	fn();
+		//	return;
+		//}
 
 		static void run(_fn &fn)
 		{

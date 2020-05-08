@@ -16,7 +16,7 @@ namespace stdx
 
 		void unlock() noexcept;
 	private:
-		volatile std::atomic<bool> m_locked;
+		std::atomic<bool> m_locked;
 	};
 	class spin_lock
 	{
@@ -35,11 +35,19 @@ namespace stdx
 		{}
 
 		~spin_lock() = default;
+
 		spin_lock &operator=(const spin_lock &other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
+
+		spin_lock& operator=(spin_lock&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
+			return *this;
+		}
+
 		void lock()
 		{
 			m_impl->lock();

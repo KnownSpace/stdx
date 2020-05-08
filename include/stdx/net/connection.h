@@ -12,17 +12,27 @@ namespace stdx
 
 		using output_t = _Output;
 
-		virtual void open() = 0;
+		virtual void open()
+		{}
 
 		virtual void close() = 0;
 
 		virtual stdx::task<input_t> read() = 0;
 
-		virtual void read_until(std::function<bool(stdx::task_result<input_t>)>&& fn) = 0;
-
-		virtual void read_until_error(std::function<void(input_t)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
+		virtual void read_until(std::function<bool(stdx::task_result<input_t>)> fn)
 		{
-			return this->read_until([fn, on_error](stdx::task_result<input_t> r)
+			auto x = this->read().then([fn,this](stdx::task_result<input_t> r) mutable
+			{
+				if (!fn(r))
+				{
+					read_until(fn);
+				}
+			});
+		}
+
+		virtual void read_until_error(std::function<void(input_t)> fn, std::function<void(std::exception_ptr)> on_error)
+		{
+			return this->read_until([fn, on_error](stdx::task_result<input_t> r) mutable
 			{
 				try
 				{
@@ -43,8 +53,6 @@ namespace stdx
 		virtual stdx::task<size_t> write(const char* buf, size_t size) = 0;
 
 		virtual stdx::task<void> write_file(stdx::file_handle file) = 0;
-
-		virtual bool is_connected() const = 0;
 
 		virtual ~basic_connection() = default;
 	};
@@ -116,11 +124,6 @@ namespace stdx
 			return m_impl->write(package);
 		}
 
-		bool is_connected() const
-		{
-			return m_impl->is_connected();
-		}
-
 		bool operator==(const self_t& other) const
 		{
 			return m_impl == other.m_impl;
@@ -158,11 +161,20 @@ namespace stdx
 
 		virtual stdx::task<conn_t> accept() = 0;
 
-		virtual void accept_until(std::function<bool(stdx::task_result<conn_t>)> &&fn) = 0;
+		virtual void accept_until(std::function<bool(stdx::task_result<conn_t>)>&& fn)
+		{
+			auto x = accept().then([fn,this](stdx::task_result<conn_t> r) mutable
+			{
+				if (!fn(r))
+				{
+					accept_until(fn);
+				}
+			});
+		}
 
 		virtual void accept_until_error(std::function<void(conn_t)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
 		{
-			return this->accept_until([fn, on_error](stdx::task_result<conn_t> r)
+			return this->accept_until([fn, on_error](stdx::task_result<conn_t> r) mutable
 			{
 				try
 				{

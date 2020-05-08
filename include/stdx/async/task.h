@@ -179,6 +179,10 @@ namespace stdx
 			: m_impl(other.m_impl)
 		{}
 
+		task(task<_R>&& other) noexcept
+			: m_impl(std::move(other.m_impl))
+		{}
+
 		template<typename _Fn, typename ..._Args
 			//checkers
 			, class = typename std::enable_if<stdx::is_callable<_Fn>::value
@@ -198,6 +202,12 @@ namespace stdx
 		task<_R>& operator=(const task<_R>& other)
 		{
 			m_impl = other.m_impl;
+			return *this;
+		}
+
+		task<_R>& operator=(task<_R>&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
@@ -353,7 +363,7 @@ namespace stdx
 				}
 				//解锁
 				lock.unlock();
-				future.wait();
+				//future.wait();
 				return;
 			}
 			//加锁
@@ -408,7 +418,7 @@ namespace stdx
 				}
 				//解锁
 				lock.unlock();
-				future.wait();
+				//future.wait();
 				return;
 			}
 			//加锁
@@ -764,7 +774,7 @@ namespace stdx
 		}
 
 		//析构函数
-		virtual ~_Task() = default;
+		virtual ~_Task() noexcept = default;
 
 		//启动一个Task
 		virtual void run() noexcept override
@@ -799,6 +809,7 @@ namespace stdx
 			//放入线程池
 			stdx::threadpool::run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
 		}
+
 		virtual void run_on_this_thread() noexcept override
 		{
 			m_lock.lock();
@@ -884,7 +895,7 @@ namespace stdx
 	};
 
 	//启动一个Task
-	template<typename _Fn, typename _R = typename stdx::function_info<_Fn>::result, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+	template<typename _Fn, typename ..._Args, typename _R = typename stdx::function_info<_Fn>::result, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 	inline stdx::task<_R> async(_Fn&& fn, _Args&&...args)
 	{
 		return task<_R>::start(fn, args...);
@@ -902,31 +913,31 @@ namespace stdx
 					return promise->get_future().get();
 				}, m_promise)
 		{}
-				~_TaskCompleteEvent() = default;
-				void set_value(_R&& value)
-				{
-					m_promise->set_value(value);
-				}
-				void set_value(const _R& value)
-				{
-					m_promise->set_value(value);
-				}
-				void set_exception(const std::exception_ptr& error)
-				{
-					m_promise->set_exception(error);
-				}
-				stdx::task<_R> get_task()
-				{
-					return m_task;
-				}
-				void run()
-				{
-					m_task.run();
-				}
-				void run_on_this_thread()
-				{
-					m_task.run_on_this_thread();
-				}
+		~_TaskCompleteEvent() = default;
+		void set_value(_R&& value)
+		{
+			m_promise->set_value(value);
+		}
+		void set_value(const _R& value)
+		{
+			m_promise->set_value(value);
+		}
+		void set_exception(const std::exception_ptr& error)
+		{
+			m_promise->set_exception(error);
+		}
+		stdx::task<_R> get_task()
+		{
+			return m_task;
+		}
+		void run()
+		{
+			m_task.run();
+		}
+		void run_on_this_thread()
+		{
+			m_task.run_on_this_thread();
+		}
 	private:
 		promise_ptr<_R> m_promise;
 		stdx::task<_R> m_task;
@@ -939,33 +950,32 @@ namespace stdx
 		_TaskCompleteEvent()
 			:m_promise(stdx::make_promise_ptr<void>())
 			, m_task([](promise_ptr<void> promise)
-				{
-
-					promise->get_future().get();
-				}, m_promise)
 		{
+
+			promise->get_future().get();
+		}, m_promise)
+		{}
+		~_TaskCompleteEvent() = default;
+		void set_value()
+		{
+			m_promise->set_value();
 		}
-				~_TaskCompleteEvent() = default;
-				void set_value()
-				{
-					m_promise->set_value();
-				}
-				void set_exception(const std::exception_ptr& error)
-				{
-					m_promise->set_exception(error);
-				}
-				stdx::task<void> get_task()
-				{
-					return m_task;
-				}
-				void run()
-				{
-					m_task.run();
-				}
-				void run_on_this_thread()
-				{
-					m_task.run_on_this_thread();
-				}
+		void set_exception(const std::exception_ptr& error)
+		{
+			m_promise->set_exception(error);
+		}
+		stdx::task<void> get_task()
+		{
+			return m_task;
+		}
+		void run()
+		{
+			m_task.run();
+		}
+		void run_on_this_thread()
+		{
+			m_task.run_on_this_thread();
+		}
 	private:
 		promise_ptr<void> m_promise;
 		stdx::task<void> m_task;
@@ -979,13 +989,26 @@ namespace stdx
 		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<_R>>())
 		{}
+
 		task_completion_event(const task_completion_event<_R>& other)
 			:m_impl(other.m_impl)
 		{}
+
+		task_completion_event(task_completion_event<_R> &&other) noexcept
+			:m_impl(std::move(other.m_impl))
+		{}
+
 		~task_completion_event() = default;
+
 		task_completion_event<_R>& operator=(const task_completion_event<_R>& other)
 		{
 			m_impl = other.m_impl;
+			return *this;
+		}
+
+		task_completion_event<_R>& operator=(task_completion_event<_R>&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
@@ -1040,39 +1063,59 @@ namespace stdx
 		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<void>>())
 		{}
+
 		task_completion_event(const task_completion_event<void>& other)
 			:m_impl(other.m_impl)
 		{}
+
+		task_completion_event(task_completion_event<void> &&other) noexcept
+			:m_impl(std::move(other.m_impl))
+		{}
+
 		~task_completion_event() = default;
+
 		task_completion_event<void>& operator=(const task_completion_event<void>& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
+
+		task_completion_event<void>& operator=(task_completion_event<void>&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
+			return *this;
+		}
+
 		bool operator==(const task_completion_event<void>& other) const
 		{
 			return other.m_impl == m_impl;
 		}
+
 		void set_value()
 		{
 			m_impl->set_value();
 		}
+
 		void set_exception(const std::exception_ptr& error)
 		{
 			m_impl->set_exception(error);
 		}
+
 		stdx::task<void> get_task()
 		{
 			return m_impl->get_task();
 		}
+
 		void run()
 		{
 			m_impl->run();
 		}
+
 		void run_on_this_thread()
 		{
 			m_impl->run_on_this_thread();
 		}
+
 		operator bool() const
 		{
 			return (bool)m_impl;
@@ -1108,13 +1151,21 @@ namespace stdx
 			:m_impl(other.m_impl)
 		{}
 
-		delete_move(task_flag);
+		task_flag(task_flag&& other) noexcept
+			:m_impl(std::move(other.m_impl))
+		{}
 
 		~task_flag() = default;
 
 		task_flag& operator=(const task_flag& other)
 		{
 			m_impl = other.m_impl;
+			return *this;
+		}
+
+		task_flag& operator=(task_flag&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
@@ -1169,5 +1220,21 @@ namespace stdx
 		ev.set_exception(err);
 		ev.run_on_this_thread();
 		return ev.get_task();
+	}
+
+	template<typename _T>
+	inline stdx::task_result<_T> make_task_result(_T &&val)
+	{
+		std::promise<_T> promise;
+		promise.set_value(std::move(val));
+		return stdx::task_result<_T>(promise.get_future().share());
+	}
+
+	template<typename _T>
+	inline stdx::task_result<_T> make_error_result(std::exception_ptr &&err)
+	{
+		std::promise<_T> promise;
+		promise.set_exception(std::move(err));
+		return stdx::task_result<_T>(promise.get_future().share());
 	}
 }

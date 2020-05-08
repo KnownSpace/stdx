@@ -142,6 +142,85 @@ void handle_client_file(stdx::network_connected_event ev, const stdx::file_io_se
 				});
 }
 
+void add_keepalive(stdx::http_response &res,bool keep)
+{
+	if (keep)
+	{
+		res.response_header().add_header(U("Connection"),U("keep-alive"));
+	}
+}
+
+bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::file_io_service &ios)
+{
+	if (req.request_header().request_url() == U("/"))
+	{
+		req.request_header().request_url().append(U("index.html"));
+	}
+	bool keep = req.request_header().is_keepalive();
+	stdx::string path(U("."));
+	path.append(req.request_header().request_url());
+	stdx::file file(ios, path);
+	if (file.exist())
+	{
+		auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
+		auto  x =  stream.read_to_end(0)
+			.then([stream,conn,keep](stdx::task_result<stdx::file_read_event> r) mutable
+		{
+				stream.close();
+				try
+				{
+					auto ev = r.get();
+					stdx::http_response response(200);
+					//response.response_header().add_header(U("Content-Type"), U("text/html"));
+					response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
+					add_keepalive(response, keep);
+					conn.write(response)
+						.then([conn,keep]() mutable 
+					{
+								if (!keep)
+								{
+									conn.close();
+								}
+					});
+				}
+				catch (const std::exception &err)
+				{
+					stdx::perrorf(U("请求处理出错:{0}\n"), err.what());
+					stdx::http_response response(502);
+					response.response_header().add_header(U("Content-Type"), U("text/html"));
+					stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
+					response.response_body().push(body);
+					add_keepalive(response, keep);
+					conn.write(response)
+						.then([conn, keep]()mutable
+							{
+								if (!keep)
+								{
+									conn.close();
+								}
+							});
+				}
+		});
+	}
+	else
+	{
+		stdx::http_response response(404);
+		response.response_header().add_header(U("Content-Type"), U("text/html"));
+		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
+		response.response_body().push(body);
+		add_keepalive(response, keep);
+		conn.write(response)
+			.then([conn,keep]()mutable 
+		{
+					if (!keep)
+					{
+						conn.close();
+					}
+		});
+	}
+	return keep;
+}
+
 int main(int argc, char** argv)
 {
 #define ENABLE_WEB
@@ -168,10 +247,24 @@ int main(int argc, char** argv)
 	}
 	stdx::spin_lock lock;
 	uint32_t num = 0;
-	s.accept_until_error([file_io_service](stdx::network_connected_event ev)  mutable
+	std::list<stdx::http_connection> keeper;
+	s.accept_until_error([file_io_service,&keeper](stdx::network_connected_event ev)  mutable
 		{
 			//handle_client(ev,doc_content);
-			handle_client_file(ev, file_io_service);
+			//handle_client_file(ev, file_io_service);
+			auto conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
+			conn.read_until([conn,file_io_service](stdx::task_result<stdx::http_request> r) mutable 
+			{
+					try
+					{
+						bool keep = handle_request(conn, r.get(), file_io_service);
+						return !keep;
+					}
+					catch (const std::exception&)
+					{
+						return true;
+					}
+			});
 		},
 		[](std::exception_ptr error)
 		{

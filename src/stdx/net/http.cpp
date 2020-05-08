@@ -2127,8 +2127,8 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 }
 
 stdx::http_request::http_request()
-	:m_header(std::make_shared<stdx::http_request_header>())
-	,m_form(std::make_shared<stdx::http_urlencoded_form>())
+	:m_header(nullptr)
+	,m_form(nullptr)
 {}
 
 stdx::http_request::http_request(const stdx::http_request& other)
@@ -3013,8 +3013,8 @@ stdx::string& stdx::http_chunk_body::trailer() const
 }
 
 stdx::http_response::http_response()
-	:m_header(std::make_shared<stdx::http_response_header>())
-	,m_body(std::make_shared<stdx::http_identity_body>())
+	:m_header(nullptr)
+	,m_body(nullptr)
 {}
 
 stdx::http_response::http_response(const stdx::http_response& other)

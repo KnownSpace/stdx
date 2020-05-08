@@ -891,17 +891,11 @@ namespace stdx
 		using header_t = std::shared_ptr<stdx::http_request_header>;
 		using body_t = std::shared_ptr<stdx::http_form>;
 	public:
-		http_request();
+		explicit http_request();
 
 		http_request(const stdx::http_request& other);
 
 		http_request(stdx::http_request&& other) noexcept;
-
-		template<typename _Form,class = typename std::enable_if<stdx::is_base_on<_Form,stdx::http_form>::value>::type>
-		http_request()
-			:m_header(std::make_shared<stdx::http_request_header>())
-			,m_form(std::make_shared<_Form>())
-		{}
 
 		http_request(const stdx::http_form_ptr& form);
 
@@ -983,6 +977,11 @@ namespace stdx
 		static stdx::http_request from_bytes(const std::vector<unsigned char> &bytes);
 
 		static stdx::http_request from_bytes(const std::string& bytes);
+
+		operator bool() const
+		{
+			return m_form && m_header;
+		}
 	private:
 		mutable header_t m_header;
 		body_t m_form;
@@ -1019,17 +1018,11 @@ namespace stdx
 		using header_t = std::shared_ptr<stdx::http_response_header>;
 		using body_t = stdx::http_response_body_ptr;
 	public:
-		http_response();
+		explicit http_response();
 
 		http_response(const stdx::http_response& other);
 
 		http_response(stdx::http_response&& other) noexcept;
-
-		template<typename _Body, class = typename std::enable_if<stdx::is_base_on<_Body, stdx::http_response_body>::value>::type>
-		http_response()
-			:m_header(std::make_shared<stdx::http_request_header>())
-			,m_body(std::make_shared<_Body>())
-		{}
 
 		http_response(const body_t& body);
 
@@ -1097,6 +1090,11 @@ namespace stdx
 		static stdx::http_response from_bytes(const std::vector<unsigned char>& bytes);
 
 		static stdx::http_response from_bytes(const std::string &bytes);
+
+		operator bool() const
+		{
+			return m_body && m_header;
+		}
 	private:
 		mutable header_t m_header;
 		body_t m_body;
