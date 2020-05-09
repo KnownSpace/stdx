@@ -82,16 +82,6 @@ namespace stdx
 			return m_impl->read();
 		}
 
-		//void read_until(std::function<bool(stdx::task_result<_Input>)>&& fn)
-		//{
-		//	return m_impl->read_until(std::move(fn));
-		//}
-
-		//void read_until_error(std::function<void(_Input)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
-		//{
-		//	return m_impl->read_until_error(std::move(fn), std::move(on_error));
-		//}
-
 		void read_until(stdx::cancel_token token, std::function<void(_Input)> fn, std::function<void(std::exception_ptr)> err_handler)
 		{
 			return m_impl->read_until(token, fn, err_handler);
@@ -139,34 +129,7 @@ namespace stdx
 
 		virtual stdx::task<conn_t> accept() = 0;
 
-		virtual void accept_until(std::function<bool(stdx::task_result<conn_t>)>&& fn)
-		{
-			auto x = accept().then([fn,this](stdx::task_result<conn_t> r) mutable
-			{
-				if (!fn(r))
-				{
-					accept_until(fn);
-				}
-			});
-		}
-
-		virtual void accept_until_error(std::function<void(conn_t)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
-		{
-			return this->accept_until([fn, on_error](stdx::task_result<conn_t> r) mutable
-			{
-				try
-				{
-					conn_t conn = r.get();
-					fn(conn);
-					return false;
-				}
-				catch (const std::exception&)
-				{
-					on_error(std::current_exception());
-					return true;
-				}
-			});
-		}
+		virtual void accept_until(stdx::cancel_token token,std::function<void(conn_t)> fn,std::function<void(std::exception_ptr)> err_handler) = 0;
 
 		virtual void close() = 0;
 
@@ -229,14 +192,9 @@ namespace stdx
 			return m_impl->accept();
 		}
 
-		void accept_until(std::function<bool(stdx::task_result<conn_t>)>&& fn)
+		void accept_until(stdx::cancel_token token, std::function<void(conn_t)> fn, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->accept_until(std::move(fn));
-		}
-
-		void accept_until_error(std::function<void(conn_t)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
-		{
-			return m_impl->accept_until_error(std::move(fn), std::move(on_error));
+			return m_impl->accept_until(token, fn, err_handler);
 		}
 
 		void close()
