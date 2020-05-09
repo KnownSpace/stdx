@@ -445,7 +445,10 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 			return;
 		}
 		stdx::network_recv_event ev(context);
-		delete context;
+		stdx::finally fin([context]()
+			{
+				delete context;
+			});
 		callback(ev, err);
 	};
 	context->callback = call;
@@ -842,7 +845,10 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 			return;
 		}
 		stdx::network_recv_event ev(context);
-		delete context;
+		stdx::finally fin([context]()
+			{
+				delete context;
+			});
 		callback(ev, err);
 	};
 	context->callback = call;

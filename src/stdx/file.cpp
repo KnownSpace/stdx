@@ -159,7 +159,10 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 			context_ptr->eof = true;
 		}
 		file_read_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, nullptr);
 	};
 	context->callback = call;
@@ -258,7 +261,10 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 			context_ptr->eof = true;
 		}
 		file_read_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, nullptr);
 	};
 	ptr->callback = call;
@@ -318,7 +324,10 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 			context_ptr->eof = true;
 		}
 		file_read_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, nullptr);
 	};
 	ptr->callback = call;
@@ -400,7 +409,10 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 #endif // DEBUG
 			stdx::free(context_ptr->buffer);
 			delete call;
-			delete context_ptr;
+			stdx::finally fin([context_ptr]()
+				{
+					delete context_ptr;
+				});
 			callback(stdx::file_write_event(), std::current_exception());
 			return;
 		}
@@ -464,7 +476,10 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 			context_ptr->eof = true;
 		}
 		file_write_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, nullptr);
 	};
 	ptr->callback = call;
@@ -528,7 +543,10 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 			context_ptr->eof = true;
 		}
 		file_write_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, nullptr);
 	};
 	ptr->callback = call;
@@ -628,6 +646,10 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				::printf("[IOCP]IO操作完成\n");
 #endif
 				auto* call = context_ptr->callback;
+				stdx::finally fin([call]()
+					{
+						delete call;
+					});
 				try
 				{
 					(*call)(context_ptr, error);
@@ -635,7 +657,6 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				catch (const std::exception&)
 				{
 				}
-				delete call;
 			}, m_iocp);
 	}
 #else
