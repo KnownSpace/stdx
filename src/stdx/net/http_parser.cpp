@@ -23,7 +23,8 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserState::reset()
 	m_model->body_buffer.clear();
 	m_model->header.reset();
 	m_model->state = stdx::http_parser_state::pending;
-	return stdx::make_state_machine<stdx::_HttpRequestParserPendingState>(m_model);
+	auto t = stdx::make_state_machine<stdx::_HttpRequestParserPendingState>(m_model);
+	return t;
 }
 
 void stdx::_HttpRequestParserState::_CheckArg() const
@@ -119,14 +120,16 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitHeaderState:
 	if (size > m_model->max_size)
 	{
 		m_model->arg.clear();
-		return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+		auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+		return t;
 	}
 	size_t pos = m_model->arg.rfind("\r\n\r\n");
 	if (pos == std::string::npos)
 	{
 		m_model->header_buffer.append(m_model->arg);
 		m_model->arg.clear();
-		return stdx::make_state_machine<stdx::_HttpRequestParserWaitHeaderState>(m_model);
+		auto t = stdx::make_state_machine<stdx::_HttpRequestParserWaitHeaderState>(m_model);
+		return t;
 	}
 	size_t end = m_model->arg.size();
 	if ((pos+4)==end)
@@ -139,24 +142,28 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitHeaderState:
 			if (m_model->header->method() == stdx::http_method::get)
 			{
 				_FinishParse();
-				return stdx::make_state_machine<stdx::_HttpRequestParserFinishState>(m_model);
+				auto t = stdx::make_state_machine<stdx::_HttpRequestParserFinishState>(m_model);
+				return t;
 			}
 			else
 			{
 				uint64_t size = _GetBodySize();
 				if (size > m_model->max_size)
 				{
-					return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+					auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+					return t;
 				}
 				else
 				{
-					return stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
+					auto t = stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
+					return t;
 				}
 			}
 		}
 		catch (const std::invalid_argument&)
 		{
-			return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+			auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+			return t;
 		}
 		catch (const std::exception&)
 		{
@@ -173,13 +180,15 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitHeaderState:
 			if (size > m_model->max_size)
 			{
 				m_model->arg.clear();
-				return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+				auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+				return t;
 			}
 		}
 		catch (const std::invalid_argument&)
 		{
 			m_model->arg.clear();
-			return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+			auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+			return t;
 		}
 		catch (const std::exception&)
 		{
@@ -187,7 +196,8 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitHeaderState:
 			throw;
 		}
 		m_model->arg.erase(0, pos+4);
-		return stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
+		auto t = stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
+		return t;
 	}
 }
 
@@ -204,7 +214,8 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitBodyState::m
 	if (size > m_model->max_size)
 	{
 		m_model->arg.clear();
-		return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+		auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+		return t;
 	}
 	uint64_t body_size = _GetBodySize();
 	if (size == body_size)
@@ -215,11 +226,13 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitBodyState::m
 		{
 			auto form = _MakeForm();
 			_FinishParse(form);
-			return stdx::make_state_machine<stdx::_HttpRequestParserFinishState>(m_model);
+			auto t = stdx::make_state_machine<stdx::_HttpRequestParserFinishState>(m_model);
+			return t;
 		}
 		catch (const std::invalid_argument&)
 		{
-			return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+			auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+			return t;
 		}
 		catch (const std::exception &)
 		{
@@ -230,11 +243,13 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserWaitBodyState::m
 	else if (size > body_size)
 	{
 		m_model->arg.clear();
-		return stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+		auto t = stdx::make_state_machine<stdx::_HttpRequestParserErrorState>(m_model);
+		return t;
 	}
 	m_model->body_buffer.append(m_model->arg);
 	m_model->arg.clear();
-	return stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
+	auto t = stdx::make_state_machine<stdx::_HttpRequestParserWaitBodyState>(m_model);
+	return t;
 }
 
 stdx::_HttpRequestParserFinishState::_HttpRequestParserFinishState(const model_ptr_t model)

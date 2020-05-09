@@ -19,7 +19,7 @@ namespace stdx
 			:m_ptr((other.m_ptr)?(new _T(*other.m_ptr)):(nullptr))
 		{}
 
-		nullable(nullable&& other)
+		nullable(nullable&& other) noexcept
 			:m_ptr(std::move(other.m_ptr))
 		{}
 

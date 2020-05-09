@@ -5,104 +5,91 @@ stdx::basic_http_connection::basic_http_connection(const stdx::socket& sock, uin
 	,m_parser(max_size)
 {}
 
-bool stdx::basic_http_connection::_CheckParser(stdx::http_request_parser &parser, stdx::task_completion_event<stdx::http_request> &ce)
+void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, std::exception_ptr)> callback)
 {
-	if (parser.finish_count())
+	if (m_parser.error())
 	{
-		ce.set_value(parser.pop());
-		ce.run_on_this_thread();
-		return true;
+		callback(stdx::http_request(), std::make_exception_ptr(std::make_exception_ptr(stdx::parse_error("parse fault"))));
+		return;
 	}
-	else if (parser.error())
+	else if (m_parser.finish_count())
 	{
-		ce.set_exception(std::make_exception_ptr(stdx::parse_error("parser fault")));
-		ce.run_on_this_thread();
-		return true;
+		callback(m_parser.pop(), nullptr);
+		return;
 	}
-	return false;
+	auto parser = m_parser;
+	stdx::cancel_token token;
+	m_socket.recv_until(4096, token, [callback,token, parser](stdx::network_recv_event ev) mutable
+	{
+			parser.push(ev.buffer, ev.size);
+			if (!parser.error())
+			{
+				if (parser.finish_count())
+				{
+					callback(parser.pop(), nullptr);
+					token.cancel();
+				}
+			}
+			else
+			{
+				callback(stdx::http_request(), std::make_exception_ptr(std::make_exception_ptr(stdx::parse_error("parse fault"))));
+			}
+	}, [token,callback](std::exception_ptr err) mutable
+	{
+			token.cancel();
+			callback(stdx::http_request(), std::make_exception_ptr(std::make_exception_ptr(stdx::parse_error("parse fault"))));
+	});
 }
 
 stdx::task<stdx::http_request> stdx::basic_http_connection::read()
 {
 	stdx::task_completion_event<stdx::http_request> ce;
-	if (_CheckParser(m_parser, ce))
+	_Read([ce](stdx::http_request req,std::exception_ptr err) mutable
 	{
-		return ce.get_task();
-	}
-	auto parser = m_parser;
-	m_socket.recv_until(4096,[parser,ce](stdx::task_result<stdx::network_recv_event> r) mutable
-	{
-		try
-		{
-			auto ev = r.get();
-			parser.push(ev.buffer, ev.size);
-			if (_CheckParser(parser, ce))
+			if (err)
 			{
-				return true;
+				ce.set_exception(err);
+				ce.run_on_this_thread();
 			}
-			return false;
-		}
-		catch (const std::exception&)
-		{
-			ce.set_exception(std::current_exception());
-			ce.run_on_this_thread();
-			return true;
-		}
+			else
+			{
+				ce.set_value(req);
+				ce.run_on_this_thread();
+			}
 	});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<size_t> stdx::basic_http_connection::write(const stdx::http_response& package)
 {
-	auto &&vec = package.to_bytes();
-	return base_t::write((const char *)vec.data(), vec.size());
+	auto vec = std::move(package.to_bytes());
+	auto t = base_t::write((const char*)vec.data(), vec.size());
+	return t;
 }
 
-//void stdx::basic_http_connection::read_until(std::function<bool(stdx::task_result<stdx::http_request>)> fn)
-//{
-//	if (!m_parser.error())
-//	{
-//		while (m_parser.finish_count())
-//		{
-//			if (fn(stdx::make_task_result(std::move(m_parser.pop()))))
-//			{
-//				return;
-//			}
-//		}
-//		auto parser = m_parser;
-//		m_socket.recv_until(4096, [parser,fn](stdx::task_result<stdx::network_recv_event> r) mutable
-//			{
-//				try
-//				{
-//					auto ev = r.get();
-//					parser.push(ev.buffer, ev.size);
-//					if (!parser.error())
-//					{
-//						while (parser.finish_count())
-//						{
-//							if (fn(stdx::make_task_result(std::move(parser.pop()))))
-//							{
-//								return true;
-//							}
-//						}
-//						return false;
-//					}
-//					return fn(stdx::make_error_result<stdx::http_request>(std::make_exception_ptr(stdx::parse_error("parser fault"))));
-//				}
-//				catch (const std::exception&)
-//				{
-//					return fn(stdx::make_error_result<stdx::http_request>(std::current_exception()));;
-//				}
-//			});
-//	}
-//	else
-//	{
-//		if (!fn(stdx::make_error_result<stdx::http_request>(std::make_exception_ptr(stdx::parse_error("parser fault")))))
-//		{
-//			read_until(fn);
-//		}
-//	}
-//}
+void stdx::basic_http_connection::read_until(stdx::cancel_token token, std::function<void(stdx::http_request)> fn, std::function<void(std::exception_ptr)> err_handler)
+{
+	if (token.is_cancel())
+	{
+		return;
+	}
+	_Read([token,fn,err_handler,this](stdx::http_request req,std::exception_ptr err) 
+	{
+		if (err)
+		{
+			err_handler(err);
+		}
+		else
+		{
+			fn(req);
+		}
+		if (!token.is_cancel())
+		{
+			read_until(token, fn, err_handler);
+		}
+	});
+}
 
 stdx::http_connection stdx::make_http_connection(const stdx::socket& sock, uint64_t max_size)
 {

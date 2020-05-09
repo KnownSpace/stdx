@@ -341,8 +341,8 @@ namespace stdx
 			{
 				//调用方法
 				//设置promise
-				promise->set_value(call->run());
-				future.wait();
+				auto&& r = call->run();
+				promise->set_value(r);
 			}
 			catch (const std::exception&)
 			{
@@ -352,13 +352,12 @@ namespace stdx
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
 				//如果有callback
-				if (*next)
+				if (next && *next)
 				{
 					//解锁
 					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
-					future.wait();
 					return;
 				}
 				//解锁
@@ -369,7 +368,7 @@ namespace stdx
 			//加锁
 			lock.lock();
 			//如果有callback
-			if (*next)
+			if (next && *next)
 			{
 				*state = task_state::complete;
 				//解锁
@@ -397,7 +396,6 @@ namespace stdx
 				call->run();
 				//设置promise
 				promise->set_value();
-				future.wait();
 			}
 			catch (const std::exception&)
 			{
@@ -407,13 +405,12 @@ namespace stdx
 				*state = task_state::error;
 				promise->set_exception(std::current_exception());
 				//如果有callback
-				if (*next)
+				if (next && *next)
 				{
 					//解锁
 					lock.unlock();
 					//运行callback
 					(*next)->run_on_this_thread();
-					future.wait();
 					return;
 				}
 				//解锁
@@ -424,7 +421,7 @@ namespace stdx
 			//加锁
 			lock.lock();
 			//如果有callback
-			if (*next)
+			if (next && *next)
 			{
 				*state = task_state::complete;
 				//解锁
@@ -492,7 +489,7 @@ namespace stdx
 		{
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> future)
 				{
-					return std::bind(fn, task_result<Input>(future))();
+					return fn(task_result<Input>(future));
 				}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
@@ -548,7 +545,7 @@ namespace stdx
 		{
 			auto t = stdx::make_task_ptr<Result>([](Fn fn, std::shared_future<Input> future)
 				{
-					return std::bind(fn, future.get())();
+					return fn(future.get());
 				}, fn, future);
 			lock.lock();
 			if ((*state == task_state::complete) || (*state == task_state::error))
@@ -774,13 +771,16 @@ namespace stdx
 		}
 
 		//析构函数
-		virtual ~_Task() noexcept = default;
+		virtual ~_Task() noexcept
+		{
+			
+		}
 
 		//启动一个Task
 		virtual void run() noexcept override
 		{
 			//加锁
-			m_lock.lock();
+			std::unique_lock<stdx::spin_lock> lock(m_lock);
 			//如果不在运行
 			if (*m_state != stdx::task_state::running)
 			{
@@ -791,11 +791,10 @@ namespace stdx
 			{
 				//如果正在运行
 				//解锁返回
-				m_lock.unlock();
 				return;
 			}
 			//解锁
-			m_lock.unlock();
+			lock.unlock();
 			//创建方法
 			auto f = [](stdx::runable_ptr<R> r
 				, promise_ptr<R> promise
@@ -812,10 +811,9 @@ namespace stdx
 
 		virtual void run_on_this_thread() noexcept override
 		{
-			m_lock.lock();
+			std::unique_lock<stdx::spin_lock> lock(m_lock);
 			if (!m_state)
 			{
-				m_lock.unlock();
 				return;
 			}
 			if ((*m_state) != stdx::task_state::running)
@@ -824,10 +822,9 @@ namespace stdx
 			}
 			else
 			{
-				m_lock.unlock();
 				return;
 			}
-			m_lock.unlock();
+			lock.unlock();
 			try
 			{
 				stdx::_TaskCompleter<R>::call(m_action, m_promise, m_next, m_lock, m_state, m_future);

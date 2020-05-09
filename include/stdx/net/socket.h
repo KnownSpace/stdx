@@ -350,8 +350,26 @@ namespace stdx
 		network_io_context() = default;
 #endif
 
+		~network_io_context() 
+		{}
 
-		~network_io_context() = default;
+//		network_io_context(network_io_context&& other) noexcept
+//#ifdef WIN32
+//			:m_ol(std::move(other.m_ol))
+//#else
+//			:code(other.code)
+//#endif
+//			,this_socket(std::move(other.this_socket))
+//			,target_socket(std::move(other.target_socket))
+//			,addr(std::move(other.addr))
+//#ifdef WIN32
+//			,buffer(std::move(other.buffer))
+//#else
+//			,buffer(std::move(other.buffer))
+//			,buffer_size(other.buffer_size)
+//#endif
+//			,size(other.size)
+//		{}
 #ifdef WIN32
 		WSAOVERLAPPED m_ol;
 #else
@@ -403,18 +421,29 @@ namespace stdx
 			, size(0)
 		{}
 		~network_send_event() = default;
+
 		network_send_event(const network_send_event& other)
 			:sock(other.sock)
 			, size(other.size)
 		{}
+
 		network_send_event(network_send_event&& other) noexcept
 			:sock(std::move(other.sock))
 			, size(std::move(other.size))
-		{}
+		{
+#ifdef WIN32
+			other.sock = INVALID_SOCKET;
+
+#else
+			other.sock = -1;
+#endif
+			other.size = 0;
+		}
+
 		network_send_event& operator=(const network_send_event& other)
 		{
-			sock = other.sock;
-			size = other.size;
+			stdx::network_send_event tmp(other);
+			stdx::atomic_copy(*this, std::move(tmp));
 			return *this;
 		}
 
@@ -424,11 +453,10 @@ namespace stdx
 			size = other.size;
 #ifdef WIN32
 			other.sock = INVALID_SOCKET;
-			other.size = 0;
 #else
 			other.sock = -1;
-			other.size = 0;
 #endif
+			other.size = 0;
 			return *this;
 		}
 
@@ -458,24 +486,32 @@ namespace stdx
 			, addr()
 		{}
 		~network_recv_event() = default;
+
 		network_recv_event(const network_recv_event& other)
 			:sock(other.sock)
 			, buffer(other.buffer)
 			, size(other.size)
 			, addr(other.addr)
 		{}
+
 		network_recv_event(network_recv_event&& other) noexcept
 			:sock(std::move(other.sock))
 			, buffer(other.buffer)
 			, size(other.size)
 			, addr(other.addr)
-		{}
+		{
+#ifdef WIN32
+			other.sock = INVALID_SOCKET;
+#else
+			other.sock = -1;
+#endif
+			other.size = 0;
+		}
+
 		network_recv_event& operator=(const network_recv_event& other)
 		{
-			sock = other.sock;
-			buffer = other.buffer;
-			size = other.size;
-			addr = other.addr;
+			stdx::network_recv_event tmp(other);
+			stdx::atomic_copy(*this, std::move(tmp));
 			return *this;
 		}
 
@@ -487,11 +523,10 @@ namespace stdx
 			addr = other.addr;
 #ifdef WIN32
 			other.sock = INVALID_SOCKET;
-			other.size = 0;
 #else
 			other.sock = -1;
-			other.size = 0;
 #endif
+			other.size = 0;
 			return *this;
 		}
 
@@ -860,12 +895,11 @@ namespace stdx
 			return m_io_service.get_remote_addr(m_handle);
 		}
 
-		//直到call返回true停止
-		void recv_until(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call);
-
-		void recv_until_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler);
+		void recv_until(socket_size_t size,stdx::cancel_token token,std::function<void(stdx::network_recv_event)> fn,std::function<void(std::exception_ptr)> err_handler);
 
 		io_service_t get_io_service() const;
+
+		void accept_until(stdx::cancel_token token, std::function<void(stdx::network_accept_event)> fn, std::function<void(std::exception_ptr)> err_handler);
 	private:
 		io_service_t m_io_service;
 		std::atomic<socket_t> m_handle;
@@ -978,20 +1012,16 @@ namespace stdx
 			return m_impl->recv_from(size);
 		}
 
-		//直到call返回true停止
-		void recv_until(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)>  call)
+		void recv_until(socket_size_t size, stdx::cancel_token token, std::function<void(stdx::network_recv_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->recv_until(size, call);
+			return m_impl->recv_until(size,token, fn,err_handler);
 		}
 
-		void recv_until_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
-		{
-			return m_impl->recv_until_error(size, call, err_handler);
-		}
+		//void accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call);
 
-		void accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call);
+		//void accept_until_error(std::function<void(stdx::network_connected_event)> call,std::function<void(std::exception_ptr)> err_handler);
 
-		void accept_until_error(std::function<void(stdx::network_connected_event)> call,std::function<void(std::exception_ptr)> err_handler);
+		void accept_until(stdx::cancel_token token, std::function<void(stdx::network_connected_event)> fn, std::function<void(std::exception_ptr)> err_handler);
 
 		bool operator==(const stdx::socket& other) const
 		{

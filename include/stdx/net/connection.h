@@ -19,34 +19,7 @@ namespace stdx
 
 		virtual stdx::task<input_t> read() = 0;
 
-		virtual void read_until(std::function<bool(stdx::task_result<input_t>)> fn)
-		{
-			auto x = this->read().then([fn,this](stdx::task_result<input_t> r) mutable
-			{
-				if (!fn(r))
-				{
-					read_until(fn);
-				}
-			});
-		}
-
-		virtual void read_until_error(std::function<void(input_t)> fn, std::function<void(std::exception_ptr)> on_error)
-		{
-			return this->read_until([fn, on_error](stdx::task_result<input_t> r) mutable
-			{
-				try
-				{
-					auto ev = r.get();
-					fn(ev);
-					return false;
-				}
-				catch (const std::exception&)
-				{
-					on_error(std::current_exception());
-					return true;
-				}
-			});
-		}
+		virtual void read_until(stdx::cancel_token token, std::function<void(input_t)> fn,std::function<void(std::exception_ptr)> err_handler) = 0;
 
 		virtual stdx::task<size_t> write(const output_t &package) = 0;
 
@@ -109,14 +82,19 @@ namespace stdx
 			return m_impl->read();
 		}
 
-		void read_until(std::function<bool(stdx::task_result<_Input>)>&& fn)
-		{
-			return m_impl->read_until(std::move(fn));
-		}
+		//void read_until(std::function<bool(stdx::task_result<_Input>)>&& fn)
+		//{
+		//	return m_impl->read_until(std::move(fn));
+		//}
 
-		void read_until_error(std::function<void(_Input)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
+		//void read_until_error(std::function<void(_Input)>&& fn, std::function<void(std::exception_ptr)>&& on_error)
+		//{
+		//	return m_impl->read_until_error(std::move(fn), std::move(on_error));
+		//}
+
+		void read_until(stdx::cancel_token token, std::function<void(_Input)> fn, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->read_until_error(std::move(fn), std::move(on_error));
+			return m_impl->read_until(token, fn, err_handler);
 		}
 
 		stdx::task<size_t> write(const _Output& package)

@@ -223,7 +223,10 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 		}
 		network_send_event context(context_ptr);
 		stdx::free(context_ptr->buffer.buf);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+		{
+			delete context_ptr;
+		});
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
@@ -276,7 +279,10 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 	}
 	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+		{
+				delete context_ptr;
+		});
 		callback(error);
 	};
 	context_ptr->callback = call;
@@ -373,7 +379,10 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 			}
 		}
 		network_recv_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]() 
+		{
+			delete context_ptr;
+		});
 		callback(context, std::exception_ptr(nullptr));
 	};
 	context_ptr->callback = call;
@@ -646,7 +655,10 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, cons
 		}
 		network_send_event context(context_ptr);
 		free(context_ptr->buffer.buf);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
@@ -761,7 +773,10 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 		stdx::free(addr);
 		stdx::free(addr_size);
 		network_recv_event context(context_ptr);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(context, std::exception_ptr(nullptr));
 	};
 	context_ptr->callback = call;
@@ -967,7 +982,10 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		ev.accept = context_ptr->target_socket;
 		ev.addr = remote;
 		stdx::free(context_ptr->buffer.buf);
-		delete context_ptr;
+		stdx::finally fin([context_ptr]()
+			{
+				delete context_ptr;
+			});
 		callback(ev, nullptr);
 	};
 	socket_t new_sock = INVALID_SOCKET;
@@ -1098,13 +1116,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						{
 							return;
 						}
-						//stdx::finally fin([call]()
-						//	{
-						//		if (call)
-						//		{
-						//			delete call;
-						//		}
-						//	});
+						stdx::finally fin([call]()
+							{
+								if (call)
+								{
+									delete call;
+								}
+							});
 						try
 						{
 							(*call)(context_ptr, error);
@@ -1112,7 +1130,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						catch (const std::exception&)
 						{
 						}
-						delete call;
 					});
 			}, m_iocp);
 
@@ -1340,7 +1357,8 @@ stdx::task<stdx::network_send_event> stdx::_Socket::send(const char* data, const
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<void> stdx::_Socket::send_file(file_handle_t file_handle)
@@ -1362,7 +1380,8 @@ stdx::task<void> stdx::_Socket::send_file(file_handle_t file_handle)
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const ipv4_addr& addr, const char* data, const socket_size_t& size)
@@ -1384,7 +1403,8 @@ stdx::task<stdx::network_send_event> stdx::_Socket::send_to(const ipv4_addr& add
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<stdx::network_recv_event> stdx::_Socket::recv(const socket_size_t& size)
@@ -1406,7 +1426,8 @@ stdx::task<stdx::network_recv_event> stdx::_Socket::recv(const socket_size_t& si
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<stdx::network_accept_event> stdx::_Socket::accept_ex()
@@ -1429,7 +1450,8 @@ stdx::task<stdx::network_accept_event> stdx::_Socket::accept_ex()
 			}
 			ce.run_on_this_thread();
 	});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<stdx::network_recv_event> stdx::_Socket::recv_from(const socket_size_t& size)
@@ -1451,36 +1473,37 @@ stdx::task<stdx::network_recv_event> stdx::_Socket::recv_from(const socket_size_
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
-void stdx::_Socket::recv_until(const socket_size_t& size, std::function<bool(stdx::task_result<stdx::network_recv_event>)> call)
+void stdx::_Socket::recv_until(socket_size_t size, stdx::cancel_token token, std::function<void(stdx::network_recv_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 {
-	auto x = this->recv(size).then([this, size, call](stdx::task_result<network_recv_event> r) mutable
+	if (token.is_cancel())
+	{
+		return;
+	}
+	m_io_service.recv(m_handle, size, [token,fn,err_handler,this,size](stdx::network_recv_event ev,std::exception_ptr err) mutable
+	{
+		try
 		{
-			if (!call(r))
+			if (err)
 			{
-				recv_until(size, call);
+				err_handler(err);
 			}
-		});
-}
-
-void stdx::_Socket::recv_until_error(const socket_size_t& size, std::function<void(stdx::network_recv_event)> call, std::function<void(std::exception_ptr)> err_handler)
-{
-	return this->recv_until(size, [call, err_handler](stdx::task_result<network_recv_event> r) mutable
+			else
+			{
+				fn(ev);
+			}
+		}
+		catch (const std::exception&)
 		{
-			try
-			{
-				stdx::network_recv_event e = r.get();
-				call(e);
-			}
-			catch (const std::exception&)
-			{
-				err_handler(std::current_exception());
-				return false;
-			}
-			return true;
-		});
+		}
+		if (!token.is_cancel())
+		{
+			recv_until(size, token, fn, err_handler);
+		}
+	});
 }
 
 void stdx::_Socket::close()
@@ -1505,6 +1528,34 @@ typename stdx::_Socket::io_service_t stdx::_Socket::get_io_service() const
 	return m_io_service;
 }
 
+void stdx::_Socket::accept_until(stdx::cancel_token token, std::function<void(stdx::network_accept_event)> fn, std::function<void(std::exception_ptr)> err_handler)
+{
+	if (token.is_cancel())
+	{
+		return;
+	}
+	m_io_service.accept_ex(m_handle, [fn,err_handler,token,this](stdx::network_accept_event ev,std::exception_ptr err) mutable
+	{
+			try
+			{
+				if (err)
+				{
+					err_handler(err);
+				}
+				else
+				{
+					fn(ev);
+				}
+			}
+			catch (const std::exception&)
+			{
+			}
+			if (!token.is_cancel())
+			{
+				accept_until(token, fn, err_handler);
+			}
+	});
+}
 
 stdx::task<stdx::network_connected_event> stdx::socket::accept_ex()
 {
@@ -1525,33 +1576,44 @@ stdx::task<stdx::network_connected_event> stdx::socket::accept_ex()
 	});
 }
 
-void stdx::socket::accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call)
-{
-	auto x = accept_ex().then([call,this](stdx::task_result<stdx::network_connected_event> r) mutable
-	{
-			if (!call(r))
-			{
-				accept_until(call);
-			}
-	});
-}
+//void stdx::socket::accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call)
+//{
+//	auto x = accept_ex().then([call,this](stdx::task_result<stdx::network_connected_event> r) mutable
+//	{
+//			if (!call(r))
+//			{
+//				accept_until(call);
+//			}
+//	});
+//}
+//
+//void stdx::socket::accept_until_error(std::function<void(stdx::network_connected_event)> call, std::function<void(std::exception_ptr)> err_handler)
+//{
+//	accept_until([call,err_handler](stdx::task_result<stdx::network_connected_event> r) mutable
+//	{
+//			try
+//			{
+//				auto ev = r.get();
+//				call(ev);
+//				return false;
+//			}
+//			catch (const std::exception&)
+//			{
+//				err_handler(std::current_exception());
+//				return true;
+//			}
+//	});
+//}
 
-void stdx::socket::accept_until_error(std::function<void(stdx::network_connected_event)> call, std::function<void(std::exception_ptr)> err_handler)
+
+void stdx::socket::accept_until(stdx::cancel_token token, std::function<void(stdx::network_connected_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 {
-	accept_until([call,err_handler](stdx::task_result<stdx::network_connected_event> r) mutable
+	m_impl->accept_until(token, [fn,this](stdx::network_accept_event ev) mutable 
 	{
-			try
-			{
-				auto ev = r.get();
-				call(ev);
-				return false;
-			}
-			catch (const std::exception&)
-			{
-				err_handler(std::current_exception());
-				return true;
-			}
-	});
+		stdx::socket _sock(m_impl->get_io_service(), ev.accept);
+		stdx::network_connected_event context(_sock, ev.addr);
+		fn(context);
+	}, err_handler);
 }
 
 stdx::socket stdx::open_socket(const stdx::network_io_service& io_service, const int& addr_family, const int& sock_type, const int& protocol)

@@ -21,12 +21,13 @@ namespace stdx
 			{
 				return stdx::error_task<size_t>(std::make_exception_ptr(std::invalid_argument("buffer size too big")));
 			}
-			return m_socket.send(buf, u.low)
-				.then([](stdx::task_result<stdx::network_send_event> r)
+			auto t = m_socket.send(buf, u.low);
+			auto x = t.then([](stdx::task_result<stdx::network_send_event> r)
 					{
 						auto ev = r.get();
 						return ev.size;
 					});
+			return x;
 		}
 
 		virtual stdx::task<void> write_file(stdx::file_handle file) override

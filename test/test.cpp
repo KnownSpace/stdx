@@ -174,7 +174,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 					//response.response_header().add_header(U("Content-Type"), U("text/html"));
 					response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
 					add_keepalive(response, keep);
-					conn.write(response)
+					auto t = conn.write(response)
 						.then([conn,keep]() mutable 
 					{
 								if (!keep)
@@ -191,7 +191,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 					stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
 					response.response_body().push(body);
 					add_keepalive(response, keep);
-					conn.write(response)
+					auto t = conn.write(response)
 						.then([conn, keep]()mutable
 							{
 								if (!keep)
@@ -209,7 +209,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 		stdx::string body = U("<html><body><h1>Not Found</h1></body></html>");
 		response.response_body().push(body);
 		add_keepalive(response, keep);
-		conn.write(response)
+		auto t = conn.write(response)
 			.then([conn,keep]()mutable 
 		{
 					if (!keep)
@@ -247,13 +247,15 @@ int main(int argc, char** argv)
 	}
 	stdx::spin_lock lock;
 	uint32_t num = 0;
+	stdx::logger logger = stdx::make_default_logger();
 	std::list<stdx::http_connection> keeper;
-	s.accept_until_error([file_io_service,&keeper](stdx::network_connected_event ev)  mutable
+	stdx::cancel_token accept_token;
+	s.accept_until(accept_token,[file_io_service,logger,&keeper](stdx::network_connected_event ev)  mutable
 		{
 			//handle_client(ev,doc_content);
 			//handle_client_file(ev, file_io_service);
-			auto conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
-			conn.read_until([conn,file_io_service](stdx::task_result<stdx::http_request> r) mutable 
+			stdx::http_connection conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
+			/*conn.read_until([conn,file_io_service](stdx::task_result<stdx::http_request> r) mutable 
 			{
 					try
 					{
@@ -264,11 +266,34 @@ int main(int argc, char** argv)
 					{
 						return true;
 					}
+			});*/
+			stdx::cancel_token token;
+			conn.read_until(token, [token,conn,file_io_service](stdx::http_request req) mutable
+			{
+				if (!handle_request(conn, req, file_io_service))
+				{
+					token.cancel();
+				}
+			}, [token,logger](std::exception_ptr err) mutable
+			{
+				try
+				{
+					if (err)
+					{
+						std::rethrow_exception(err);
+					}
+				}
+				catch (const std::exception &e)
+				{
+					token.cancel();
+				}
 			});
+			keeper.push_back(conn);
 		},
-		[](std::exception_ptr error)
+		[accept_token](std::exception_ptr error) mutable
 		{
 			stdx::printf(U("监听关闭\n"));
+			accept_token.cancel();
 			try
 			{
 				if (error)

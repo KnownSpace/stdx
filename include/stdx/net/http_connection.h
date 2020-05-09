@@ -20,11 +20,11 @@ namespace stdx
 
 		virtual stdx::task<size_t> write(const stdx::http_response& package) override;
 
-		//virtual void read_until(std::function<bool(stdx::task_result<stdx::http_request>)> fn);
+		virtual void read_until(stdx::cancel_token token, std::function<void(input_t)> fn, std::function<void(std::exception_ptr)> err_handler) override;
 	protected:
 		stdx::http_request_parser m_parser;
 	private:
-		static bool _CheckParser(stdx::http_request_parser &parser,stdx::task_completion_event<stdx::http_request> &ce);
+		void _Read(std::function<void(stdx::http_request,std::exception_ptr)> callback);
 	};
 
 	extern stdx::http_connection make_http_connection(const stdx::socket &sock,uint64_t max_size);

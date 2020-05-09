@@ -802,7 +802,8 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const stdx::file_size_
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const stdx::file_size_t & size, const uint64_t & offset)
@@ -824,7 +825,8 @@ stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, 
 			}
 			ce.run_on_this_thread();
 		});
-	return ce.get_task();
+	auto t = ce.get_task();
+	return t;
 }
 
 void stdx::_FileStream::close()
@@ -844,41 +846,37 @@ void stdx::_FileStream::close()
 #endif
 }
 
-void stdx::_FileStream::read_utill(const stdx::file_size_t & size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
+void stdx::_FileStream::read_until(stdx::cancel_token token, file_size_t size, uint64_t offset, std::function<void(stdx::file_read_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 {
-	auto x = this->read(size, offset).then([call, offset, size, this](stdx::task_result<stdx::file_read_event> r) mutable
+	if (token.is_cancel())
+	{
+		return;
+	}
+	m_io_service.read_file(m_file, size,offset, [err_handler,fn,token,offset,size,this](stdx::file_read_event ev,std::exception_ptr err) mutable
+	{
+		try
 		{
-			if (!call(r))
+			if (err)
 			{
-				auto e = r.get();
-				read_utill(size, e.buffer.size() + offset, call);
+				err_handler(err);
 			}
-		});
-}
-
-void stdx::_FileStream::read_utill_eof(const stdx::file_size_t & size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
-{
-	return read_utill(size, offset, [call, err_handler](stdx::task_result<stdx::file_read_event> r) mutable
+			else
+			{
+				if (!ev.eof)
+				{
+					offset += ev.buffer.size();
+				}
+				fn(ev);
+			}
+		}
+		catch(const std::exception&)
 		{
-			try
-			{
-				auto e = r.get();
-				call(e);
-				if (e.eof)
-				{
-					return false;
-				}
-				else
-				{
-					return true;
-				}
-			}
-			catch (const std::exception&)
-			{
-				err_handler(std::current_exception());
-				return false;
-			}
-		});
+		}
+		if (!token.is_cancel())
+		{
+			read_until(token, size, offset, fn, err_handler);
+		}
+	});
 }
 
 stdx::file_stream stdx::open_file_stream(const stdx::file_io_service & io_service, const stdx::string & path, const stdx::file_enum_value_t & access_type, const stdx::file_enum_value_t & open_type)

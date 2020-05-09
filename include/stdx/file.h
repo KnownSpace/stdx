@@ -413,9 +413,11 @@ namespace stdx
 
 
 		//直到call返回true停止
-		void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
+		//void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
 
-		void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
+		//void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
+
+		void read_until(stdx::cancel_token token,file_size_t size,uint64_t offset,std::function<void(stdx::file_read_event)> fn,std::function<void(std::exception_ptr)> err_handler);
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)
 		{
@@ -511,7 +513,7 @@ namespace stdx
 		}
 
 		//直到call返回true停止
-		void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
+		/*void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
 		{
 			m_impl->read_utill(size, offset, call);
 		}
@@ -519,6 +521,11 @@ namespace stdx
 		void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
 		{
 			m_impl->read_utill_eof(size, offset, call, err_handler);
+		}*/
+
+		void read_until(stdx::cancel_token token, file_size_t size, uint64_t offset, std::function<void(stdx::file_read_event)> fn, std::function<void(std::exception_ptr)> err_handler)
+		{
+			return m_impl->read_until(token, size, offset, fn, err_handler);
 		}
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)

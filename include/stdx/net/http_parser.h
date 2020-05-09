@@ -22,7 +22,7 @@ namespace stdx
 		std::string body_buffer;
 		std::string arg;
 		std::shared_ptr<stdx::http_request_header> header;
-		uint64_t max_size;
+		uint64_t max_size = 8*1024*1024;
 	};
 
 	using http_request_parser_state_machine = stdx::state_machine<stdx::http_request_parser_model>;
@@ -138,7 +138,8 @@ namespace stdx
 
 		http_request_parser(self_t&& other) noexcept;
 
-		~http_request_parser() = default;
+		~http_request_parser()
+		{}
 
 		self_t& operator=(const self_t& other);
 
