@@ -465,6 +465,7 @@ namespace stdx
 
 	class _Reactor
 	{
+		using lock_t = stdx::spin_lock;
 	public:
 		_Reactor(std::function<void(epoll_event*)> clean)
 			:m_lock()
@@ -496,8 +497,6 @@ namespace stdx
 				{
 					stdx::finally fin([this,fd,ev]() 
 					{
-							//在IO操作后执行
-							//loop(fd);
 							delete ev;
 					});
 					try
@@ -533,8 +532,6 @@ namespace stdx
 				{
 					stdx::finally fin([this, fd, ev]()
 						{
-							//在IO操作后执行
-							//loop(fd);
 							delete ev;
 						});
 					try
@@ -560,7 +557,7 @@ namespace stdx
 			return ev_queue();
 		}
 	private:
-		stdx::spin_lock m_lock;
+		lock_t m_lock;
 		std::unordered_map<int,ev_queue> m_map;
 		stdx::epoll m_poll;
 		std::function<void(epoll_event*)> m_clean;

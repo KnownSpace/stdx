@@ -160,7 +160,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 	stdx::string path(U("."));
 	path.append(req.request_header().request_url());
 	stdx::file file(ios, path);
-	if (file.exist())
+	if (!path.end_with(U('/')) && file.exist())
 	{
 		auto stream = file.open_stream(stdx::file_access_type::read, stdx::file_open_type::open);
 		auto  x =  stream.read_to_end(0)
@@ -223,6 +223,11 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 
 int main(int argc, char** argv)
 {
+	stdx::printf(U("tick is {0}\n"), stdx::get_tick_count());
+	auto t = stdx::lazy(64).then([]() 
+	{
+		stdx::printf(U("tick is {0}\n"),stdx::get_tick_count());
+	});
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test

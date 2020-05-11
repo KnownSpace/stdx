@@ -1,5 +1,6 @@
 ﻿#include <stdx/async/threadpool.h>
 #include <stdx/finally.h>
+#include <stdx/datetime.h>
 
 stdx::threadpool::impl_t stdx::threadpool::m_impl;
 uint32_t stdx::suggested_threads_number()
@@ -14,7 +15,7 @@ uint32_t stdx::suggested_threads_number()
 	}
 	if (cores < 9)
 	{
-		return cores * 2 + 2;
+		return cores * 2+ 2;
 	}
 	else
 	{
@@ -40,9 +41,8 @@ stdx::_Threadpool::~_Threadpool() noexcept
 {
 	//终止时设置状态
 	*m_alive = false;
-#ifdef DEBUG
-	printf("[Threadpool]线程池正在销毁\n");
-#endif // DEBUG
+	std::unique_lock<std::mutex> lock(*m_mutex);
+	m_cv->notify_all();
 }
 
 void stdx::_Threadpool::join_as_worker()
@@ -83,10 +83,6 @@ void stdx::_Threadpool::join_as_worker()
 				catch (...)
 				{
 				}
-			}
-			else
-			{
-				continue;
 			}
 		}
 	};
@@ -133,10 +129,6 @@ void stdx::_Threadpool::add_thread() noexcept
 				{
 				}
 			}
-			else
-			{
-				continue;
-			}
 		}
 	};
 	//创建线程
@@ -149,15 +141,65 @@ void stdx::_Threadpool::add_thread() noexcept
 
 void stdx::_Threadpool::init_threads() noexcept
 {
-#ifdef DEBUG
-	printf("[Threadpool]正在初始化线程池\n");
-#endif // DEBUG
 	uint32_t threads_number = suggested_threads_number() * 2;
 	for (size_t i = 0; i < threads_number; i++)
 	{
 		add_thread();
 	}
-#ifdef DEBUG
-	printf("[Threadpool]初始化完成,共创建%u条线程\n",threads_number);
-#endif // DEBUG
+}
+
+void stdx::threadpool::loop_do(stdx::cancel_token token, std::function<void()> call)
+{
+	stdx::threadpool::run([](stdx::cancel_token token, std::function<void()> call)
+		{
+			if (!token.is_cancel())
+			{
+				call();
+				stdx::threadpool::loop_do(token, call);
+			}
+		}, token, call);
+}
+
+void stdx::threadpool::lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick)
+{
+	if (lazy_ms == 0)
+	{
+		call();
+		return;
+	}
+	if (lazy_ms < STDX_LAZY_MAX_TIME)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(lazy_ms));
+		call();
+	}
+	else
+	{
+		if (target_tick == 0)
+		{
+			target_tick = stdx::get_tick_count() + lazy_ms;
+		}
+		uint64_t now = stdx::get_tick_count();
+		if (now >= target_tick)
+		{
+			call();
+			return;
+		}
+		lazy_ms -= (now - target_tick);
+		stdx::threadpool::run([target_tick,lazy_ms,call]() 
+		{
+				stdx::threadpool::lazy_do(lazy_ms, call, target_tick);
+		});
+	}
+}
+
+void stdx::threadpool::lazy_loop_do(stdx::cancel_token token, uint64_t lazy_ms, std::function<void()> call)
+{
+	stdx::threadpool::lazy_do(lazy_ms, [call,token,lazy_ms]() 
+	{
+		if (!token.is_cancel())
+		{
+			call();
+			lazy_loop_do(token, lazy_ms, call);
+		}
+	}, 0);
 }

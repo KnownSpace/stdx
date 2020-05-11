@@ -662,9 +662,6 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
-#ifdef DEBUG
-	::printf("[File IO Service]正在初始化IO服务\n");
-#endif
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
@@ -672,9 +669,6 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				std::exception_ptr error(nullptr);
 				int64_t res = 0;
 				auto* context_ptr = iocp.get(res, STDX_LAZY_MAX_TIME);
-#ifdef DEBUG
-				::printf("[Native AIO]IO操作完成\n");
-#endif
 				if (context_ptr == nullptr)
 				{
 					return;
@@ -711,9 +705,6 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	}
 #else
 	//Buffered IO
-#ifdef DEBUG
-::printf("[File IO Service]正在初始化IO服务\n");
-#endif
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
@@ -739,12 +730,6 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				}
 			}
 			auto* callback = context->callback;
-			if (callback == nullptr)
-			{
-#ifdef DEBUG
-				::printf("[BIO Poller]Callback为空\n");
-#endif
-			}
 			std::exception_ptr err(nullptr);
 			try
 			{
@@ -965,7 +950,7 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 		.then([path]()
 			{
 #ifdef WIN32
-				wchar_t* buf = (wchar_t*)calloc(MAX_PATH, sizeof(wchar_t));
+				wchar_t* buf = (wchar_t*)stdx::calloc(MAX_PATH, sizeof(wchar_t));
 				if (buf == nullptr)
 				{
 					_FullpathNameFlag.unlock();
@@ -974,15 +959,15 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 				if (!GetFullPathNameW(path.c_str(), MAX_PATH, buf, nullptr))
 				{
 					_FullpathNameFlag.unlock();
-					free(buf);
+					stdx::free(buf);
 					_ThrowWinError
 				}
 				_FullpathNameFlag.unlock();
 				stdx::string str(buf);
-				free(buf);
+				stdx::free(buf);
 				return str;
 #else
-				char* buf = (char*)calloc(MAX_PATH, sizeof(char));
+				char* buf = (char*)stdx::calloc(MAX_PATH, sizeof(char));
 				if (!buf)
 				{
 					throw std::bad_alloc();
@@ -990,12 +975,12 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 				if (::realpath(path.c_str(), buf) == nullptr)
 				{
 					_FullpathNameFlag.unlock();
-					free(buf);
+					stdx::free(buf);
 					_ThrowLinuxError
 				}
 				_FullpathNameFlag.unlock();
 				stdx::string str(buf);
-				free(buf);
+				stdx::free(buf);
 				return str;
 #endif
 			});

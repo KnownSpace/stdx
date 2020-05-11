@@ -8,6 +8,10 @@
 #include <stdx/async/cancel_token.h>
 
 #define cpu_cores() std::thread::hardware_concurrency()
+
+#ifndef STDX_LAZY_MAX_TIME
+#define STDX_LAZY_MAX_TIME 64
+#endif
 namespace stdx
 {
 	extern uint32_t suggested_threads_number();
@@ -73,24 +77,32 @@ namespace stdx
 			m_impl.join_as_worker();
 		}
 
-		template<typename _Fn, typename ..._Args>
-		static void loop_run(stdx::cancel_token token,_Fn&& fn, _Args&&...args)
+		template<typename _Fn, typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		static void loop_run(stdx::cancel_token token,_Fn&& fn, _Args &&...args)
 		{
 			std::function<void()> call = std::bind(fn, args...);
-			loop_do(token,call);
+			stdx::threadpool::loop_do(token,call);
+		}
+
+		template<typename _Fn,typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		static void lazy_run(uint64_t lazy_ms, _Fn &&fn,_Args &&...args)
+		{
+			std::function<void()> call = std::bind(fn, args...);
+			stdx::threadpool::lazy_do(lazy_ms,call,0);
+		}
+
+		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		static void lazy_loop_run(stdx::cancel_token token,uint64_t lazy_ms,_Fn &&fn,_Args &&...args)
+		{
+			std::function<void()> call = std::bind(fn, args...);
+			stdx::threadpool::lazy_loop_do(token, lazy_ms, call);
 		}
 	private:
-		static void loop_do(stdx::cancel_token token,std::function<void()> call)
-		{
-			stdx::threadpool::run([](stdx::cancel_token token, std::function<void()> call)
-			{
-				if (!token.is_cancel())
-				{
-					call();
-					stdx::threadpool::loop_do(token,call);
-				}
-			}, token, call);
-		}
+		static void loop_do(stdx::cancel_token token, std::function<void()> call);
+
+		static void lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick);
+
+		static void lazy_loop_do(stdx::cancel_token token,uint64_t lazy_ms,std::function<void()> call);
 
 		threadpool() = default;
 		static impl_t m_impl;

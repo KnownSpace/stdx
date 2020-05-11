@@ -467,9 +467,6 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 		delete context;
 		callback(stdx::network_recv_event(), std::current_exception());
 	}
-#ifdef DEBUG
-	::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 #endif
 }
 
@@ -681,7 +678,7 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, cons
 		}
 	}
 #else
-	char* buf = (char*) stdx::malloc(size);
+	char* buf = (char*) stdx::calloc(size,sizeof(char));
 	if (buf == nullptr)
 	{
 		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
@@ -791,9 +788,6 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[Network IO Service]IO操作投递失败\n");
-#endif // DEBUG
 			delete call;
 			stdx::free(addr);
 			stdx::free(addr_size);
@@ -803,9 +797,6 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
 	epoll_event ev;
 	ev.events = stdx::epoll_events::in;
@@ -859,17 +850,11 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 	}
 	catch (const std::exception &err)
 	{
-#ifdef DEBUG
-		::printf("[Network IO Service]IO操作投递失败\n");
-#endif // DEBUG
 		delete call;
 		stdx::free(context->buffer);
 		delete context;
 		callback(stdx::network_recv_event(), std::current_exception());
 	}
-#ifdef DEBUG
-	::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 #endif
 
 }
@@ -944,9 +929,6 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 	}
 	catch (const std::exception&)
 	{
-#ifdef DEBUG
-		::printf("[Network IO Service]初始化AccpetEx失败\n");
-#endif // DEBUG
 	}
 	stdx::network_io_context *context = new stdx::network_io_context;
 	if (context == nullptr)
@@ -1005,15 +987,9 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		{
 			_ThrowWSAError
 		}
-#ifdef DEBUG
-		::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
-#ifdef DEBUG
-		::printf("[Network IO Service]IO操作投递失败\n");
-#endif // DEBUG
 		if (new_sock != INVALID_SOCKET)
 		{
 			close(new_sock);
@@ -1063,25 +1039,16 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 	}
 	catch (const std::exception&)
 	{
-#ifdef DEBUG
-		::printf("[Network IO Service]IO操作投递失败\n");
-#endif // DEBUG
 		delete call;
 		delete context;
 		callback(stdx::network_accept_event(), std::current_exception());
 	}
-#ifdef DEBUG
-	::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 #endif
 }
 
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-#ifdef DEBUG
-	::printf("[Network IO Service]正在初始化IO服务\n");
-#endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
@@ -1099,51 +1066,43 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				{
 					return;
 				}
-#ifdef DEBUG
-				::printf("[IOCP]IO操作完成\n");
-#endif // DEBUG
-				stdx::threadpool::run([context_ptr]()
+				std::exception_ptr error(nullptr);
+				try
+				{
+					DWORD flag = 0;
+					if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
 					{
-						std::exception_ptr error(nullptr);
-						try
+						_ThrowWSAError
+					}
+				}
+				catch (const std::exception&)
+				{
+					error = std::current_exception();
+				}
+				auto* call = context_ptr->callback;
+				if (call == nullptr)
+				{
+					delete context_ptr;
+					return;
+				}
+				stdx::finally fin([call]()
+					{
+						if (call)
 						{
-							DWORD flag = 0;
-							if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
-							{
-								_ThrowWSAError
-							}
-						}
-						catch (const std::exception&)
-						{
-							error = std::current_exception();
-						}
-						auto* call = context_ptr->callback;
-						if (call == nullptr)
-						{
-							return;
-						}
-						stdx::finally fin([call]()
-							{
-								if (call)
-								{
-									delete call;
-								}
-							});
-						try
-						{
-							(*call)(context_ptr, error);
-						}
-						catch (const std::exception&)
-						{
+							delete call;
 						}
 					});
+				try
+				{
+					(*call)(context_ptr, error);
+				}
+				catch (const std::exception&)
+				{
+				}
 			}, m_iocp);
 
 	}
 #else
-#ifdef DEBUG
-	::printf("[Network IO Service]正在初始化IO服务\n");
-#endif // DEBUG
 	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token,[](stdx::reactor reactor)
@@ -1152,9 +1111,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				{
 					reactor.get<stdx::network_io_context_finder>([reactor](epoll_event* ev_ptr) mutable
 						{
-#ifdef DEBUG
-							::printf("[Epoll]检测到IO请求\n");
-#endif // DEBUG
 							stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
 							if (context == nullptr)
 							{
@@ -1162,51 +1118,38 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 							}
 							if (ev_ptr->events & stdx::epoll_events::hup)
 							{
-								reactor.push(context->this_socket, *ev_ptr);
+								//reactor.push(context->this_socket, *ev_ptr);
+								clean(ev_ptr);
 								reactor.loop(context->this_socket);
 								return;
 							}
 							else if (ev_ptr->events & stdx::epoll_events::err)
 							{
-								reactor.push(context->this_socket, *ev_ptr);
+								//reactor.push(context->this_socket, *ev_ptr);
+								clean(ev_ptr);
 								reactor.loop(context->this_socket);
 								return;
 							}
 							ssize_t r = 0;
-#ifdef DEBUG
-							::printf("[Epoll]IO操作准备中\n");
-#endif // DEBUG
 							if (context->code == stdx::network_io_context_code::recv)
 							{
-#ifdef DEBUG
-								::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
-#endif // DEBUG
 								r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT);
 							}
 							else if (context->code == stdx::network_io_context_code::recvfrom)
 							{
 								sockaddr_in addr;
 								socklen_t addr_size = sizeof(sockaddr_in);
-#ifdef DEBUG
-								::printf("[Epoll]IO操作进行中,缓冲区大小:%zu\n", context->size);
-#endif // DEBUG
 								r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
 								context->addr = stdx::ipv4_addr(addr);
 							}
 							else if (context->code == stdx::network_io_context_code::accept)
 							{
-#ifdef DEBUG
-								::printf("[Epoll]新的连接建立中\n");
-#endif // DEBUG
 								sockaddr_in addr;
 								socklen_t addr_size = sizeof(sockaddr_in);
 								context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK);
 								context->addr = stdx::ipv4_addr(addr);
 								if (context->target_socket == -1)
 								{
-#ifdef DEBUG
-									::printf("[Epoll]连接已重置\n");
-#endif // DEBUG
 									epoll_event ev = *ev_ptr;
 									reactor.push(context->this_socket, ev);
 									reactor.loop(context->this_socket);
@@ -1214,23 +1157,11 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 								}
 								else
 								{
-#ifdef DEBUG
-									::printf("[Epoll]新的连接已建立\n");
-#endif // DEBUG
 									reactor.bind(context->target_socket);
 									r = 1;
 								}
 							}
-#ifdef DEBUG
-							::printf("[Epoll]IO操作已完成\n");
-#endif // DEBUG
 							auto* callback = context->callback;
-							if (callback == nullptr)
-							{
-#ifdef DEBUG
-								::printf("[Epoll]Callback为空\n");
-#endif // DEBUG
-							}
 							std::exception_ptr err(nullptr);
 							try
 							{
@@ -1258,27 +1189,24 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #endif // DEBUG
 							}
 							reactor.loop(context->this_socket);
-							if (callback != nullptr)
-							{
-								stdx::finally fin([callback]()
-									{
-										delete callback;
-									});
-								try
-								{
-									(*callback)(context, err);
-								}
-								catch (const std::exception&)
-								{
-
-								}
-							}
-							else
+							if (context->callback == nullptr)
 							{
 								clean(ev_ptr);
+								return;
+							}
+							stdx::finally fin([callback]()
+								{
+									delete callback;
+								});
+							try
+							{
+								(*callback)(context, err);
+							}
+							catch (const std::exception&)
+							{
 							}
 						}, STDX_LAZY_MAX_TIME);
-}
+				}
 				catch (const std::exception&)
 				{
 				}
@@ -1491,24 +1419,24 @@ void stdx::_Socket::recv_until(socket_size_t size, stdx::cancel_token token, std
 	}
 	m_io_service.recv(m_handle, size, [token,fn,err_handler,this,size](stdx::network_recv_event ev,std::exception_ptr err) mutable
 	{
-		try
-		{
-			if (err)
+			try
 			{
-				err_handler(err);
+				if (err)
+				{
+					err_handler(err);
+				}
+				else
+				{
+					fn(ev);
+				}
 			}
-			else
+			catch (const std::exception&)
 			{
-				fn(ev);
 			}
-		}
-		catch (const std::exception&)
-		{
-		}
-		if (!token.is_cancel())
-		{
-			recv_until(size, token, fn, err_handler);
-		}
+			if (!token.is_cancel())
+			{
+				recv_until(size, token, fn, err_handler);
+			}
 	});
 }
 
@@ -1582,34 +1510,6 @@ stdx::task<stdx::network_connected_event> stdx::socket::accept_ex()
 	});
 }
 
-//void stdx::socket::accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call)
-//{
-//	auto x = accept_ex().then([call,this](stdx::task_result<stdx::network_connected_event> r) mutable
-//	{
-//			if (!call(r))
-//			{
-//				accept_until(call);
-//			}
-//	});
-//}
-//
-//void stdx::socket::accept_until_error(std::function<void(stdx::network_connected_event)> call, std::function<void(std::exception_ptr)> err_handler)
-//{
-//	accept_until([call,err_handler](stdx::task_result<stdx::network_connected_event> r) mutable
-//	{
-//			try
-//			{
-//				auto ev = r.get();
-//				call(ev);
-//				return false;
-//			}
-//			catch (const std::exception&)
-//			{
-//				err_handler(std::current_exception());
-//				return true;
-//			}
-//	});
-//}
 
 
 void stdx::socket::accept_until(stdx::cancel_token token, std::function<void(stdx::network_connected_event)> fn, std::function<void(std::exception_ptr)> err_handler)
