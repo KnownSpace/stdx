@@ -14,8 +14,6 @@
 #endif
 namespace stdx
 {
-	extern uint32_t suggested_threads_number();
-
 	interface_class basic_threadpool
 	{
 		virtual ~basic_threadpool() = default;
@@ -63,6 +61,8 @@ namespace stdx
 	class threadpool
 	{
 	public:
+		threadpool() = default;
+
 		~threadpool() = default;
 		using impl_t = stdx::_Threadpool;
 		//执行任务
@@ -103,8 +103,6 @@ namespace stdx
 		static void lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick);
 
 		static void lazy_loop_do(stdx::cancel_token token,uint64_t lazy_ms,std::function<void()> call);
-
-		threadpool() = default;
 		static impl_t m_impl;
 	};
 }

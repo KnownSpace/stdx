@@ -37,7 +37,7 @@ namespace stdx
 	{
 	public:
 		_IOCP()
-			:m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, suggested_threads_number()))
+			:m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0))
 		{
 		}
 		~_IOCP()
@@ -481,21 +481,17 @@ namespace stdx
 
 		void unbind_and_close(int fd);
 
-		template<typename _Finder,typename _Fn>
+		template<typename _Fn>
 		void get(_Fn execute)
 		{
 			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
-#ifdef DEBUG
-			::printf("[Epoll]等待事件到达\n");
-#endif // DEBUG
 			epoll_event ev;
 			int r = m_poll.wait(&ev,1,-1);
 			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
-			int fd = _Finder::find(ev_ptr);
-			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
+			stdx::threadpool::run([this](epoll_event* ev, _Fn execute) mutable
 				{
-					stdx::finally fin([this,fd,ev]() 
+					stdx::finally fin([this,ev]() 
 					{
 							delete ev;
 					});
@@ -509,16 +505,13 @@ namespace stdx
 						::printf("[Epoll]Callback出错%s\n",err.what());
 #endif // DEBUG
 					}
-				}, ev_ptr, execute, fd);
+				}, ev_ptr, execute);
 		}
 
-		template<typename _Finder, typename _Fn>
+		template<typename _Fn>
 		bool get(_Fn execute,int ms)
 		{
 			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
-#ifdef DEBUG
-			::printf("[Epoll]等待事件到达\n");
-#endif // DEBUG
 			epoll_event ev;
 			int r = m_poll.wait(&ev, 1,ms);
 			if (r != 1)
@@ -527,10 +520,9 @@ namespace stdx
 			}
 			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
-			int fd = _Finder::find(ev_ptr);
-			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
+			stdx::threadpool::run([this](epoll_event* ev, _Fn execute) mutable
 				{
-					stdx::finally fin([this, fd, ev]()
+					stdx::finally fin([this,ev]()
 						{
 							delete ev;
 						});
@@ -544,7 +536,7 @@ namespace stdx
 						::printf("[Epoll]Callback出错%s\n", err.what());
 #endif // DEBUG
 					}
-				}, ev_ptr, execute, fd);
+				}, ev_ptr, execute);
 			return true;
 		}
 
@@ -595,16 +587,16 @@ namespace stdx
 		}
 
 		//在execute中手动调用loop
-		template<typename _Finder, typename _Fn, class = typename std::enable_if<is_arguments_type(_Fn, epoll_event*)>::type >
+		template<typename _Fn, class = typename std::enable_if<is_arguments_type(_Fn, epoll_event*)>::type >
 		void get(_Fn &&execute)
 		{
-			return m_impl->get<_Finder>(std::move(execute));
+			return m_impl->get(std::move(execute));
 		}
 
-		template<typename _Finder, typename _Fn>
+		template<typename _Fn>
 		bool get(_Fn execute, int ms)
 		{
-			return m_impl->get<_Finder>(std::move(execute),ms);
+			return m_impl->get(std::move(execute),ms);
 		}
 
 		void push(int fd,epoll_event &ev)

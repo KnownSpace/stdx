@@ -79,7 +79,7 @@ stdx::_NetworkIOService::~_NetworkIOService()
 {
 	m_token.cancel();
 #ifdef WIN32
-	for (size_t i = 0, size = suggested_threads_number(); i < size; i++)
+	for (size_t i = 0, size = cpu_cores(); i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}
@@ -1049,7 +1049,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
 			{
@@ -1060,7 +1060,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception&)
 				{
-
 				}
 				if (context_ptr == nullptr)
 				{
@@ -1085,31 +1084,35 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					delete context_ptr;
 					return;
 				}
-				stdx::finally fin([call]()
-					{
-						if (call)
+				stdx::threadpool::run([call,context_ptr,error]() 
+				{
+
+						stdx::finally fin([call]()
+							{
+								if (call)
+								{
+									delete call;
+								}
+							});
+						try
 						{
-							delete call;
+							(*call)(context_ptr, error);
 						}
-					});
-				try
-				{
-					(*call)(context_ptr, error);
-				}
-				catch (const std::exception&)
-				{
-				}
+						catch (const std::exception&)
+						{
+						}
+				});
 			}, m_iocp);
 
 	}
 #else
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token,[](stdx::reactor reactor)
 			{
 				try
 				{
-					reactor.get<stdx::network_io_context_finder>([reactor](epoll_event* ev_ptr) mutable
+					reactor.get([reactor](epoll_event* ev_ptr) mutable
 						{
 							stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
 							if (context == nullptr)
@@ -1218,9 +1221,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef LINUX
 void clean(epoll_event* ptr)
 {
-#ifdef DEBUG
-	::printf("[Epoll]清理损坏队列\n");
-#endif // DEBUG
 	stdx::network_io_context* context = (stdx::network_io_context*)ptr->data.ptr;
 	if (context == nullptr)
 	{

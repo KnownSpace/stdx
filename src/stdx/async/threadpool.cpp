@@ -3,26 +3,6 @@
 #include <stdx/datetime.h>
 
 stdx::threadpool::impl_t stdx::threadpool::m_impl;
-uint32_t stdx::suggested_threads_number()
-{
-	uint32_t cores = cpu_cores();
-#ifdef STDX_NOT_LIMITED_CPU_USING
-	return cores * 2 + 2;
-#else
-	if (cores < 3)
-	{
-		return cores;
-	}
-	if (cores < 9)
-	{
-		return cores * 2+ 2;
-	}
-	else
-	{
-		return 20;
-	}
-#endif
-}
 
 //构造函数
 stdx::_Threadpool::_Threadpool() noexcept
@@ -138,10 +118,9 @@ void stdx::_Threadpool::add_thread() noexcept
 }
 
 //初始化线程池
-
 void stdx::_Threadpool::init_threads() noexcept
 {
-	uint32_t threads_number = suggested_threads_number() * 2;
+	uint32_t threads_number = cpu_cores() * 2;
 	for (size_t i = 0; i < threads_number; i++)
 	{
 		add_thread();

@@ -62,7 +62,7 @@ stdx::_FileIOService::~_FileIOService()
 {
 	m_token.cancel();
 #ifdef WIN32
-	for (size_t i = 0, size = suggested_threads_number(); i < size; i++)
+	for (size_t i = 0, size = cpu_cores(); i < size; i++)
 	{
 		m_iocp.post(0, nullptr, nullptr);
 	}
@@ -196,9 +196,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[File IO Service]IO操作投递失败\n");
-#endif // DEBUG
 			free(context->buffer);
 			delete call;
 			delete context;
@@ -206,9 +203,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
@@ -272,9 +266,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	try
 	{
 		stdx::aio_read(context, file, buffer, r_size, offset, invalid_eventfd, ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
@@ -335,9 +326,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	try
 	{
 		m_iocp.push(ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
@@ -404,9 +392,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[File IO Service]IO操作投递失败\n");
-#endif // DEBUG
 			stdx::free(context_ptr->buffer);
 			delete call;
 			stdx::finally fin([context_ptr]()
@@ -417,9 +402,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
@@ -487,9 +469,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	try
 	{
 		stdx::aio_write(context, file, buf, r_size, offset, invalid_eventfd, ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
@@ -554,9 +533,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	try
 	{
 		m_iocp.push(ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 	}
 	catch (const std::exception&)
 	{
@@ -589,10 +565,7 @@ uint64_t stdx::_FileIOService::get_file_size(stdx::native_file_handle file) cons
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-#ifdef DEBUG
-	::printf("[File IO Service]正在初始化IO服务\n");
-#endif // DEBUG
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
 			{
@@ -646,17 +619,20 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				::printf("[IOCP]IO操作完成\n");
 #endif
 				auto* call = context_ptr->callback;
-				stdx::finally fin([call]()
-					{
-						delete call;
-					});
-				try
+				stdx::threadpool::run([call,context_ptr,error]() 
 				{
-					(*call)(context_ptr, error);
-				}
-				catch (const std::exception&)
-				{
-				}
+						stdx::finally fin([call]()
+							{
+								delete call;
+							});
+						try
+						{
+							(*call)(context_ptr, error);
+						}
+						catch (const std::exception&)
+						{
+						}
+				});
 			}, m_iocp);
 	}
 #else
@@ -674,38 +650,41 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 					return;
 				}
 				auto* call = context_ptr->callback;
-				try
+				stdx::threadpool::run([res,context_ptr,call]() 
 				{
-					if (res < 0)
-					{
-						throw std::system_error(std::error_code(-res, std::system_category()), strerror(-res));
-					}
-					else
-					{
-						context_ptr->size = res;
-					}
-					(*call)(context_ptr, error);
-					delete call;
-				}
-				catch (const std::exception&)
-				{
-					error = std::current_exception();
-					(*call)(nullptr, error);
-					delete call;
-					try
-					{
-						delete context_ptr;
-					}
-					catch (const std::exception&)
-					{
+						try
+						{
+							if (res < 0)
+							{
+								throw std::system_error(std::error_code(-res, std::system_category()), strerror(-res));
+							}
+							else
+							{
+								context_ptr->size = res;
+							}
+							(*call)(context_ptr, error);
+							delete call;
+						}
+						catch (const std::exception&)
+						{
+							error = std::current_exception();
+							(*call)(nullptr, error);
+							delete call;
+							try
+							{
+								delete context_ptr;
+							}
+							catch (const std::exception&)
+							{
 
-					}
-				}
+							}
+						}
+				});
 			}, m_iocp);
 	}
 #else
 	//Buffered IO
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
 		{
@@ -714,49 +693,52 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			{
 				return;
 			}
-			ssize_t r = 0;
-			if (context->op_code == stdx::file_bio_op_code::write)
+			stdx::threadpool::run([context]() 
 			{
-				//pwrite
-				r = ::pwrite(context->file,context->buffer,context->size,context->offset);
-			}
-			else if (context->op_code == stdx::file_bio_op_code::read)
-			{
-				//pread
-				r = ::pread(context->file, context->buffer, context->size, context->offset);
-				if (r == 0)
-				{
-					context->eof = true;
-				}
-			}
-			auto* callback = context->callback;
-			std::exception_ptr err(nullptr);
-			try
-			{
-				if (r == -1)
-				{
-					_ThrowLinuxError
-				}
-			}
-			catch (const std::exception&)
-			{
-				err = std::current_exception();
-			}
-			if (callback != nullptr)
-			{
-				stdx::finally fin([callback]()
-				{
-					delete callback;
-				});
-				try
-				{
-					(*callback)(context, err);
-				}
-				catch (const std::exception&)
-				{
+					ssize_t r = 0;
+					if (context->op_code == stdx::file_bio_op_code::write)
+					{
+						//pwrite
+						r = ::pwrite(context->file, context->buffer, context->size, context->offset);
+					}
+					else if (context->op_code == stdx::file_bio_op_code::read)
+					{
+						//pread
+						r = ::pread(context->file, context->buffer, context->size, context->offset);
+						if (r == 0)
+						{
+							context->eof = true;
+						}
+					}
+					auto* callback = context->callback;
+					std::exception_ptr err(nullptr);
+					try
+					{
+						if (r == -1)
+						{
+							_ThrowLinuxError
+						}
+					}
+					catch (const std::exception&)
+					{
+						err = std::current_exception();
+					}
+					if (callback != nullptr)
+					{
+						stdx::finally fin([callback]()
+							{
+								delete callback;
+							});
+						try
+						{
+							(*callback)(context, err);
+						}
+						catch (const std::exception&)
+						{
 
-				}
-			}
+						}
+					}
+			});
 		}, m_iocp);
 	}
 #endif
