@@ -44,12 +44,12 @@ std::shared_ptr<stdx::_FileIOService> stdx::_FileIOService::get_instance()
 
 stdx::_FileIOService::_FileIOService()
 #ifdef WIN32
-	:m_iocp()
+	:m_poller(stdx::make_iocp_poller<stdx::file_io_context>())
 #else
 #ifdef STDX_USE_NATIVE_AIO
-	:m_iocp(STDX_NATIVE_AIO_EVENTS)
+	:m_poller(STDX_NATIVE_AIO_EVENTS)
 #else
-	:m_iocp()
+	:m_poller(stdx::make_bio_poller<stdx::file_io_context>())
 #endif
 #endif
 	,m_token()
@@ -64,7 +64,7 @@ stdx::_FileIOService::~_FileIOService()
 #ifdef WIN32
 	for (size_t i = 0, size = cpu_cores(); i < size; i++)
 	{
-		m_iocp.post(0, nullptr, nullptr);
+		m_poller.post(nullptr);
 	}
 #endif
 }
@@ -77,7 +77,7 @@ stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & 
 	{
 		_ThrowWinError
 	}
-	m_iocp.bind(file);
+	m_poller.bind(file);
 	return file;
 }
 #else
@@ -265,7 +265,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	//投递操作
 	try
 	{
-		stdx::aio_read(context, file, buffer, r_size, offset, invalid_eventfd, ptr);
+		stdx::aio_read(context, file, buffer, r_size, offset, INVALID_EVENTFD, ptr);
 	}
 	catch (const std::exception&)
 	{
@@ -325,7 +325,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	ptr->op_code = stdx::file_bio_op_code::read;
 	try
 	{
-		m_iocp.push(ptr);
+		m_poller.post(ptr);
 	}
 	catch (const std::exception&)
 	{
@@ -468,7 +468,7 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	//投递操作
 	try
 	{
-		stdx::aio_write(context, file, buf, r_size, offset, invalid_eventfd, ptr);
+		stdx::aio_write(context, file, buf, r_size, offset, INVALID_EVENTFD, ptr);
 	}
 	catch (const std::exception&)
 	{
@@ -532,7 +532,7 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	ptr->op_code = stdx::file_bio_op_code::write;
 	try
 	{
-		m_iocp.push(ptr);
+		m_poller.post(ptr);
 	}
 	catch (const std::exception&)
 	{
@@ -567,12 +567,12 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #ifdef WIN32
 	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
+		stdx::threadpool.loop_run(m_token,[](poller_t poller)
 			{
 				stdx::file_io_context* context_ptr = nullptr;
 				try
 				{
-					context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+					context_ptr = poller.get(STDX_LAZY_MAX_TIME);
 				}
 				catch (const std::exception&)
 				{
@@ -619,7 +619,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				::printf("[IOCP]IO操作完成\n");
 #endif
 				auto* call = context_ptr->callback;
-				stdx::threadpool::run([call,context_ptr,error]() 
+				stdx::threadpool.run([call,context_ptr,error]() 
 				{
 						stdx::finally fin([call]()
 							{
@@ -633,7 +633,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 						{
 						}
 				});
-			}, m_iocp);
+			}, m_poller);
 	}
 #else
 #ifdef STDX_USE_NATIVE_AIO
@@ -686,14 +686,14 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	//Buffered IO
 	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
+		stdx::threadpool.loop_run(m_token, [](poller_t poller)
 		{
-			auto* context = iocp.get(STDX_LAZY_MAX_TIME);
+			auto* context = poller.get(STDX_LAZY_MAX_TIME);
 			if (context == nullptr)
 			{
 				return;
 			}
-			stdx::threadpool::run([context]() 
+			stdx::threadpool.run([context]() 
 			{
 					ssize_t r = 0;
 					if (context->op_code == stdx::file_bio_op_code::write)
@@ -739,7 +739,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 						}
 					}
 			});
-		}, m_iocp);
+		}, m_poller);
 	}
 #endif
 #endif
@@ -1267,7 +1267,7 @@ HANDLE stdx::file::open_for_sendfile_native(const stdx::file_access_type & acces
 #else
 int stdx::file::open_for_sendfile_native(const stdx::file_access_type & access_type, const stdx::file_open_type & open_type)
 {
-	::open(m_path->c_str(), stdx::forward_file_access_type(access_type) | stdx::forward_file_open_type(open_type));
+	return ::open(m_path->c_str(), stdx::forward_file_access_type(access_type) | stdx::forward_file_open_type(open_type));
 }
 #endif
 

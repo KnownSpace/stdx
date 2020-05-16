@@ -2,22 +2,22 @@
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
 
-stdx::threadpool::impl_t stdx::threadpool::m_impl;
+stdx::thread_pool stdx::threadpool = stdx::make_thread_pool<stdx::_FixedSizeThreadPool>(cpu_cores()*2);
 
 //构造函数
-stdx::_Threadpool::_Threadpool() noexcept
+stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
 	: m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable>>())
 	, m_cv(std::make_shared<std::condition_variable>())
 	, m_mutex(std::make_shared<std::mutex>())
 {
 	//初始化线程池
-	init_threads();
+	init_threads(num_threads);
 }
 
 //析构函数
 
-stdx::_Threadpool::~_Threadpool() noexcept
+stdx::_FixedSizeThreadPool::~_FixedSizeThreadPool() noexcept
 {
 	//终止时设置状态
 	*m_alive = false;
@@ -25,7 +25,7 @@ stdx::_Threadpool::~_Threadpool() noexcept
 	m_cv->notify_all();
 }
 
-void stdx::_Threadpool::join_as_worker()
+void stdx::_FixedSizeThreadPool::join_as_worker()
 {
 	std::unique_lock<std::mutex> lock(*m_mutex);
 	lock.unlock();
@@ -70,7 +70,7 @@ void stdx::_Threadpool::join_as_worker()
 }
 
 //添加线程
-void stdx::_Threadpool::add_thread() noexcept
+void stdx::_FixedSizeThreadPool::add_thread() noexcept
 {
 	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex,std::shared_ptr<bool> alive)
 	{
@@ -118,28 +118,27 @@ void stdx::_Threadpool::add_thread() noexcept
 }
 
 //初始化线程池
-void stdx::_Threadpool::init_threads() noexcept
+void stdx::_FixedSizeThreadPool::init_threads(uint32_t num_threads) noexcept
 {
-	uint32_t threads_number = cpu_cores() * 2;
-	for (size_t i = 0; i < threads_number; i++)
+	for (size_t i = 0; i < num_threads; i++)
 	{
 		add_thread();
 	}
 }
 
-void stdx::threadpool::loop_do(stdx::cancel_token token, std::function<void()> call)
+void stdx::thread_pool::loop_do(stdx::cancel_token token, std::function<void()> call)
 {
-	stdx::threadpool::run([](stdx::cancel_token token, std::function<void()> call)
+	run([this](stdx::cancel_token token, std::function<void()> call)
 		{
 			if (!token.is_cancel())
 			{
 				call();
-				stdx::threadpool::loop_do(token, call);
+				loop_do(token, call);
 			}
 		}, token, call);
 }
 
-void stdx::threadpool::lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick)
+void stdx::thread_pool::lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick)
 {
 	if (lazy_ms == 0)
 	{
@@ -164,16 +163,16 @@ void stdx::threadpool::lazy_do(uint64_t lazy_ms, std::function<void()> call, uin
 			return;
 		}
 		lazy_ms -= (now - target_tick);
-		stdx::threadpool::run([target_tick,lazy_ms,call]() 
+		run([target_tick,lazy_ms,call,this]() 
 		{
-				stdx::threadpool::lazy_do(lazy_ms, call, target_tick);
+				lazy_do(lazy_ms, call, target_tick);
 		});
 	}
 }
 
-void stdx::threadpool::lazy_loop_do(stdx::cancel_token token, uint64_t lazy_ms, std::function<void()> call)
+void stdx::thread_pool::lazy_loop_do(stdx::cancel_token token, uint64_t lazy_ms, std::function<void()> call)
 {
-	stdx::threadpool::lazy_do(lazy_ms, [call,token,lazy_ms]() 
+	stdx::thread_pool::lazy_do(lazy_ms, [call,token,lazy_ms,this]() 
 	{
 		if (!token.is_cancel())
 		{

@@ -223,11 +223,6 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 
 int main(int argc, char** argv)
 {
-	stdx::printf(U("tick is {0}\n"), stdx::get_tick_count());
-	auto t = stdx::lazy(64).then([]() 
-	{
-		stdx::printf(U("tick is {0}\n"),stdx::get_tick_count());
-	});
 #define ENABLE_WEB
 #ifdef ENABLE_WEB
 #pragma region web_test
@@ -311,7 +306,7 @@ int main(int argc, char** argv)
 				stdx::perrorf(U("Accept Error:{0}"), err.what());
 			}
 		});
-	stdx::threadpool::join_as_worker();
+	stdx::threadpool.join_as_worker();
 #pragma endregion
 #endif
 		return 0;

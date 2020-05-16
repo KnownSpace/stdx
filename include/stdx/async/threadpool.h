@@ -10,13 +10,13 @@
 #define cpu_cores() std::thread::hardware_concurrency()
 
 #ifndef STDX_LAZY_MAX_TIME
-#define STDX_LAZY_MAX_TIME 64
+#define STDX_LAZY_MAX_TIME 56
 #endif
 namespace stdx
 {
-	interface_class basic_threadpool
+	interface_class basic_thread_pool
 	{
-		virtual ~basic_threadpool() = default;
+		virtual ~basic_thread_pool() = default;
 
 		virtual void run(std::function<void()> &&task) = 0;
 
@@ -24,18 +24,19 @@ namespace stdx
 	};
 
 	//线程池
-	class _Threadpool:public stdx::basic_threadpool
+	class _FixedSizeThreadPool:public stdx::basic_thread_pool
 	{
 		using runable = std::function<void()>;
+		using base_t = stdx::basic_thread_pool;
 	public:
 		//构造函数
-		_Threadpool() noexcept;
+		_FixedSizeThreadPool(uint32_t num_threads) noexcept;
 
 		//析构函数
-		~_Threadpool() noexcept;
+		~_FixedSizeThreadPool() noexcept;
 
 		//删除复制构造函数
-		_Threadpool(const _Threadpool&) = delete;
+		_FixedSizeThreadPool(const _FixedSizeThreadPool&) = delete;
 
 		void run(std::function<void()> &&task)
 		{
@@ -55,54 +56,104 @@ namespace stdx
 		void add_thread() noexcept;
 		
 		//初始化线程池
-		void init_threads() noexcept;
+		void init_threads(uint32_t num_threads) noexcept;
 	};
-	//线程池静态类
-	class threadpool
-	{
-	public:
-		threadpool() = default;
 
-		~threadpool() = default;
-		using impl_t = stdx::_Threadpool;
-		//执行任务
-		template<typename _Fn,typename ..._Args>
-		static void run(_Fn &&fn,_Args &&...args) noexcept
+	//线程池静态类
+	class thread_pool
+	{
+		using impl_t = std::shared_ptr<stdx::basic_thread_pool>;
+
+		using self_t = stdx::thread_pool;
+	public:
+		thread_pool()
+			:m_impl(nullptr)
+		{}
+
+		thread_pool(const impl_t &impl)
+			:m_impl(impl)
+		{}
+
+		thread_pool(const self_t &other)
+			:m_impl(other.m_impl)
+		{}
+
+		thread_pool(self_t&& other) noexcept
+			:m_impl(std::move(other.m_impl))
+		{}
+
+		~thread_pool() = default;
+
+		self_t& operator=(const self_t& other)
 		{
-			m_impl.run(std::bind(fn,args...));
+			m_impl = other.m_impl;
+			return *this;
 		}
 
-		static void join_as_worker()
+		self_t& operator=(self_t&& other) noexcept
 		{
-			m_impl.join_as_worker();
+			m_impl = std::move(other.m_impl);
+			return *this;
+		}
+
+		//执行任务
+		template<typename _Fn,typename ..._Args>
+		void run(_Fn &&fn,_Args &&...args) noexcept
+		{
+			m_impl->run(std::bind(fn,args...));
+		}
+
+		void join_as_worker()
+		{
+			m_impl->join_as_worker();
 		}
 
 		template<typename _Fn, typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
-		static void loop_run(stdx::cancel_token token,_Fn&& fn, _Args &&...args)
+		void loop_run(stdx::cancel_token token,_Fn&& fn, _Args &&...args)
 		{
 			std::function<void()> call = std::bind(fn, args...);
-			stdx::threadpool::loop_do(token,call);
+			loop_do(token,call);
 		}
 
 		template<typename _Fn,typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
-		static void lazy_run(uint64_t lazy_ms, _Fn &&fn,_Args &&...args)
+		void lazy_run(uint64_t lazy_ms, _Fn &&fn,_Args &&...args)
 		{
 			std::function<void()> call = std::bind(fn, args...);
-			stdx::threadpool::lazy_do(lazy_ms,call,0);
+			lazy_do(lazy_ms,call,0);
 		}
 
 		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
-		static void lazy_loop_run(stdx::cancel_token token,uint64_t lazy_ms,_Fn &&fn,_Args &&...args)
+		void lazy_loop_run(stdx::cancel_token token,uint64_t lazy_ms,_Fn &&fn,_Args &&...args)
 		{
 			std::function<void()> call = std::bind(fn, args...);
-			stdx::threadpool::lazy_loop_do(token, lazy_ms, call);
+			lazy_loop_do(token, lazy_ms, call);
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
+		bool operator==(const self_t& other) const
+		{
+			return m_impl == other.m_impl;
 		}
 	private:
-		static void loop_do(stdx::cancel_token token, std::function<void()> call);
+		void loop_do(stdx::cancel_token token, std::function<void()> call);
 
-		static void lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick);
+		void lazy_do(uint64_t lazy_ms, std::function<void()> call, uint64_t target_tick);
 
-		static void lazy_loop_do(stdx::cancel_token token,uint64_t lazy_ms,std::function<void()> call);
-		static impl_t m_impl;
+		void lazy_loop_do(stdx::cancel_token token,uint64_t lazy_ms,std::function<void()> call);
+
+		impl_t m_impl;
 	};
+
+	template<typename _Impl,typename ..._Args>
+	inline stdx::thread_pool make_thread_pool(_Args &&...args)
+	{
+		std::shared_ptr<stdx::basic_thread_pool> impl = std::make_shared<_Impl>(args...);
+		return stdx::thread_pool(impl);
+	}
+
+	extern stdx::thread_pool threadpool;
 }

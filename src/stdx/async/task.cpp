@@ -61,7 +61,7 @@ void stdx::_TaskFlag::unlock() noexcept
 stdx::task<void> stdx::lazy(uint64_t ms)
 {
 	stdx::task_completion_event<void> ce;
-	stdx::threadpool::lazy_run(ms, [](stdx::task_completion_event<void> ce)
+	stdx::threadpool.lazy_run(ms, [](stdx::task_completion_event<void> ce)
 	{
 			ce.set_value();
 			ce.run_on_this_thread();

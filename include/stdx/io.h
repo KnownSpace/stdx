@@ -6,6 +6,18 @@
 #include <stdio.h>
 #include <stdx/async/threadpool.h>
 #include <stdx/finally.h>
+#include <stdx/poller.h>
+
+namespace stdx
+{
+#ifdef WIN32
+	template<typename _IOContext>
+	using io_poller = stdx::poller<_IOContext, HANDLE>;
+#else
+	template<typename _IOContext>
+	using io_poller = stdx::poller<_IOContext, int>;
+#endif
+}
 
 #ifdef WIN32
 
@@ -27,19 +39,21 @@
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
 #endif
-						
 
 namespace stdx
 {
 	//IOCP封装
 	template<typename _IOContext>
-	class _IOCP
+	class _IOCP:public stdx::basic_poller<_IOContext,HANDLE>
 	{
+		using base_t = stdx::basic_poller<_IOContext, HANDLE>;
 	public:
 		_IOCP()
-			:m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0))
+			:base_t()
+			,m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0))
 		{
 		}
+
 		~_IOCP()
 		{
 			if (m_iocp != INVALID_HANDLE_VALUE)
@@ -47,8 +61,10 @@ namespace stdx
 				CloseHandle(m_iocp);
 			}
 		}
+
 		delete_copy(_IOCP<_IOContext>);
-		void bind(const HANDLE &file_handle)
+
+		virtual void bind(const HANDLE &file_handle) override
 		{
 			if (CreateIoCompletionPort(file_handle, m_iocp, (ULONG_PTR)file_handle, cpu_cores() * 2 + 2) == NULL)
 			{
@@ -65,7 +81,7 @@ namespace stdx
 			}
 		}
 
-		_IOContext *get()
+		virtual _IOContext *get() override
 		{
 			DWORD size = 0;
 			OVERLAPPED *ol= nullptr;
@@ -83,7 +99,7 @@ namespace stdx
 			return CONTAINING_RECORD(ol,_IOContext, m_ol);
 		}
 
-		_IOContext* get(DWORD ms)
+		virtual _IOContext* get(uint32_t ms) override
 		{
 			DWORD size = 0;
 			OVERLAPPED* ol = nullptr;
@@ -115,63 +131,96 @@ namespace stdx
 			}
 		}
 
+		virtual void post(_IOContext *p) override
+		{
+			if (p != nullptr)
+			{
+				if (!PostQueuedCompletionStatus(m_iocp, 0, (ULONG_PTR)p, &(p->m_ol)))
+				{
+					//处理错误
+					_ThrowWinError
+				}
+			}
+			else
+			{
+				if (!PostQueuedCompletionStatus(m_iocp, 0, (ULONG_PTR)p, nullptr))
+				{
+					//处理错误
+					_ThrowWinError
+				}
+			}
+		}
+
 	private:
 		HANDLE m_iocp;
 	};
 
 	//IOCP引用封装
+	//template<typename _IOContext>
+	//class iocp
+	//{
+	//	using impl_t = std::shared_ptr<stdx::_IOCP<_IOContext>>;
+	//public:
+	//	iocp()
+	//		:m_impl(std::make_shared<stdx::_IOCP<_IOContext>>())
+	//	{}
+
+	//	iocp(const iocp<_IOContext> &other)
+	//		:m_impl(other.m_impl)
+	//	{}
+
+	//	iocp(iocp<_IOContext> &&other) noexcept
+	//		:m_impl(std::move(other.m_impl))
+	//	{}
+
+	//	~iocp() = default;
+
+	//	iocp<_IOContext> &operator=(const iocp<_IOContext> &other)
+	//	{
+	//		m_impl = other.m_impl;
+	//		return *this;
+	//	}
+
+	//	_IOContext *get()
+	//	{
+	//		return m_impl->get();
+	//	}
+
+	//	_IOContext* get(DWORD ms)
+	//	{
+	//		return m_impl->get(ms);
+	//	}
+
+	//	void bind(const HANDLE &file_handle)
+	//	{
+	//		m_impl->bind(file_handle);
+	//	}
+
+	//	template<typename _HandleType>
+	//	void bind(const _HandleType &file_handle)
+	//	{
+	//		m_impl->bind<_HandleType>(file_handle);
+	//	}
+
+	//	void post(DWORD size, _IOContext *context_ptr, OVERLAPPED *ol_ptr)
+	//	{
+	//		m_impl->post(size, context_ptr, ol_ptr);
+	//	}
+
+	//	bool operator==(const iocp &other) const
+	//	{
+	//		return m_impl == other.m_impl;
+	//	}
+
+	//private:
+	//	impl_t m_impl;
+	//};
+
 	template<typename _IOContext>
-	class iocp
+	inline stdx::io_poller<_IOContext> make_iocp_poller()
 	{
-		using impl_t = std::shared_ptr<stdx::_IOCP<_IOContext>>;
-	public:
-		iocp()
-			:m_impl(std::make_shared<stdx::_IOCP<_IOContext>>())
-		{}
-		iocp(const iocp<_IOContext> &other)
-			:m_impl(other.m_impl)
-		{}
-		iocp(iocp<_IOContext> &&other) noexcept
-			:m_impl(std::move(other.m_impl))
-		{}
-		~iocp() = default;
-		iocp<_IOContext> &operator=(const iocp<_IOContext> &other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-		_IOContext *get()
-		{
-			return m_impl->get();
-		}
-
-		_IOContext* get(DWORD ms)
-		{
-			return m_impl->get(ms);
-		}
-
-		void bind(const HANDLE &file_handle)
-		{
-			m_impl->bind(file_handle);
-		}
-		template<typename _HandleType>
-		void bind(const _HandleType &file_handle)
-		{
-			m_impl->bind<_HandleType>(file_handle);
-		}
-		void post(DWORD size, _IOContext *context_ptr, OVERLAPPED *ol_ptr)
-		{
-			m_impl->post(size, context_ptr, ol_ptr);
-		}
-
-		bool operator==(const iocp &other) const
-		{
-			return m_impl == other.m_impl;
-		}
-
-	private:
-		impl_t m_impl;
-	};
+		return stdx::make_poller<stdx::_IOCP<_IOContext>>();
+	}
 }
 #undef _ThrowWinError
 #endif
@@ -292,13 +341,13 @@ namespace stdx
 	extern int io_getevents(aio_context_t ctx_id, long min_nr, long nr, struct io_event* events, struct timespec* timeout);
 
 	extern int io_cancel(aio_context_t ctx_id, struct iocb* iocb, struct io_event* result);
-#define invalid_eventfd -1
+#define INVALID_EVENTFD -1
 	extern void aio_read(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr);
 	
 	extern void aio_write(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr);
 
 	template<typename _IOContext>
-	class _AIOCP
+	class _AIOCP:public stdx::basic_poller<_IOContext,int>
 	{
 	public:
 		_AIOCP(unsigned nr_events=2048)
@@ -473,6 +522,7 @@ namespace stdx
 			,m_poll()
 			,m_clean(clean)
 		{}
+
 		~_Reactor()=default;
 
 		void bind(int fd);
@@ -489,7 +539,7 @@ namespace stdx
 			int r = m_poll.wait(&ev,1,-1);
 			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
-			stdx::threadpool::run([this](epoll_event* ev, _Fn execute) mutable
+			stdx::threadpool.run([this](epoll_event* ev, _Fn execute) mutable
 				{
 					stdx::finally fin([this,ev]() 
 					{
@@ -520,7 +570,7 @@ namespace stdx
 			}
 			auto* ev_ptr = new epoll_event;
 			*ev_ptr = ev;
-			stdx::threadpool::run([this](epoll_event* ev, _Fn execute) mutable
+			stdx::threadpool.run([this](epoll_event* ev, _Fn execute) mutable
 				{
 					stdx::finally fin([this,ev]()
 						{
@@ -619,7 +669,21 @@ namespace stdx
 	};
 
 	template<typename _IOContext>
-	class _BIOPoller
+	class _EpollPoller:public stdx::basic_poller<_IOContext,int>
+	{
+	public:
+		_EpollPoller();
+
+		~_EpollPoller();
+
+	private:
+		stdx::epoll m_epoll;
+
+		std::unordered_map<int, stdx::ev_queue> m_map;
+	};
+
+	template<typename _IOContext>
+	class _BIOPoller:public stdx::basic_poller<_IOContext,int>
 	{
 	public:
 		_BIOPoller()
@@ -630,7 +694,7 @@ namespace stdx
 
 		~_BIOPoller() = default;
 
-		_IOContext* get()
+		virtual _IOContext* get() override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
@@ -642,7 +706,7 @@ namespace stdx
 			return p;
 		}
 
-		_IOContext* get(size_t ms)
+		virtual _IOContext* get(uint32_t ms) override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
@@ -658,11 +722,11 @@ namespace stdx
 			return p;
 		}
 
-		void push(_IOContext* p)
+		virtual void post(_IOContext* p) override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
 			m_list.push_back(p);
-			m_cv.notify_all();
+			m_cv.notify_one();
 		}
 
 	private:
@@ -715,7 +779,7 @@ namespace stdx
 
 		void push(_IOContext* p)
 		{
-			return m_impl->push(p);
+			return m_impl->post(p);
 		}
 		
 		bool operator==(const self_t&& other) const
@@ -731,6 +795,12 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
+
+	template<typename _IOContext>
+	inline stdx::io_poller<_IOContext> make_bio_poller()
+	{
+		return stdx::make_poller<stdx::_BIOPoller<_IOContext>>();
+	}
 }
 
 #undef _ThrowLinuxError

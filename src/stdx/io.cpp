@@ -42,7 +42,7 @@ void stdx::aio_read(aio_context_t context, int fd, char* buf, size_t size, int64
 	(cbs[0]).aio_nbytes = size;
 	(cbs[0]).aio_offset = offset;
 	(cbs[0]).aio_data = (uint64_t)ptr;
-	if (resfd != invalid_eventfd)
+	if (resfd != INVALID_EVENTFD)
 	{
 		(cbs[0]).aio_flags = IOCB_FLAG_RESFD;
 		(cbs[0]).aio_resfd = resfd;
@@ -64,7 +64,7 @@ void stdx::aio_write(aio_context_t context, int fd, char* buf, size_t size, int6
 	(cbs[0]).aio_nbytes = size;
 	(cbs[0]).aio_offset = offset;
 	(cbs[0]).aio_data = (uint64_t)ptr;
-	if (resfd != invalid_eventfd)
+	if (resfd != INVALID_EVENTFD)
 	{
 		(cbs[0]).aio_flags = IOCB_FLAG_RESFD;
 		(cbs[0]).aio_resfd = resfd;

@@ -262,13 +262,13 @@ namespace stdx
 	{
 	public:
 #ifdef WIN32
-		using iocp_t = stdx::iocp<file_io_context>;
+		using poller_t = stdx::io_poller<file_io_context>;
 #else
 #ifdef STDX_USE_NATIVE_AIO
-		using iocp_t = stdx::aiocp<file_io_context>;
+		using poller_t = stdx::aiocp<file_io_context>;
 		using aiocp_t = stdx::aiocp<file_io_context>;
 #else
-		using iocp_t = stdx::bio_poller<file_io_context>;
+		using poller_t = stdx::io_poller<stdx::file_io_context>;
 #endif
 #endif
 		_FileIOService();
@@ -301,7 +301,7 @@ namespace stdx
 
 		static std::shared_ptr<_FileIOService> get_instance();
 	private:
-		iocp_t m_iocp;
+		poller_t m_poller;
 
 		stdx::cancel_token m_token;
 
@@ -316,7 +316,6 @@ namespace stdx
 	class file_io_service
 	{
 		using impl_t = std::shared_ptr<_FileIOService>;
-		using iocp_t = typename _FileIOService::iocp_t;
 	public:
 		file_io_service()
 			:m_impl(stdx::_FileIOService::get_instance())

@@ -352,24 +352,6 @@ namespace stdx
 
 		~network_io_context() 
 		{}
-
-//		network_io_context(network_io_context&& other) noexcept
-//#ifdef WIN32
-//			:m_ol(std::move(other.m_ol))
-//#else
-//			:code(other.code)
-//#endif
-//			,this_socket(std::move(other.this_socket))
-//			,target_socket(std::move(other.target_socket))
-//			,addr(std::move(other.addr))
-//#ifdef WIN32
-//			,buffer(std::move(other.buffer))
-//#else
-//			,buffer(std::move(other.buffer))
-//			,buffer_size(other.buffer_size)
-//#endif
-//			,size(other.size)
-//		{}
 #ifdef WIN32
 		WSAOVERLAPPED m_ol;
 #else
@@ -681,6 +663,12 @@ namespace stdx
 #endif
 
 		static std::shared_ptr<_NetworkIOService> get_instance();
+
+#ifdef LINUX
+	private:
+		static void _Clean(epoll_event* ptr);
+#endif // LINUX
+
 	private:
 #ifdef WIN32
 		iocp_t m_iocp;

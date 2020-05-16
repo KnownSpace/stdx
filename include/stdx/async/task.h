@@ -802,7 +802,7 @@ namespace stdx
 				stdx::_TaskCompleter<R>::call(r, promise, next, lock, state, future);
 			};
 			//放入线程池
-			stdx::threadpool::run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
+			stdx::threadpool.run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
 		}
 
 		virtual void run_on_this_thread() noexcept override

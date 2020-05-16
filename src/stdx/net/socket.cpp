@@ -67,7 +67,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 #else
 	: m_reactor([](epoll_event *ptr) 
 	{
-			clean(ptr);
+			stdx::_NetworkIOService::_Clean(ptr);
 	})
 #endif
 	, m_token()
@@ -149,7 +149,7 @@ void _Send(int sock,char* buf,size_t size,size_t offset,std::function<void(stdx:
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				stdx::threadpool::run([sock,buf,size,offset,callback]() 
+				stdx::threadpool.run([sock,buf,size,offset,callback]() 
 				{
 						_Send(sock, buf, size, offset, callback);
 				});
@@ -160,7 +160,7 @@ void _Send(int sock,char* buf,size_t size,size_t offset,std::function<void(stdx:
 		offset += r;
 		if (offset != size)
 		{
-			stdx::threadpool::run([sock, buf, size, offset, callback]()
+			stdx::threadpool.run([sock, buf, size, offset, callback]()
 			{
 				_Send(sock, buf, size, offset, callback);
 			});
@@ -259,7 +259,7 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 		return;
 	}
 	memcpy(buf, data, size);
-	stdx::threadpool::run([sock, buf, size, callback]()
+	stdx::threadpool.run([sock, buf, size, callback]()
 	{
 		_Send(sock, buf, size,0, callback);
 	});
@@ -301,7 +301,7 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 		}
 	}
 #else
-	stdx::threadpool::run([sock, file_with_cache, callback]()
+	stdx::threadpool.run([sock, file_with_cache, callback]()
 		{
 			struct stat stat_buf;
 			fstat(file_with_cache, &stat_buf);
@@ -579,7 +579,7 @@ void _SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offs
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				stdx::threadpool::run([sock,addr, buf, size, offset, callback]()
+				stdx::threadpool.run([sock,addr, buf, size, offset, callback]()
 					{
 						_SendTo(sock,addr, buf, size, offset, callback);
 					});
@@ -590,7 +590,7 @@ void _SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offs
 		offset += r;
 		if (offset != size)
 		{
-			stdx::threadpool::run([sock, addr, buf, size, offset, callback]()
+			stdx::threadpool.run([sock, addr, buf, size, offset, callback]()
 				{
 					_SendTo(sock, addr, buf, size, offset, callback);
 				});
@@ -685,7 +685,7 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, cons
 		return;
 	}
 	memcpy(buf, data, size);
-	stdx::threadpool::run([addr,sock, buf, size, callback]()
+	stdx::threadpool.run([addr,sock, buf, size, callback]()
 	{
 		_SendTo(sock,addr, buf, size, 0, callback);
 	});
@@ -1051,7 +1051,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef WIN32
 	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
+		stdx::threadpool.loop_run(m_token,[](iocp_t iocp)
 			{
 				stdx::network_io_context* context_ptr = nullptr;
 				try
@@ -1084,7 +1084,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					delete context_ptr;
 					return;
 				}
-				stdx::threadpool::run([call,context_ptr,error]() 
+				stdx::threadpool.run([call,context_ptr,error]() 
 				{
 
 						stdx::finally fin([call]()
@@ -1108,7 +1108,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #else
 	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token,[](stdx::reactor reactor)
+		stdx::threadpool.loop_run(m_token,[](stdx::reactor reactor)
 			{
 				try
 				{
@@ -1121,15 +1121,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 							}
 							if (ev_ptr->events & stdx::epoll_events::hup)
 							{
-								//reactor.push(context->this_socket, *ev_ptr);
-								clean(ev_ptr);
+								_Clean(ev_ptr);
 								reactor.loop(context->this_socket);
 								return;
 							}
 							else if (ev_ptr->events & stdx::epoll_events::err)
 							{
-								//reactor.push(context->this_socket, *ev_ptr);
-								clean(ev_ptr);
+								_Clean(ev_ptr);
 								reactor.loop(context->this_socket);
 								return;
 							}
@@ -1194,7 +1192,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 							reactor.loop(context->this_socket);
 							if (context->callback == nullptr)
 							{
-								clean(ev_ptr);
+								_Clean(ev_ptr);
 								return;
 							}
 							stdx::finally fin([callback]()
@@ -1219,7 +1217,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 }
 
 #ifdef LINUX
-void clean(epoll_event* ptr)
+void stdx::_NetworkIOService::_Clean(epoll_event* ptr)
 {
 	stdx::network_io_context* context = (stdx::network_io_context*)ptr->data.ptr;
 	if (context == nullptr)
