@@ -699,15 +699,19 @@ namespace stdx
 				r = m_epoll.wait(&ev, 1, -1);
 			}
 			_IOContext* context = (_IOContext*)ev.data.ptr;
-			if (ev.events == stdx::epoll_events::hup || ev.events == stdx::epoll_events::err)
+			if (ev.events & stdx::epoll_events::hup || ev.events & stdx::epoll_events::err)
 			{
+				_Reset(m_fd_getter(context));
 				m_clean(context);
+				return nullptr;
 			}
 			else
 			{
 				if (!m_operate(context))
 				{
 					post(context);
+					_Reset(m_fd_getter(context));
+					return nullptr;
 				}
 			}
 			_Reset(m_fd_getter(context));
@@ -725,13 +729,17 @@ namespace stdx
 			_IOContext* context = (_IOContext*)ev.data.ptr;
 			if ((ev.events & stdx::epoll_events::hup) || (ev.events & stdx::epoll_events::err))
 			{
+				_Reset(m_fd_getter(context));
 				m_clean(context);
+				return nullptr;
 			}
 			else
 			{
 				if (!m_operate(context))
 				{
 					post(context);
+					_Reset(m_fd_getter(context));
+					return nullptr;
 				}
 			}
 			_Reset(m_fd_getter(context));

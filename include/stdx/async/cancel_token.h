@@ -55,6 +55,16 @@ namespace stdx
 			m_value->store(false);
 		}
 
+		bool check_ptr() const
+		{
+			return (bool)m_value;
+		}
+
+		bool operator==(const self_t& other)
+		{
+			return m_value == other.m_value;
+		}
+
 	private:
 		std::shared_ptr<std::atomic_bool> m_value;
 	};

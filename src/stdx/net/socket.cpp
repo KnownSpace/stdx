@@ -63,7 +63,7 @@ std::shared_ptr<stdx::_NetworkIOService> stdx::_NetworkIOService::get_instance()
 
 stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
-	:m_poller()
+	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
 #else
 	: m_poller(stdx::make_epoll_proactor_poller<stdx::network_io_context>([](stdx::network_io_context *context) 
 		{
@@ -1052,14 +1052,14 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token,[](iocp_t iocp)
+		stdx::threadpool.loop_run(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
 				stdx::network_io_context* context_ptr = nullptr;
 				try
 				{
-					context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+					context_ptr = poller.get(STDX_LAZY_MAX_TIME);
 				}
 				catch (const std::exception&)
 				{
@@ -1089,7 +1089,6 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				}
 				stdx::threadpool.run([call,context_ptr,error]() 
 				{
-
 						stdx::finally fin([call]()
 							{
 								if (call)
@@ -1105,11 +1104,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						{
 						}
 				});
-			}, m_iocp);
-
+			}, m_poller);
 	}
 #else
-	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 //		stdx::threadpool.loop_run(m_token,[](stdx::reactor reactor)
 //			{
@@ -1224,10 +1222,15 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					return;
 				}
 				auto call = context->callback;
+				if (call == nullptr)
+				{
+					delete context;
+					return;
+				}
 				std::exception_ptr err(nullptr);
 				if (context->err_code != 0)
 				{
-					err = std::make_exception_ptr<std::system_error>(std::error_code(context->code, std::system_category()));
+					err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
 				}
 				stdx::threadpool.run([call,err,context]() 
 				{
@@ -1303,6 +1306,10 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	if (r < 0)
 	{
 		context->err_code = errno;
+	}
+	else if(r == 0)
+	{
+		context->err_code = ECONNRESET;
 	}
 	else
 	{
