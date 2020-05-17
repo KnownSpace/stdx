@@ -525,7 +525,6 @@ namespace stdx
 		_EpollProactor(clean_t clean,operate_t io_operator,fd_getter_t fd_getter,event_getter_t event_getter)
 			:m_epoll()
 			,m_map()
-			,m_lock()
 			,m_clean(clean)
 			,m_operate(io_operator)
 			,m_fd_getter(fd_getter)
@@ -601,128 +600,94 @@ namespace stdx
 			ev.events = m_event_getter(p);
 			ev.data.ptr = p;
 			ev.events |= stdx::epoll_events::once;
-			std::unique_lock<lock_t> _lock(m_lock);
-			auto iterator = m_map.find(fd);
-			if (iterator != m_map.end())
+			auto& obj = m_map[fd];
+			std::unique_lock<stdx::spin_lock> lock(obj.m_lock);
+			if (!obj.m_existed)
 			{
-				std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-				_lock.unlock();
-				if (!iterator->second.m_existed)
-				{
-					iterator->second.m_existed = true;
-					lock.unlock();
-					m_epoll.add_event(fd, &ev);
-				}
-				else
-				{
-					iterator->second.m_queue.push_back(std::move(ev));
-				}
+				obj.m_existed = true;
+				lock.unlock();
+				m_epoll.add_event(fd, &ev);
 			}
 			else
 			{
-				_lock.unlock();
-				bind(fd);
-				return post(p);
+				obj.m_queue.push_back(std::move(ev));
 			}
 		}
 
 		virtual void bind(const int &fd) override
 		{
-			std::unique_lock<lock_t> _lock(m_lock);
-			auto iterator = m_map.find(fd);
-			if (iterator == std::end(m_map))
-			{
-				m_map.emplace(fd,std::move(stdx::ev_queue()));
-			}
+			m_map[fd] = std::move(stdx::ev_queue());
 		}
 
 		virtual void unbind(const int &fd) override
 		{
-			std::unique_lock<lock_t> _lock(m_lock);
-			auto iterator = m_map.find(fd);
-			if (iterator != std::end(m_map))
+			auto& obj = m_map[fd];
+			std::unique_lock<stdx::spin_lock> lock(obj.m_lock);
+			if (!obj.m_queue.empty())
 			{
-				std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-				_lock.unlock();
-				if (!iterator->second.m_queue.empty())
+				for (auto qbegin = obj.m_queue.begin(), qend = obj.m_queue.end(); qbegin != qend; qbegin++)
 				{
-					for (auto qbegin = iterator->second.m_queue.begin(), qend = iterator->second.m_queue.end(); qbegin != qend; qbegin++)
+					auto ev = *qbegin;
+					if (ev.data.ptr != nullptr)
 					{
-						auto ev = *qbegin;
-						if (ev.data.ptr != nullptr)
-						{
-							m_clean((_IOContext*)ev.data.ptr);
-						}
-						qbegin = iterator->second.m_queue.erase(qbegin);
+						m_clean((_IOContext*)ev.data.ptr);
 					}
+					qbegin = obj.m_queue.erase(qbegin);
 				}
-				iterator->second.m_existed = false;
 			}
+			obj.m_existed = false;
 		}
 
 		virtual void unbind(const int& object, std::function<void(int)> deleter)
 		{
-			std::unique_lock<lock_t> _lock(m_lock);
-			auto iterator = m_map.find(object);
-			if (iterator != std::end(m_map))
+			auto& obj = m_map[object];
+			if (!obj.m_queue.empty())
 			{
-				std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-				_lock.unlock();
-				if (!iterator->second.m_queue.empty())
+				for (auto qbegin = obj.m_queue.begin(), qend = obj.m_queue.end(); qbegin != qend; qbegin++)
 				{
-					for (auto qbegin = iterator->second.m_queue.begin(), qend = iterator->second.m_queue.end(); qbegin != qend; qbegin++)
+					auto ev = *qbegin;
+					if (ev.data.ptr != nullptr)
 					{
-						auto ev = *qbegin;
-						if (ev.data.ptr != nullptr)
-						{
-							m_clean((_IOContext*)ev.data.ptr);
-						}
-						qbegin = iterator->second.m_queue.erase(qbegin);
+						m_clean((_IOContext*)ev.data.ptr);
 					}
+					qbegin = obj.m_queue.erase(qbegin);
 				}
-				iterator->second.m_existed = false;
-				deleter(object);
 			}
+			obj.m_existed = false;
+			deleter(object);
 		}
 	private:
 		void _Reset(int fd)
 		{
-			std::unique_lock<lock_t> _lock(m_lock);
-			auto iterator = m_map.find(fd);
-			if (iterator != std::end(m_map))
+			auto& obj = m_map[fd];
+			std::unique_lock<stdx::spin_lock> lock(obj.m_lock);
+			if (obj.m_existed)
 			{
-				auto& obj = *iterator;
-				std::unique_lock<stdx::spin_lock> lock(obj.second.m_lock);
-				_lock.unlock();
-				if (obj.second.m_existed)
+				if (!obj.m_queue.empty())
 				{
-					if (!obj.second.m_queue.empty())
-					{
-						auto ev = obj.second.m_queue.front();
-						obj.second.m_queue.pop_front();
-						obj.second.m_existed = true;
-						m_epoll.update_event(fd, &ev);
-						return;
-					}
-					else
-					{
-						m_epoll.del_event(fd);
-						obj.second.m_existed = false;
-						return;
-					}
-				}
-				else if (!obj.second.m_queue.empty())
-				{
-					lock.unlock();
-					unbind(fd);
+					auto ev = obj.m_queue.front();
+					obj.m_queue.pop_front();
+					obj.m_existed = true;
+					m_epoll.update_event(fd, &ev);
 					return;
 				}
+				else
+				{
+					m_epoll.del_event(fd);
+					obj.m_existed = false;
+					return;
+				}
+			}
+			else if (!obj.m_queue.empty())
+			{
+				lock.unlock();
+				unbind(fd);
+				return;
 			}
 		}
 
 		stdx::epoll m_epoll;
 		std::unordered_map<int, stdx::ev_queue> m_map;
-		lock_t m_lock;
 		clean_t m_clean;
 		operate_t m_operate;
 		fd_getter_t m_fd_getter;
