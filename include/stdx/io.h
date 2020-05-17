@@ -347,7 +347,7 @@ namespace stdx
 	extern void aio_write(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr);
 
 	template<typename _IOContext>
-	class _AIOCP:public stdx::basic_poller<_IOContext,int>
+	class _AIOCP
 	{
 	public:
 		_AIOCP(unsigned nr_events=2048)

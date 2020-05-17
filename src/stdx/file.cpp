@@ -220,7 +220,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	}
 	stdx::posix_memalign((void**)&buffer, 512, r_size);
 	memset(buffer, 0, r_size);
-	auto context = m_iocp.get_context();
+	auto context = m_poller.get_context();
 	file_io_context* ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
@@ -420,7 +420,7 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	stdx::posix_memalign((void**)&buf, 512, r_size);
 	memset(buf, 0, r_size);
 	memcpy(buf, buffer, size);
-	auto context = m_iocp.get_context();
+	auto context = m_poller.get_context();
 	file_io_context* ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
@@ -638,19 +638,19 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
+		stdx::threadpool.loop_run(m_token, [](poller_t poller)
 			{
 				std::exception_ptr error(nullptr);
 				int64_t res = 0;
-				auto* context_ptr = iocp.get(res, STDX_LAZY_MAX_TIME);
+				auto* context_ptr = poller.get(res, STDX_LAZY_MAX_TIME);
 				if (context_ptr == nullptr)
 				{
 					return;
 				}
 				auto* call = context_ptr->callback;
-				stdx::threadpool::run([res,context_ptr,call]() 
+				stdx::threadpool.run([res,context_ptr,call,error]() mutable 
 				{
 						try
 						{
@@ -680,7 +680,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 							}
 						}
 				});
-			}, m_iocp);
+			}, m_poller);
 	}
 #else
 	//Buffered IO
@@ -693,38 +693,38 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			{
 				return;
 			}
-			stdx::threadpool.run([context]() 
+			ssize_t r = 0;
+			if (context->op_code == stdx::file_bio_op_code::write)
 			{
-					ssize_t r = 0;
-					if (context->op_code == stdx::file_bio_op_code::write)
-					{
-						//pwrite
-						r = ::pwrite(context->file, context->buffer, context->size, context->offset);
-					}
-					else if (context->op_code == stdx::file_bio_op_code::read)
-					{
-						//pread
-						r = ::pread(context->file, context->buffer, context->size, context->offset);
-						if (r == 0)
-						{
-							context->eof = true;
-						}
-					}
-					auto* callback = context->callback;
-					std::exception_ptr err(nullptr);
-					try
-					{
-						if (r == -1)
-						{
-							_ThrowLinuxError
-						}
-					}
-					catch (const std::exception&)
-					{
-						err = std::current_exception();
-					}
-					if (callback != nullptr)
-					{
+				//pwrite
+				r = ::pwrite(context->file, context->buffer, context->size, context->offset);
+			}
+			else if (context->op_code == stdx::file_bio_op_code::read)
+			{
+				//pread
+				r = ::pread(context->file, context->buffer, context->size, context->offset);
+				if (r == 0)
+				{
+					context->eof = true;
+				}
+			}
+			auto* callback = context->callback;
+			std::exception_ptr err(nullptr);
+			try
+			{
+				if (r == -1)
+				{
+					_ThrowLinuxError
+				}
+			}
+			catch (const std::exception&)
+			{
+				err = std::current_exception();
+			}
+			if (callback != nullptr)
+			{
+				stdx::threadpool.run([callback,err,context]() 
+				{
 						stdx::finally fin([callback]()
 							{
 								delete callback;
@@ -737,8 +737,8 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 						{
 
 						}
-					}
-			});
+				});
+			}
 		}, m_poller);
 	}
 #endif
