@@ -356,6 +356,7 @@ namespace stdx
 		WSAOVERLAPPED m_ol;
 #else
 		int code;
+		ssize_t err_code;
 #endif 
 #ifdef WIN32
 		SOCKET this_socket;
@@ -381,13 +382,16 @@ namespace stdx
 	{
 		enum
 		{
-			recv = 0,
-			recvfrom = 1,
-			send = 2,
-			sendto = 3,
-			accept = 4,
-			connect = 5,
-			sendfile = 6
+			recv = 1,
+			recvfrom = 2,
+			send = 4,
+			sendto = 8,
+			accept = 16,
+			connect = 32,
+			sendfile = 64,
+			sendto_ipv6 = 128,
+			recvfrom_ipv6 = 256,
+			accept_ipv6 = 512
 		};
 	};
 #endif
@@ -583,7 +587,6 @@ namespace stdx
 	{
 	public:
 #ifdef WIN32
-		using iocp_t = stdx::iocp<network_io_context>;
 		using socket_t = SOCKET;
 		using file_handle_t = HANDLE;
 #else
@@ -666,18 +669,23 @@ namespace stdx
 
 #ifdef LINUX
 	private:
-		static void _Clean(epoll_event* ptr);
+		static void _Clean(stdx::network_io_context* context);
+
+		static int _GetFd(stdx::network_io_context *context);
+
+		static bool _IOOperate(stdx::network_io_context* context);
+
+		static uint32_t _GetEvents(stdx::network_io_context* context);
 #endif // LINUX
 
 	private:
 #ifdef WIN32
-		iocp_t m_iocp;
 		static DWORD recv_flag;
-#else
-		stdx::reactor m_reactor;
 #endif
-		//std::shared_ptr<bool> m_alive;
+		stdx::io_poller<stdx::network_io_context> m_poller;
+
 		stdx::cancel_token m_token;
+
 		void init_threadpoll() noexcept;
 
 		static std::once_flag _once_flag;
@@ -687,9 +695,6 @@ namespace stdx
 
 	class network_io_service
 	{
-#ifdef WIN32
-		using iocp_t = _NetworkIOService::iocp_t;
-#endif // WIN32
 		using socket_t = _NetworkIOService::socket_t;
 		using file_handle_t = _NetworkIOService::file_handle_t;
 		using impl_t = std::shared_ptr<_NetworkIOService>;

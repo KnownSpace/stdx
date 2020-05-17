@@ -669,18 +669,222 @@ namespace stdx
 	};
 
 	template<typename _IOContext>
-	class _EpollPoller:public stdx::basic_poller<_IOContext,int>
+	class _EpollProactor:public stdx::basic_poller<_IOContext,int>
 	{
 	public:
-		_EpollPoller();
+		using clean_t = std::function<void(_IOContext*)>;
+		using operate_t = std::function<bool(_IOContext*)>;
+		using lock_t = stdx::spin_lock;
+		using fd_getter_t = std::function<int(_IOContext*)>;
+		using event_getter_t = std::function<uint32_t(_IOContext*)>;
+	public:
+		_EpollProactor(clean_t clean,operate_t io_operator,fd_getter_t fd_getter,event_getter_t event_getter)
+			:m_epoll()
+			,m_map()
+			,m_lock()
+			,m_clean(clean)
+			,m_operate(io_operator)
+			,m_fd_getter(fd_getter)
+			,m_event_getter(event_getter)
+		{}
 
-		~_EpollPoller();
+		~_EpollProactor() = default;
 
+		virtual _IOContext* get() override
+		{
+			epoll_event ev;
+			int r = m_epoll.wait(&ev, 1,-1);
+			if (r != 1)
+			{
+				r = m_epoll.wait(&ev, 1, -1);
+			}
+			_IOContext* context = (_IOContext*)ev.data.ptr;
+			if (ev.events == stdx::epoll_events::hup || ev.events == stdx::epoll_events::err)
+			{
+				m_clean(context);
+			}
+			else
+			{
+				if (!m_operate(context))
+				{
+					post(context);
+				}
+			}
+			_Reset(m_fd_getter(context));
+			return context;
+		}
+
+		virtual _IOContext* get(uint32_t timeout_ms) override
+		{
+			epoll_event ev;
+			int r = m_epoll.wait(&ev, 1, timeout_ms);
+			if (r != 1)
+			{
+				return nullptr;
+			}
+			_IOContext* context = (_IOContext*)ev.data.ptr;
+			if ((ev.events & stdx::epoll_events::hup) || (ev.events & stdx::epoll_events::err))
+			{
+				m_clean(context);
+			}
+			else
+			{
+				if (!m_operate(context))
+				{
+					post(context);
+				}
+			}
+			_Reset(m_fd_getter(context));
+			return context;
+		}
+
+		virtual void post(_IOContext* p) override
+		{
+			if (p == nullptr)
+			{
+				return;
+			}
+			int fd = m_fd_getter(p);
+			epoll_event ev;
+			ev.events = m_event_getter(p);
+			ev.data.ptr = p;
+			ev.events |= stdx::epoll_events::once;
+			std::unique_lock<lock_t> _lock(m_lock);
+			auto iterator = m_map.find(fd);
+			if (iterator != m_map.end())
+			{
+				std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
+				_lock.unlock();
+				if (!iterator->second.m_existed)
+				{
+					iterator->second.m_existed = true;
+					lock.unlock();
+					m_epoll.add_event(fd, &ev);
+				}
+				else
+				{
+					iterator->second.m_queue.push_back(std::move(ev));
+				}
+			}
+			else
+			{
+				_lock.unlock();
+				bind(fd);
+				return post(p);
+			}
+		}
+
+		virtual void bind(const int &fd) override
+		{
+			std::unique_lock<lock_t> _lock(m_lock);
+			auto iterator = m_map.find(fd);
+			if (iterator == std::end(m_map))
+			{
+				m_map.emplace(fd,std::move(stdx::ev_queue()));
+			}
+		}
+
+		virtual void unbind(const int &fd) override
+		{
+			std::unique_lock<lock_t> _lock(m_lock);
+			auto iterator = m_map.find(fd);
+			if (iterator != std::end(m_map))
+			{
+				std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
+				_lock.unlock();
+				if (!iterator->second.m_queue.empty())
+				{
+					for (auto qbegin = iterator->second.m_queue.begin(), qend = iterator->second.m_queue.end(); qbegin != qend; qbegin++)
+					{
+						auto ev = *qbegin;
+						if (ev.data.ptr != nullptr)
+						{
+							m_clean((_IOContext*)ev.data.ptr);
+						}
+						qbegin = iterator->second.m_queue.erase(qbegin);
+					}
+				}
+				iterator->second.m_existed = false;
+			}
+		}
+
+		virtual void unbind(const int& object, std::function<void(int)> deleter)
+		{
+			std::unique_lock<lock_t> _lock(m_lock);
+			auto iterator = m_map.find(object);
+			if (iterator != std::end(m_map))
+			{
+				std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
+				_lock.unlock();
+				if (!iterator->second.m_queue.empty())
+				{
+					for (auto qbegin = iterator->second.m_queue.begin(), qend = iterator->second.m_queue.end(); qbegin != qend; qbegin++)
+					{
+						auto ev = *qbegin;
+						if (ev.data.ptr != nullptr)
+						{
+							m_clean((_IOContext*)ev.data.ptr);
+						}
+						qbegin = iterator->second.m_queue.erase(qbegin);
+					}
+				}
+				iterator->second.m_existed = false;
+				deleter(object);
+			}
+		}
 	private:
-		stdx::epoll m_epoll;
+		void _Reset(int fd)
+		{
+			std::unique_lock<lock_t> _lock(m_lock);
+			auto iterator = m_map.find(fd);
+			if (iterator != std::end(m_map))
+			{
+				auto& obj = *iterator;
+				std::unique_lock<stdx::spin_lock> lock(obj.second.m_lock);
+				_lock.unlock();
+				if (obj.second.m_existed)
+				{
+					if (!obj.second.m_queue.empty())
+					{
+						auto ev = obj.second.m_queue.front();
+						obj.second.m_queue.pop_front();
+						obj.second.m_existed = true;
+						m_epoll.update_event(fd, &ev);
+						return;
+					}
+					else
+					{
+						m_epoll.del_event(fd);
+						obj.second.m_existed = false;
+						return;
+					}
+				}
+				else if (!obj.second.m_queue.empty())
+				{
+					lock.unlock();
+					unbind(fd);
+					return;
+				}
+			}
+		}
 
+		stdx::epoll m_epoll;
 		std::unordered_map<int, stdx::ev_queue> m_map;
+		lock_t m_lock;
+		clean_t m_clean;
+		operate_t m_operate;
+		fd_getter_t m_fd_getter;
+		event_getter_t m_event_getter;
 	};
+
+	template<typename _IOContext>
+	inline stdx::io_poller<_IOContext> make_epoll_proactor_poller(typename stdx::_EpollProactor<_IOContext>::clean_t clean, 
+		typename stdx::_EpollProactor<_IOContext>::operate_t io_operate,
+		typename stdx::_EpollProactor<_IOContext>::fd_getter_t fd_getter,
+		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
+	{
+		return stdx::make_poller<stdx::_EpollProactor<_IOContext>>(clean,io_operate,fd_getter,event_getter);
+	}
 
 	template<typename _IOContext>
 	class _BIOPoller:public stdx::basic_poller<_IOContext,int>
@@ -735,66 +939,66 @@ namespace stdx
 		std::list<_IOContext*> m_list;
 	};
 
-	template<typename _IOContext>
-	class bio_poller
-	{
-		using impl_t = std::shared_ptr<stdx::_BIOPoller<_IOContext>>;
-		using self_t = stdx::bio_poller<_IOContext>;
-	public:
-		bio_poller()
-			:m_impl(std::make_shared<_BIOPoller<_IOContext>>())
-		{}
+	//template<typename _IOContext>
+	//class bio_poller
+	//{
+	//	using impl_t = std::shared_ptr<stdx::_BIOPoller<_IOContext>>;
+	//	using self_t = stdx::bio_poller<_IOContext>;
+	//public:
+	//	bio_poller()
+	//		:m_impl(std::make_shared<_BIOPoller<_IOContext>>())
+	//	{}
 
-		bio_poller(const self_t& other)
-			:m_impl(other.m_impl)
-		{}
+	//	bio_poller(const self_t& other)
+	//		:m_impl(other.m_impl)
+	//	{}
 
-		bio_poller(self_t&& other) noexcept
-			:m_impl(std::move(other.m_impl))
-		{}
+	//	bio_poller(self_t&& other) noexcept
+	//		:m_impl(std::move(other.m_impl))
+	//	{}
 
-		self_t& operator=(const self_t& other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
+	//	self_t& operator=(const self_t& other)
+	//	{
+	//		m_impl = other.m_impl;
+	//		return *this;
+	//	}
 
-		self_t &operator=(self_t &&other) noexcept
-		{
-			m_impl = std::move(other.m_impl);
-			return *this;
-		}
+	//	self_t &operator=(self_t &&other) noexcept
+	//	{
+	//		m_impl = std::move(other.m_impl);
+	//		return *this;
+	//	}
 
-		~bio_poller() = default;
+	//	~bio_poller() = default;
 
-		_IOContext* get()
-		{
-			return m_impl->get();
-		}
+	//	_IOContext* get()
+	//	{
+	//		return m_impl->get();
+	//	}
 
-		_IOContext* get(size_t ms)
-		{
-			return m_impl->get(ms);
-		}
+	//	_IOContext* get(size_t ms)
+	//	{
+	//		return m_impl->get(ms);
+	//	}
 
-		void push(_IOContext* p)
-		{
-			return m_impl->post(p);
-		}
-		
-		bool operator==(const self_t&& other) const
-		{
-			return m_impl == other.m_impl;
-		}
+	//	void push(_IOContext* p)
+	//	{
+	//		return m_impl->post(p);
+	//	}
+	//	
+	//	bool operator==(const self_t&& other) const
+	//	{
+	//		return m_impl == other.m_impl;
+	//	}
 
-		operator bool() const
-		{
-			return (bool)m_impl;
-		}
+	//	operator bool() const
+	//	{
+	//		return (bool)m_impl;
+	//	}
 
-	private:
-		impl_t m_impl;
-	};
+	//private:
+	//	impl_t m_impl;
+	//};
 
 	template<typename _IOContext>
 	inline stdx::io_poller<_IOContext> make_bio_poller()

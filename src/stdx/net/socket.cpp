@@ -63,12 +63,21 @@ std::shared_ptr<stdx::_NetworkIOService> stdx::_NetworkIOService::get_instance()
 
 stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
-	:m_iocp()
+	:m_poller()
 #else
-	: m_reactor([](epoll_event *ptr) 
-	{
-			stdx::_NetworkIOService::_Clean(ptr);
-	})
+	: m_poller(stdx::make_epoll_proactor_poller<stdx::network_io_context>([](stdx::network_io_context *context) 
+		{
+			_Clean(context);
+		}, [](stdx::network_io_context* context) 
+		{
+			return _IOOperate(context);
+		},[](stdx::network_io_context* context) 
+		{
+			return _GetFd(context);
+		}, [](stdx::network_io_context* context) 
+		{
+			return _GetEvents(context);
+		}))
 #endif
 	, m_token()
 {
@@ -81,7 +90,7 @@ stdx::_NetworkIOService::~_NetworkIOService()
 #ifdef WIN32
 	for (size_t i = 0, size = cpu_cores(); i < size; i++)
 	{
-		m_iocp.post(0, nullptr, nullptr);
+		m_poller.post(nullptr);
 	}
 #endif
 }
@@ -109,13 +118,13 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 	{
 		_ThrowWSAError
 	}
-	m_iocp.bind(sock);
+	m_poller.bind((HANDLE)sock);
 #else
 	if (sock == -1)
 	{
 		_ThrowLinuxError
 	}
-	m_reactor.bind(sock);
+	m_poller.bind(sock);
 #endif
 	return sock;
 }
@@ -128,7 +137,7 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int& addr_family, const i
 	{
 		_ThrowWSAError
 	}
-	m_iocp.bind(sock);
+	m_poller.bind((HANDLE)sock);
 	return sock;
 }
 #endif
@@ -408,8 +417,6 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 	::printf("[Network IO Service]IO操作已投递\n");
 #endif // DEBUG
 #else
-	epoll_event ev;
-	ev.events = stdx::epoll_events::in;
 	stdx::network_io_context* context = new stdx::network_io_context;
 	if (context == nullptr)
 	{
@@ -452,10 +459,9 @@ void stdx::_NetworkIOService::recv(socket_t sock, const socket_size_t& size, std
 		callback(ev, err);
 	};
 	context->callback = call;
-	ev.data.ptr = context;
 	try
 	{
-		m_reactor.push(sock, ev);
+		m_poller.post(context);
 	}
 	catch (const std::exception&)
 	{
@@ -493,7 +499,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::accept(socke
 	{
 		_ThrowWSAError
 	}
-	m_iocp.bind(s);
+	m_poller.bind((HANDLE)s);
 	return s;
 #else
 	socklen_t len = ipv4_addr::addr_len;
@@ -503,7 +509,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::accept(socke
 	{
 		_ThrowLinuxError
 	}
-	m_reactor.bind(new_sock);
+	m_poller.bind(new_sock);
 	return new_sock;
 #endif
 }
@@ -517,7 +523,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::accept(socke
 	{
 		_ThrowWSAError
 	}
-	m_iocp.bind(s);
+	m_poller.bind((HANDLE)s);
 	return s;
 #else
 	socklen_t len = ipv4_addr::addr_len;
@@ -526,7 +532,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::accept(socke
 	{
 		_ThrowLinuxError
 	}
-	m_reactor.bind(new_sock);
+	m_poller.bind(new_sock);
 	return new_sock;
 #endif
 }
@@ -798,8 +804,6 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 		}
 	}
 #else
-	epoll_event ev;
-	ev.events = stdx::epoll_events::in;
 	stdx::network_io_context* context = new stdx::network_io_context;
 	if (context == nullptr)
 	{
@@ -843,10 +847,9 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, const socket_size_t& size
 		callback(ev, err);
 	};
 	context->callback = call;
-	ev.data.ptr = context;
 	try
 	{
-		m_reactor.push(sock, ev);
+		m_poller.post(context);
 	}
 	catch (const std::exception &err)
 	{
@@ -867,7 +870,10 @@ void stdx::_NetworkIOService::close(socket_t sock)
 		_ThrowWSAError
 	}
 #else
-	m_reactor.unbind_and_close(sock);
+	m_poller.unbind(sock, [](socket_t sock) 
+	{
+			::close(sock);
+	});
 #endif
 }
 
@@ -1000,8 +1006,6 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		callback(stdx::network_accept_event(), std::current_exception());
 	}
 #else
-	epoll_event ev;
-	ev.events = stdx::epoll_events::in;
 	stdx::network_io_context* context = new stdx::network_io_context;
 	if (context == nullptr)
 	{
@@ -1032,10 +1036,9 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		callback(ev, err);
 	};
 	context->callback = call;
-	ev.data.ptr = context;
 	try
 	{
-		m_reactor.push(sock, ev);
+		m_poller.post(context);
 	}
 	catch (const std::exception&)
 	{
@@ -1108,122 +1111,140 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #else
 	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token,[](stdx::reactor reactor)
+//		stdx::threadpool.loop_run(m_token,[](stdx::reactor reactor)
+//			{
+//				try
+//				{
+//					reactor.get([reactor](epoll_event* ev_ptr) mutable
+//						{
+//							stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
+//							if (context == nullptr)
+//							{
+//								return;
+//							}
+//							if (ev_ptr->events & stdx::epoll_events::hup)
+//							{
+//								_Clean(ev_ptr);
+//								reactor.loop(context->this_socket);
+//								return;
+//							}
+//							else if (ev_ptr->events & stdx::epoll_events::err)
+//							{
+//								_Clean(ev_ptr);
+//								reactor.loop(context->this_socket);
+//								return;
+//							}
+//							ssize_t r = 0;
+//							if (context->code == stdx::network_io_context_code::recv)
+//							{
+//								r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT);
+//							}
+//							else if (context->code == stdx::network_io_context_code::recvfrom)
+//							{
+//								sockaddr_in addr;
+//								socklen_t addr_size = sizeof(sockaddr_in);
+//								r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
+//								context->addr = stdx::ipv4_addr(addr);
+//							}
+//							else if (context->code == stdx::network_io_context_code::accept)
+//							{
+//								sockaddr_in addr;
+//								socklen_t addr_size = sizeof(sockaddr_in);
+//								context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK);
+//								context->addr = stdx::ipv4_addr(addr);
+//								if (context->target_socket == -1)
+//								{
+//									epoll_event ev = *ev_ptr;
+//									reactor.push(context->this_socket, ev);
+//									reactor.loop(context->this_socket);
+//									return;
+//								}
+//								else
+//								{
+//									reactor.bind(context->target_socket);
+//									r = 1;
+//								}
+//							}
+//							auto* callback = context->callback;
+//							std::exception_ptr err(nullptr);
+//							try
+//							{
+//								if (r == 0)
+//								{
+//									throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
+//								}
+//								else if (r < 0)
+//								{
+//									if (errno == EAGAIN || errno == EWOULDBLOCK)
+//									{
+//										reactor.push(context->this_socket, *ev_ptr);
+//										reactor.loop(context->this_socket);
+//										return;
+//									}
+//									_ThrowLinuxError
+//								}
+//								context->size = (size_t)r;
+//							}
+//							catch (const std::exception&)
+//							{
+//								err = std::current_exception();
+//#ifdef DEBUG
+//								::printf("[Epoll]IO操作出错\n");
+//#endif // DEBUG
+//							}
+//							reactor.loop(context->this_socket);
+//							if (context->callback == nullptr)
+//							{
+//								_Clean(ev_ptr);
+//								return;
+//							}
+//							stdx::finally fin([callback]()
+//								{
+//									delete callback;
+//								});
+//							try
+//							{
+//								(*callback)(context, err);
+//							}
+//							catch (const std::exception&)
+//							{
+//							}
+//						}, STDX_LAZY_MAX_TIME);
+//				}
+//				catch (const std::exception&)
+//				{
+//				}
+//			}, m_reactor);
+		
+		stdx::threadpool.loop_run(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
-				try
+				auto context = poller.get(STDX_LAZY_MAX_TIME);
+				if (context == nullptr)
 				{
-					reactor.get([reactor](epoll_event* ev_ptr) mutable
+					return;
+				}
+				auto call = context->callback;
+				std::exception_ptr err(nullptr);
+				if (context->err_code != 0)
+				{
+					err = std::make_exception_ptr<std::system_error>(std::error_code(context->code, std::system_category()));
+				}
+				stdx::threadpool.run([call,err,context]() 
+				{
+						stdx::finally fin([call]() 
 						{
-							stdx::network_io_context* context = (stdx::network_io_context*)ev_ptr->data.ptr;
-							if (context == nullptr)
-							{
-								return;
-							}
-							if (ev_ptr->events & stdx::epoll_events::hup)
-							{
-								_Clean(ev_ptr);
-								reactor.loop(context->this_socket);
-								return;
-							}
-							else if (ev_ptr->events & stdx::epoll_events::err)
-							{
-								_Clean(ev_ptr);
-								reactor.loop(context->this_socket);
-								return;
-							}
-							ssize_t r = 0;
-							if (context->code == stdx::network_io_context_code::recv)
-							{
-								r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT);
-							}
-							else if (context->code == stdx::network_io_context_code::recvfrom)
-							{
-								sockaddr_in addr;
-								socklen_t addr_size = sizeof(sockaddr_in);
-								r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
-								context->addr = stdx::ipv4_addr(addr);
-							}
-							else if (context->code == stdx::network_io_context_code::accept)
-							{
-								sockaddr_in addr;
-								socklen_t addr_size = sizeof(sockaddr_in);
-								context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK);
-								context->addr = stdx::ipv4_addr(addr);
-								if (context->target_socket == -1)
-								{
-									epoll_event ev = *ev_ptr;
-									reactor.push(context->this_socket, ev);
-									reactor.loop(context->this_socket);
-									return;
-								}
-								else
-								{
-									reactor.bind(context->target_socket);
-									r = 1;
-								}
-							}
-							auto* callback = context->callback;
-							std::exception_ptr err(nullptr);
-							try
-							{
-								if (r == 0)
-								{
-									throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
-								}
-								else if (r < 0)
-								{
-									if (errno == EAGAIN || errno == EWOULDBLOCK)
-									{
-										reactor.push(context->this_socket, *ev_ptr);
-										reactor.loop(context->this_socket);
-										return;
-									}
-									_ThrowLinuxError
-								}
-								context->size = (size_t)r;
-							}
-							catch (const std::exception&)
-							{
-								err = std::current_exception();
-#ifdef DEBUG
-								::printf("[Epoll]IO操作出错\n");
-#endif // DEBUG
-							}
-							reactor.loop(context->this_socket);
-							if (context->callback == nullptr)
-							{
-								_Clean(ev_ptr);
-								return;
-							}
-							stdx::finally fin([callback]()
-								{
-									delete callback;
-								});
-							try
-							{
-								(*callback)(context, err);
-							}
-							catch (const std::exception&)
-							{
-							}
-						}, STDX_LAZY_MAX_TIME);
-				}
-				catch (const std::exception&)
-				{
-				}
-			}, m_reactor);
+								delete call;
+						});
+						(*call)(context, err);
+				});
+			},m_poller);
 	}
 #endif
 }
 
 #ifdef LINUX
-void stdx::_NetworkIOService::_Clean(epoll_event* ptr)
+void stdx::_NetworkIOService::_Clean(stdx::network_io_context* context)
 {
-	stdx::network_io_context* context = (stdx::network_io_context*)ptr->data.ptr;
-	if (context == nullptr)
-	{
-		return;
-	}
 	auto* callback = context->callback;
 	if (callback != nullptr)
 	{
@@ -1243,6 +1264,75 @@ void stdx::_NetworkIOService::_Clean(epoll_event* ptr)
 	{
 		delete context;
 	}
+}
+
+int stdx::_NetworkIOService::_GetFd(stdx::network_io_context* context)
+{
+	return context->this_socket;
+}
+
+bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
+{
+	ssize_t r = 0;
+	if (context->code == stdx::network_io_context_code::recv)
+	{
+		r = ::recv(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT);
+	}
+	else if (context->code == stdx::network_io_context_code::recvfrom)
+	{
+		sockaddr_in addr;
+		socklen_t addr_size = sizeof(sockaddr_in);
+		r = ::recvfrom(context->this_socket, context->buffer, context->size, MSG_NOSIGNAL | MSG_DONTWAIT, (sockaddr*)&addr, &addr_size);
+		context->addr = stdx::ipv4_addr(addr);
+}
+	else if (context->code == stdx::network_io_context_code::accept)
+	{
+		sockaddr_in addr;
+		socklen_t addr_size = sizeof(sockaddr_in);
+		context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK);
+		context->addr = stdx::ipv4_addr(addr);
+		if (context->target_socket == -1)
+		{
+			return false;
+		}
+		else
+		{
+			r = 1;
+		}
+	}
+	if (r < 0)
+	{
+		context->err_code = errno;
+	}
+	else
+	{
+		context->err_code = 0;
+	}
+	context->size = (size_t)r;
+	return true;
+}
+
+uint32_t stdx::_NetworkIOService::_GetEvents(stdx::network_io_context* context)
+{
+	uint32_t check_in = stdx::network_io_context_code::accept | 
+		stdx::network_io_context_code::accept_ipv6 | 
+		stdx::network_io_context_code::recv | 
+		stdx::network_io_context_code::recvfrom | 
+		stdx::network_io_context_code::recvfrom_ipv6;
+	if (context->code & check_in)
+	{
+		return stdx::epoll_events::in;
+	}
+	uint32_t check_out = stdx::network_io_context_code::send |
+		stdx::network_io_context_code::sendfile |
+		stdx::network_io_context_code::sendto |
+		stdx::network_io_context_code::sendto_ipv6 |
+		stdx::network_io_context_code::connect;
+	if (context->code & check_out)
+	{
+		return stdx::epoll_events::out;
+	}
+	return 0;
 }
 #endif // LINUX
 
