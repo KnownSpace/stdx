@@ -565,7 +565,7 @@ uint64_t stdx::_FileIOService::get_file_size(stdx::native_file_handle file) cons
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool.loop_run(m_token,[](poller_t poller)
 			{
@@ -638,7 +638,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
-	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool.loop_run(m_token, [](poller_t poller)
 			{
@@ -684,7 +684,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	}
 #else
 	//Buffered IO
-	for (size_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
 		stdx::threadpool.loop_run(m_token, [](poller_t poller)
 		{
