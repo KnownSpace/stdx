@@ -643,7 +643,7 @@ void stdx::datetime::bezero()
 	m_millisecond = 0;
 }
 
-stdx::string stdx::datetime::to_string(typename stdx::string::char_t* format) const
+stdx::string stdx::datetime::to_string(const typename stdx::string::char_t* format) const
 {
 	stdx::string str = format;
 	str.replace(U("%year"), stdx::to_string(m_year));
