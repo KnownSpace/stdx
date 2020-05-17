@@ -488,23 +488,22 @@ namespace stdx
 		{}
 
 		ev_queue(ev_queue &&other) noexcept
-			:m_lock(std::cref(other.m_lock))
+			:m_lock(std::move(other.m_lock))
 			,m_existed(other.m_existed)
 			,m_queue(std::move(other.m_queue))
 		{}
 		~ev_queue() = default;
 		ev_queue &operator=(ev_queue &&other) noexcept
 		{
-			m_lock = std::cref(other.m_lock);
+			m_lock = std::move(other.m_lock);
 			m_existed = other.m_existed;
 			m_queue = std::move(other.m_queue);
 			return *this;
 		}
 		ev_queue& operator=(const ev_queue& other)
 		{
-			m_lock = other.m_lock;
-			m_existed = other.m_existed;
-			m_queue = other.m_queue;
+			stdx::ev_queue tmp(other);
+			stdx::atomic_copy(*this, std::move(tmp));
 			return *this;
 		}
 		stdx::spin_lock m_lock;
@@ -518,7 +517,7 @@ namespace stdx
 	public:
 		using clean_t = std::function<void(_IOContext*)>;
 		using operate_t = std::function<bool(_IOContext*)>;
-		using lock_t = stdx::spin_lock;
+		using lock_t = std::timed_mutex;
 		using fd_getter_t = std::function<int(_IOContext*)>;
 		using event_getter_t = std::function<uint32_t(_IOContext*)>;
 	public:
