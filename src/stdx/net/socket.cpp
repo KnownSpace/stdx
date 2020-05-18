@@ -1127,6 +1127,10 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				{
 					err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
 				}
+				else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
+				{
+					poller.bind(context->target_socket);
+				}
 				stdx::threadpool.run([call,err,context]() 
 				{
 						stdx::finally fin([call]() 
