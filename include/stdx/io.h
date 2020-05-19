@@ -512,6 +512,15 @@ namespace stdx
 	};
 
 	template<typename _IOContext>
+	struct epoll_callback_list
+	{
+		stdx::spin_lock lock;
+		epoll_event ev;
+		std::list<_IOContext> out_ev_callback;
+		std::list<_IOContext> in_ev_callbacl;
+	};
+
+	template<typename _IOContext>
 	class _EpollProactor:public stdx::basic_poller<_IOContext,int>
 	{
 	public:
