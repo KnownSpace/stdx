@@ -458,7 +458,7 @@ namespace stdx
 #endif
 		size_t size;
 	};
-
+	
 	struct network_recv_event
 	{
 		network_recv_event()
@@ -691,6 +691,8 @@ namespace stdx
 		static std::once_flag _once_flag;
 		
 		static std::shared_ptr<_NetworkIOService> _instance;
+
+		stdx::thread_pool m_thread_pool;
 	};
 
 	class network_io_service

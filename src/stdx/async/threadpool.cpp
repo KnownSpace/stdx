@@ -2,7 +2,7 @@
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
 
-stdx::thread_pool stdx::threadpool = stdx::make_thread_pool<stdx::_FixedSizeThreadPool>(cpu_cores()*2);
+stdx::thread_pool stdx::threadpool = stdx::make_fixed_size_thread_pool(cpu_cores());
 
 //构造函数
 stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
@@ -180,4 +180,9 @@ void stdx::thread_pool::lazy_loop_do(stdx::cancel_token token, uint64_t lazy_ms,
 			lazy_loop_do(token, lazy_ms, call);
 		}
 	}, 0);
+}
+
+stdx::thread_pool stdx::make_fixed_size_thread_pool(uint32_t size)
+{
+	return stdx::make_thread_pool<stdx::_FixedSizeThreadPool>(size);
 }

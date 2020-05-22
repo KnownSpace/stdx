@@ -100,7 +100,7 @@ namespace stdx
 		template<typename _Fn,typename ..._Args>
 		void run(_Fn &&fn,_Args &&...args) noexcept
 		{
-			m_impl->run(std::bind(fn,args...));
+			m_impl->run(std::move(std::bind(fn, args...)));
 		}
 
 		void join_as_worker()
@@ -138,6 +138,19 @@ namespace stdx
 		{
 			return m_impl == other.m_impl;
 		}
+
+		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		void long_loop(stdx::cancel_token token, _Fn&& fn, _Args&&...args)
+		{
+			std::function<void()> call = std::bind(fn, args...);
+			run([](std::function<void()> call,stdx::cancel_token token) 
+			{
+					while (!token.is_cancel())
+					{
+						call();
+					}
+			},call,token);
+		}
 	private:
 		void loop_do(stdx::cancel_token token, std::function<void()> call);
 
@@ -154,6 +167,8 @@ namespace stdx
 		std::shared_ptr<stdx::basic_thread_pool> impl = std::make_shared<_Impl>(args...);
 		return stdx::thread_pool(impl);
 	}
+
+	extern stdx::thread_pool make_fixed_size_thread_pool(uint32_t size);
 
 	extern stdx::thread_pool threadpool;
 }

@@ -7,6 +7,7 @@
 #include <stdx/async/threadpool.h>
 #include <stdx/finally.h>
 #include <stdx/poller.h>
+#include <stdx/async/callback_flag.h>
 
 namespace stdx
 {
@@ -475,7 +476,7 @@ namespace stdx
 	struct ev_queue
 	{
 		ev_queue()
-			:m_lock()
+			:m_lock(std::make_shared<std::mutex>())
 			,m_existed(false)
 			,m_queue()
 		{
@@ -506,7 +507,7 @@ namespace stdx
 			stdx::atomic_copy(*this, std::move(tmp));
 			return *this;
 		}
-		stdx::spin_lock m_lock;
+		std::shared_ptr<std::mutex> m_lock;
 		bool m_existed;
 		std::list<epoll_event> m_queue;
 	};
@@ -609,7 +610,7 @@ namespace stdx
 			ev.data.ptr = p;
 			ev.events |= stdx::epoll_events::once;
 			auto& obj = m_map[fd];
-			std::unique_lock<stdx::spin_lock> lock(obj.m_lock);
+			std::unique_lock<std::mutex> lock(*obj.m_lock);
 			if (!obj.m_existed)
 			{
 				obj.m_existed = true;
@@ -630,7 +631,7 @@ namespace stdx
 		virtual void unbind(const int &fd) override
 		{
 			auto& obj = m_map[fd];
-			std::unique_lock<stdx::spin_lock> lock(obj.m_lock);
+			std::unique_lock<std::mutex> lock(*obj.m_lock);
 			if (!obj.m_queue.empty())
 			{
 				for (auto qbegin = obj.m_queue.begin(), qend = obj.m_queue.end(); qbegin != qend; qbegin++)
@@ -649,6 +650,7 @@ namespace stdx
 		virtual void unbind(const int& object, std::function<void(int)> deleter)
 		{
 			auto& obj = m_map[object];
+			std::unique_lock<std::mutex> lock(*obj.m_lock);
 			if (!obj.m_queue.empty())
 			{
 				for (auto qbegin = obj.m_queue.begin(), qend = obj.m_queue.end(); qbegin != qend; qbegin++)
@@ -668,7 +670,7 @@ namespace stdx
 		void _Reset(int fd)
 		{
 			auto& obj = m_map[fd];
-			std::unique_lock<stdx::spin_lock> lock(obj.m_lock);
+			std::unique_lock<std::mutex> lock(*obj.m_lock);
 			if (obj.m_existed)
 			{
 				if (!obj.m_queue.empty())
@@ -763,67 +765,6 @@ namespace stdx
 		std::condition_variable m_cv;
 		std::list<_IOContext*> m_list;
 	};
-
-	//template<typename _IOContext>
-	//class bio_poller
-	//{
-	//	using impl_t = std::shared_ptr<stdx::_BIOPoller<_IOContext>>;
-	//	using self_t = stdx::bio_poller<_IOContext>;
-	//public:
-	//	bio_poller()
-	//		:m_impl(std::make_shared<_BIOPoller<_IOContext>>())
-	//	{}
-
-	//	bio_poller(const self_t& other)
-	//		:m_impl(other.m_impl)
-	//	{}
-
-	//	bio_poller(self_t&& other) noexcept
-	//		:m_impl(std::move(other.m_impl))
-	//	{}
-
-	//	self_t& operator=(const self_t& other)
-	//	{
-	//		m_impl = other.m_impl;
-	//		return *this;
-	//	}
-
-	//	self_t &operator=(self_t &&other) noexcept
-	//	{
-	//		m_impl = std::move(other.m_impl);
-	//		return *this;
-	//	}
-
-	//	~bio_poller() = default;
-
-	//	_IOContext* get()
-	//	{
-	//		return m_impl->get();
-	//	}
-
-	//	_IOContext* get(size_t ms)
-	//	{
-	//		return m_impl->get(ms);
-	//	}
-
-	//	void push(_IOContext* p)
-	//	{
-	//		return m_impl->post(p);
-	//	}
-	//	
-	//	bool operator==(const self_t&& other) const
-	//	{
-	//		return m_impl == other.m_impl;
-	//	}
-
-	//	operator bool() const
-	//	{
-	//		return (bool)m_impl;
-	//	}
-
-	//private:
-	//	impl_t m_impl;
-	//};
 
 	template<typename _IOContext>
 	inline stdx::io_poller<_IOContext> make_bio_poller()

@@ -53,6 +53,7 @@ stdx::_FileIOService::_FileIOService()
 #endif
 #endif
 	,m_token()
+	,m_thread_pool(stdx::make_fixed_size_thread_pool(cpu_cores()))
 {
 	init_threadpoll();
 }
@@ -567,12 +568,12 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #ifdef WIN32
 	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token,[](poller_t poller)
+		m_thread_pool.long_loop(m_token,[](poller_t poller)
 			{
 				stdx::file_io_context* context_ptr = nullptr;
 				try
 				{
-					context_ptr = poller.get(STDX_LAZY_MAX_TIME);
+					context_ptr = poller.get();
 				}
 				catch (const std::exception&)
 				{
@@ -640,11 +641,11 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	//Native AIO
 	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token, [](poller_t poller)
+		m_thread_pool.long_loop(m_token, [](poller_t poller)
 			{
 				std::exception_ptr error(nullptr);
 				int64_t res = 0;
-				auto* context_ptr = poller.get(res, STDX_LAZY_MAX_TIME);
+				auto* context_ptr = poller.get(res);
 				if (context_ptr == nullptr)
 				{
 					return;
@@ -686,9 +687,9 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	//Buffered IO
 	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token, [](poller_t poller)
+		m_thread_pool.long_loop(m_token, [](poller_t poller)
 		{
-			auto* context = poller.get(STDX_LAZY_MAX_TIME);
+			auto* context = poller.get();
 			if (context == nullptr)
 			{
 				return;

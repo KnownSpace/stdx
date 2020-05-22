@@ -43,10 +43,6 @@ LPFN_GETACCEPTEXSOCKADDRS stdx::_NetworkIOService::m_get_addr_ex = nullptr;
 std::once_flag stdx::_NetworkIOService::m_once_flag;
 #endif
 
-#ifdef LINUX
-void clean(epoll_event* ptr);
-#endif // LINUX
-
 
 std::once_flag stdx::_NetworkIOService::_once_flag;
 
@@ -80,6 +76,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 		}))
 #endif
 	, m_token()
+	, m_thread_pool(stdx::make_fixed_size_thread_pool(cpu_cores()))
 {
 	init_threadpoll();
 }
@@ -1054,12 +1051,12 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #ifdef WIN32
 	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
+		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
 				stdx::network_io_context* context_ptr = nullptr;
 				try
 				{
-					context_ptr = poller.get(STDX_LAZY_MAX_TIME);
+					context_ptr = poller.get();
 				}
 				catch (const std::exception&)
 				{
@@ -1109,9 +1106,9 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #else
 	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool.loop_run(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
+		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
-				auto context = poller.get(STDX_LAZY_MAX_TIME);
+				auto context = poller.get();
 				if (context == nullptr)
 				{
 					return;

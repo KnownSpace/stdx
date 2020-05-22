@@ -310,6 +310,8 @@ namespace stdx
 		static std::once_flag _once_flag;
 
 		static std::shared_ptr<_FileIOService> _instance;
+
+		stdx::thread_pool m_thread_pool;
 	};
 
 	//文件IO服务
