@@ -932,49 +932,51 @@ namespace stdx
 			int fd = ev.data.fd;
 			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
 			{
-				std::unique_lock<stdx::spin_lock> lock(ev_.lock);
-				//is in event
-				//handle in event first
-				if (ev.events & stdx::epoll_events::in)
 				{
-					if (!ev_.in_contexts.empty())
+					std::unique_lock<stdx::spin_lock> lock(ev_.lock);
+					//is in event
+					//handle in event first
+					if (ev.events & stdx::epoll_events::in)
 					{
-						_IOContext* cont = ev_.in_contexts.front();
-						lock.unlock();
-						//I/O operation
-						if (m_operate(cont))
+						if (!ev_.in_contexts.empty())
 						{
+							_IOContext* cont = ev_.in_contexts.front();
+							lock.unlock();
+							//I/O operation
+							if (m_operate(cont))
+							{
+								lock.lock();
+								//I/O operation finish
+								ev_.in_contexts.pop_front();
+								return cont;
+							}
 							lock.lock();
-							//I/O operation finish
-							ev_.in_contexts.pop_front();
-							return cont;
 						}
-						lock.lock();
-					}
-					else
-					{
-						ev_.model.enable_in = false;
-					}
-				}
-				if (ev.events & stdx::epoll_events::out)
-				{
-					if (!ev_.out_contexts.empty())
-					{
-						_IOContext* cont = ev_.out_contexts.front();
-						lock.unlock();
-						//I/O operation
-						if (m_operate(cont))
+						else
 						{
-							lock.lock();
-							//I/O operation finish
-							ev_.out_contexts.pop_front();
-							return cont;
+							ev_.model.enable_in = false;
 						}
-						lock.lock();
 					}
-					else
+					if (ev.events & stdx::epoll_events::out)
 					{
-						ev_.model.enable_out = false;
+						if (!ev_.out_contexts.empty())
+						{
+							_IOContext* cont = ev_.out_contexts.front();
+							lock.unlock();
+							//I/O operation
+							if (m_operate(cont))
+							{
+								lock.lock();
+								//I/O operation finish
+								ev_.out_contexts.pop_front();
+								return cont;
+							}
+							lock.lock();
+						}
+						else
+						{
+							ev_.model.enable_out = false;
+						}
 					}
 				}
 				_HandleCtl(ev_,fd);
