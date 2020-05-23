@@ -584,10 +584,10 @@ namespace stdx
 		virtual _IOContext* get() override
 		{
 			epoll_event ev;
-			int r = m_epoll.wait(&ev, 1,-1);
+			//int r = m_epoll.wait(&ev, 1,-1);
 			while (true)
 			{
-				r = m_epoll.wait(&ev, 1, -1);
+				int r = m_epoll.wait(&ev, 1, -1);
 				if (r == 1)
 				{
 					if (ev.data.fd == m_ctl_eventfd)
@@ -601,7 +601,7 @@ namespace stdx
 							m_ctl_changes.pop_front();
 							lock.unlock();
 							_HandleCtl(fd);
-							_RestCtlFd();
+							//_RestCtlFd();
 						}
 					}
 					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
@@ -663,7 +663,7 @@ namespace stdx
 					m_ctl_changes.pop_front();
 					lock.unlock();
 					_HandleCtl(fd);
-					_RestCtlFd();
+					//_RestCtlFd();
 				}
 				//return by timeout
 				return nullptr;
