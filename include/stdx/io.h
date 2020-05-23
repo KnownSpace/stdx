@@ -810,9 +810,8 @@ namespace stdx
 				ev.model.is_exist = false;
 				ev.model.is_err_or_hup = true;
 				_CleanContexts(ev);
-				deleter(object);
 			}
-
+			deleter(object);
 			//auto& obj = m_map[object];
 			//std::unique_lock<std::mutex> lock(*obj.m_lock);
 			//if (!obj.m_queue.empty())
@@ -887,28 +886,29 @@ namespace stdx
 		void _HandleCtl(stdx::epoll_context_list<_IOContext> &ev,int fd)
 		{
 			bool need_update = false;
-			std::unique_lock<stdx::spin_lock> lock(ev.lock);
-			if (ev.model.need_enable_in())
 			{
-				need_update = true;
-				ev.model.ev.events |= stdx::epoll_events::in;
+				std::unique_lock<stdx::spin_lock> lock(ev.lock);
+				if (ev.model.need_enable_in())
+				{
+					need_update = true;
+					ev.model.ev.events |= stdx::epoll_events::in;
+				}
+				else if (ev.model.need_disable_in())
+				{
+					need_update = true;
+					ev.model.ev.events ^= stdx::epoll_events::in;
+				}
+				if (ev.model.need_enable_out())
+				{
+					need_update = true;
+					ev.model.ev.events |= stdx::epoll_events::out;
+				}
+				else if (ev.model.need_disable_out())
+				{
+					need_update = true;
+					ev.model.ev.events ^= stdx::epoll_events::out;
+				}
 			}
-			else if (ev.model.need_disable_in())
-			{
-				need_update = true;
-				ev.model.ev.events ^= stdx::epoll_events::in;
-			}
-			if (ev.model.need_enable_out())
-			{
-				need_update = true;
-				ev.model.ev.events |= stdx::epoll_events::out;
-			}
-			else if (ev.model.need_disable_out())
-			{
-				need_update = true;
-				ev.model.ev.events ^= stdx::epoll_events::out;
-			}
-			lock.unlock();
 			if (need_update)
 			{
 				if (ev.model.is_exist)
