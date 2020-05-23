@@ -601,7 +601,6 @@ namespace stdx
 							m_ctl_changes.pop_front();
 							lock.unlock();
 							_HandleCtl(fd);
-							//_RestCtlFd();
 						}
 					}
 					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
@@ -663,7 +662,6 @@ namespace stdx
 					m_ctl_changes.pop_front();
 					lock.unlock();
 					_HandleCtl(fd);
-					//_RestCtlFd();
 				}
 				//return by timeout
 				return nullptr;
@@ -873,14 +871,6 @@ namespace stdx
 				return false;
 			}
 			return true;
-		}
-
-		void _RestCtlFd()
-		{
-			epoll_event ev;
-			ev.events = stdx::epoll_events::in | stdx::epoll_events::once;
-			ev.data.fd = m_ctl_eventfd;
-			m_epoll.update_event(m_ctl_eventfd,&ev);
 		}
 
 		void _HandleCtl(stdx::epoll_context_list<_IOContext> &ev,int fd)
