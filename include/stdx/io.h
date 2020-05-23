@@ -579,7 +579,10 @@ namespace stdx
 			m_epoll.add_event(m_ctl_eventfd,&ev);
 		}
 
-		~_EpollProactor() = default;
+		~_EpollProactor()
+		{
+			::close(m_ctl_eventfd);
+		}
 
 		virtual _IOContext* get() override
 		{
