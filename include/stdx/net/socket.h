@@ -371,6 +371,7 @@ namespace stdx
 #else
 		char* buffer;
 		size_t buffer_size;
+		size_t send_size;
 #endif
 		stdx::socket_size_t size;
 		
@@ -616,9 +617,11 @@ namespace stdx
 
 		void connect(socket_t sock, stdx::ipv4_addr& addr);
 
+#ifdef WIN32
 		socket_t accept(socket_t sock, ipv4_addr& addr);
 
 		socket_t accept(socket_t sock);
+#endif // WIN32
 
 		void listen(socket_t sock, int backlog);
 
@@ -676,6 +679,10 @@ namespace stdx
 		static bool _IOOperate(stdx::network_io_context* context);
 
 		static uint32_t _GetEvents(stdx::network_io_context* context);
+
+		void _Send(int sock, char* buf, size_t size, size_t offset, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
+
+		void _SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offset, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
 #endif // LINUX
 
 	private:
@@ -756,6 +763,7 @@ namespace stdx
 		}
 
 
+#ifdef WIN32
 		socket_t accept(socket_t sock, ipv4_addr& addr)
 		{
 			return m_impl->accept(sock, addr);
@@ -765,6 +773,7 @@ namespace stdx
 		{
 			return m_impl->accept(sock);
 		}
+#endif // WIN32
 
 		void listen(socket_t sock, int backlog)
 		{
@@ -856,6 +865,12 @@ namespace stdx
 			m_io_service.listen(m_handle, backlog);
 		}
 
+#ifdef WIN32
+		socket_t accept(ipv4_addr& addr)
+		{
+			return m_io_service.accept(m_handle, addr);
+		}
+
 		socket_t accept(ipv4_addr& addr)
 		{
 			return m_io_service.accept(m_handle, addr);
@@ -865,7 +880,7 @@ namespace stdx
 		{
 			return m_io_service.accept(m_handle);
 		}
-
+#endif
 		stdx::task<stdx::network_accept_event> accept_ex();
 
 		void close();
@@ -948,6 +963,7 @@ namespace stdx
 			m_impl->listen(backlog);
 		}
 
+#ifdef WIN32
 		self_t accept(ipv4_addr& addr)
 		{
 			socket_t s = m_impl->accept(addr);
@@ -959,6 +975,7 @@ namespace stdx
 			socket_t s = m_impl->accept();
 			return socket(m_impl->io_service(), s);
 		}
+#endif // WIN32
 
 		stdx::task<network_connected_event> accept_ex();
 

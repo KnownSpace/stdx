@@ -109,6 +109,16 @@ int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int
 	}
 	return r;
 }
+
+int stdx::make_semaphore_eventfd(int flags)
+{
+	int fd = ::eventfd(0,EFD_SEMAPHORE|flags);
+	if (fd == -1)
+	{
+		_ThrowLinuxError
+	}
+	return fd;
+}
 #endif // LINUX
 
 #ifdef WIN32

@@ -521,6 +521,8 @@ namespace stdx
 		std::list<_IOContext> in_ev_callbacl;
 	};
 
+	extern int make_semaphore_eventfd(int flags);
+
 	template<typename _IOContext>
 	class _EpollProactor:public stdx::basic_poller<_IOContext,int>
 	{
@@ -538,7 +540,13 @@ namespace stdx
 			,m_operate(io_operator)
 			,m_fd_getter(fd_getter)
 			,m_event_getter(event_getter)
-		{}
+			,m_ctl_eventfd(stdx::make_semaphore_eventfd(EFD_NONBLOCK))
+		{
+			epoll_event ev;
+			ev.events = stdx::epoll_events::in | stdx::epoll_events::once;
+			ev.data.fd = m_ctl_eventfd;
+			m_epoll.add_event(m_ctl_eventfd,&ev);
+		}
 
 		~_EpollProactor() = default;
 
@@ -696,12 +704,43 @@ namespace stdx
 			}
 		}
 
+		void _AddCtlFd()
+		{
+			::eventfd_write(m_ctl_eventfd,1);
+		}
+
+		void _DelCtlFd()
+		{
+			eventfd_t val;
+			::eventfd_read(m_ctl_eventfd, &val);
+		}
+
+		void _RestCtlFd()
+		{
+			epoll_event ev;
+			ev.events = stdx::epoll_events::in | stdx::epoll_events::once;
+			ev.data.fd = m_ctl_eventfd;
+			m_epoll.update_event(m_ctl_eventfd,&ev);
+		}
+
+		void _AddLT(int fd,int events)
+		{
+			_AddCtlFd();
+		}
+
+		void _DelLT(int fd)
+		{
+
+			_AddCtlFd();
+		}
+
 		stdx::epoll m_epoll;
 		std::unordered_map<int, stdx::ev_queue> m_map;
 		clean_t m_clean;
 		operate_t m_operate;
 		fd_getter_t m_fd_getter;
 		event_getter_t m_event_getter;
+		int m_ctl_eventfd;
 	};
 
 	template<typename _IOContext>
@@ -711,6 +750,20 @@ namespace stdx
 		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
 	{
 		return stdx::make_poller<stdx::_EpollProactor<_IOContext>>(clean,io_operate,fd_getter,event_getter);
+	}
+
+	template<typename _IOContext>
+	inline stdx::io_poller<_IOContext> make_epoll_mutilpoller(size_t num_of_poller,
+		typename stdx::_EpollProactor<_IOContext>::clean_t clean,
+		typename stdx::_EpollProactor<_IOContext>::operate_t io_operate,
+		typename stdx::_EpollProactor<_IOContext>::fd_getter_t fd_getter,
+		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
+	{
+		return stdx::make_mutilpoller<stdx::_EpollProactor<_IOContext>>(num_of_poller, [](const int &fd,size_t size) 
+		{
+				size_t index = fd % size;
+				return index;
+		},fd_getter,clean,io_operate,fd_getter,event_getter);
 	}
 
 	template<typename _IOContext>

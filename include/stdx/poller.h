@@ -2,6 +2,8 @@
 #include <stdx/env.h>
 #include <memory>
 #include <functional>
+#include <vector>
+#include <atomic>
 
 namespace stdx
 {
@@ -110,10 +112,120 @@ namespace stdx
 		impl_t m_impl;
 	};
 
-	template<typename _Impl,typename ..._Args,typename _Context = typename _Impl::context_t,typename _KeyType = typename _Impl::key_t>
-	inline stdx::poller<_Context,_KeyType> make_poller(_Args &&...args)
+	template<typename _Impl, typename ..._Args, typename _Context = typename _Impl::context_t, typename _KeyType = typename _Impl::key_t>
+	inline stdx::poller<_Context, _KeyType> make_poller(_Args&&...args)
 	{
-		std::shared_ptr<stdx::basic_poller<_Context,_KeyType>> impl = std::make_shared<_Impl>(args...);
-		return stdx::poller<_Context,_KeyType>(impl);
+		std::shared_ptr<stdx::basic_poller<_Context, _KeyType>> impl = std::make_shared<_Impl>(args...);
+		return stdx::poller<_Context, _KeyType>(impl);
+	}
+
+	extern std::atomic_size_t _MutilIndexGenerater;
+
+	extern size_t _GetMutilIndex();
+
+	extern thread_local size_t _MutilIndex;
+
+	template<typename _Impl>
+	class basic_mutilpoller:public stdx::basic_poller<typename _Impl::context_t,typename _Impl::key_t>
+	{
+		using base_t = stdx::basic_poller<typename _Impl::context_t, typename _Impl::key_t>;
+	public:
+		using context_t = typename base_t::context_t;
+		using key_t = typename base_t::key_t;
+		using dispath_t = std::function<size_t(const key_t &,size_t)>;
+		using get_key_t = std::function<key_t(context_t *)>;
+		using poller_t = stdx::poller<context_t, key_t>;
+
+		template<typename ..._Args>
+		basic_mutilpoller(size_t num_of_poller,dispath_t dispath,get_key_t key_getter,_Args &&...args)
+			:base_t()
+			,m_dispath(dispath)
+			,m_key_getter(key_getter)
+			,m_pollers()
+		{
+			m_pollers.reserve(num_of_poller);
+			for (size_t i = 0; i < num_of_poller; ++i)
+			{
+				m_pollers.push_back(stdx::make_poller<_Impl>(args...));
+			}
+		}
+
+		~basic_mutilpoller() = default;
+
+		virtual void bind(const key_t& object) override
+		{
+			poller_t& poller = _GetPollerByKey(object);
+			poller.bind(object);
+		}
+
+		virtual void unbind(const key_t& object) override
+		{
+			poller_t& poller = _GetPollerByKey(object);
+			poller.unbind(object);
+		}
+
+		virtual void unbind(const key_t& object, std::function<void(key_t)> deleter) override
+		{
+			poller_t& poller = _GetPollerByKey(object);
+			poller.unbind(object,deleter);
+		}
+
+		virtual context_t* get() override
+		{
+			poller_t &poller = _GetPoller();
+			return poller.get();
+		}
+
+		virtual context_t* get(uint32_t timeout_ms) override
+		{
+			poller_t& poller = _GetPoller();
+			return poller.get(timeout_ms);
+		}
+
+		virtual void post(context_t* context) override
+		{
+			poller_t& poller = _GetPoller(context);
+			poller.post(context);
+		}
+	protected:
+		dispath_t m_dispath;
+		get_key_t m_key_getter;
+		std::vector<poller_t> m_pollers;
+
+		static size_t _GetIndex()
+		{
+			return stdx::_MutilIndex;
+		}
+
+		poller_t& _GetPoller(size_t index)
+		{
+			return m_pollers.at(index);
+		}
+
+		poller_t& _GetPoller()
+		{
+			size_t index = stdx::_MutilIndex % m_pollers.size();
+			return m_pollers.at(index);
+		}
+
+		poller_t& _GetPollerByKey(const key_t& key)
+		{
+			size_t index = m_dispath(key, m_pollers.size());
+			poller_t& poller = _GetPoller(index);
+			return poller;
+		}
+
+		poller_t& _GetPoller(context_t* context)
+		{
+			key_t &&key = m_key_getter(context);
+			return _GetPollerByKey(key);
+		}
+	};
+
+	template<typename _Impl, typename ..._Args, typename _Context = typename _Impl::context_t, typename _KeyType = typename _Impl::key_t>
+	inline stdx::poller<_Context, _KeyType> make_mutilpoller(size_t num_of_poller,typename stdx::basic_mutilpoller<_Impl>::dispath_t dispath, typename stdx::basic_mutilpoller<_Impl>::get_key_t getter,_Args &&...args)
+	{
+		std::shared_ptr<stdx::basic_poller<_Context, _KeyType>> impl = std::make_shared<stdx::basic_mutilpoller<_Impl>>(num_of_poller,dispath,getter,args...);
+		return stdx::poller<_Context, _KeyType>(impl);
 	}
 }
