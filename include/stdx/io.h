@@ -586,7 +586,6 @@ namespace stdx
 
 		virtual _IOContext* get() override
 		{
-			//int r = m_epoll.wait(&ev, 1,-1);
 			while (true)
 			{
 				epoll_event ev;
@@ -608,7 +607,7 @@ namespace stdx
 							_HandleCtl(fd);
 						}
 					}
-					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
+					else if (ev.events == stdx::epoll_events::err || ev.events == stdx::epoll_events::hup)
 					{
 						//has error(s)
 						//clean operation
@@ -625,27 +624,6 @@ namespace stdx
 					}
 				}
 			}
-
-			
-
-			//_IOContext* context = (_IOContext*)ev.data.ptr;
-			//if (ev.events & stdx::epoll_events::hup || ev.events & stdx::epoll_events::err)
-			//{
-			//	_Reset(m_fd_getter(context));
-			//	m_clean(context);
-			//	return nullptr;
-			//}
-			//else
-			//{
-			//	if (!m_operate(context))
-			//	{
-			//		post(context);
-			//		_Reset(m_fd_getter(context));
-			//		return nullptr;
-			//	}
-			//}
-			//_Reset(m_fd_getter(context));
-			//return context;
 		}
 
 		virtual _IOContext* get(uint32_t timeout_ms) override
@@ -683,25 +661,6 @@ namespace stdx
 			}
 			_IOContext* cont = _HandleIoEvent(ev);
 			return cont;
-
-			//_IOContext* context = (_IOContext*)ev.data.ptr;
-			//if ((ev.events & stdx::epoll_events::hup) || (ev.events & stdx::epoll_events::err))
-			//{
-			//	_Reset(m_fd_getter(context));
-			//	m_clean(context);
-			//	return nullptr;
-			//}
-			//else
-			//{
-			//	if (!m_operate(context))
-			//	{
-			//		post(context);
-			//		_Reset(m_fd_getter(context));
-			//		return nullptr;
-			//	}
-			//}
-			//_Reset(m_fd_getter(context));
-			//return context;
 		}
 
 		virtual void post(_IOContext* p) override
@@ -751,22 +710,6 @@ namespace stdx
 				}
 				_AddCtlFd();
 			}
-			//epoll_event ev;
-			//ev.events = m_event_getter(p);
-			//ev.data.ptr = p;
-			//ev.events |= stdx::epoll_events::once;
-			//auto& obj = m_map[fd];
-			//std::unique_lock<std::mutex> lock(*obj.m_lock);
-			//if (!obj.m_existed)
-			//{
-			//	obj.m_existed = true;
-			//	lock.unlock();
-			//	m_epoll.add_event(fd, &ev);
-			//}
-			//else
-			//{
-			//	obj.m_queue.push_back(std::move(ev));
-			//}
 		}
 
 		virtual void bind(const int &fd) override
@@ -783,25 +726,11 @@ namespace stdx
 				std::unique_lock<stdx::spin_lock> lock(ev.lock);
 				ev.model.enable_in = false;
 				ev.model.enable_out = false;
-				ev.model.is_exist = false;
+				ev.model.is_exist = true;
 				ev.model.is_err_or_hup = true;
 			}
 			_CleanContexts(ev);
-			//auto& obj = m_map[fd];
-			//std::unique_lock<std::mutex> lock(*obj.m_lock);
-			//if (!obj.m_queue.empty())
-			//{
-			//	for (auto qbegin = obj.m_queue.begin(), qend = obj.m_queue.end(); qbegin != qend; qbegin++)
-			//	{
-			//		auto ev = *qbegin;
-			//		if (ev.data.ptr != nullptr)
-			//		{
-			//			m_clean((_IOContext*)ev.data.ptr);
-			//		}
-			//		qbegin = obj.m_queue.erase(qbegin);
-			//	}
-			//}
-			//obj.m_existed = false;
+			_HandleCtl(ev, fd);
 		}
 
 		virtual void unbind(const int& object, std::function<void(int)> deleter)
@@ -811,61 +740,17 @@ namespace stdx
 				std::unique_lock<stdx::spin_lock> lock(ev.lock);
 				ev.model.enable_in = false;
 				ev.model.enable_out = false;
-				ev.model.is_exist = false;
+				ev.model.is_exist = true;
 				ev.model.is_err_or_hup = true;
 			}
 			_CleanContexts(ev);
+			_HandleCtl(ev,object);
 			deleter(object);
-			//auto& obj = m_map[object];
-			//std::unique_lock<std::mutex> lock(*obj.m_lock);
-			//if (!obj.m_queue.empty())
-			//{
-			//	for (auto qbegin = obj.m_queue.begin(), qend = obj.m_queue.end(); qbegin != qend; qbegin++)
-			//	{
-			//		auto ev = *qbegin;
-			//		if (ev.data.ptr != nullptr)
-			//		{
-			//			m_clean((_IOContext*)ev.data.ptr);
-			//		}
-			//		qbegin = obj.m_queue.erase(qbegin);
-			//	}
-			//}
-			//obj.m_existed = false;
-			//deleter(object);
 		}
 	private:
-		//void _Reset(int fd)
-		//{
-		//	auto& obj = m_map[fd];
-		//	std::unique_lock<std::mutex> lock(*obj.m_lock);
-		//	if (obj.m_existed)
-		//	{
-		//		if (!obj.m_queue.empty())
-		//		{
-		//			auto ev = obj.m_queue.front();
-		//			obj.m_queue.pop_front();
-		//			obj.m_existed = true;
-		//			m_epoll.update_event(fd, &ev);
-		//			return;
-		//		}
-		//		else
-		//		{
-		//			m_epoll.del_event(fd);
-		//			obj.m_existed = false;
-		//			return;
-		//		}
-		//	}
-		//	else if (!obj.m_queue.empty())
-		//	{
-		//		lock.unlock();
-		//		unbind(fd);
-		//		return;
-		//	}
-		//}
 
 		void _AddCtlFd()
 		{
-			//::eventfd_write(m_ctl_eventfd,1);
 			eventfd_t val = 1;
 			::write(m_ctl_eventfd, &val, sizeof(eventfd_t));
 		}
@@ -873,7 +758,6 @@ namespace stdx
 		bool _DelCtlFd()
 		{
 			eventfd_t val = UINT64_MAX;
-			//::eventfd_read(m_ctl_eventfd, &val);
 			::read(m_ctl_eventfd, &val, sizeof(eventfd_t));
 			if (val != 1)
 			{
@@ -889,6 +773,7 @@ namespace stdx
 		{
 			bool need_update = false;
 			bool exist = true;
+			bool need_delete = false;
 			{
 				std::unique_lock<stdx::spin_lock> lock(ev.lock);
 				if (ev.model.need_enable_in())
@@ -916,12 +801,25 @@ namespace stdx
 					exist = false;
 					ev.model.is_exist = true;
 				}
+				if (ev.model.is_err_or_hup)
+				{
+					need_update = true;
+					need_delete = true;
+					ev.model.is_exist = false;
+				}
 			}
 			if (need_update)
 			{
 				if (exist)
 				{
-					m_epoll.update_event(fd, &(ev.model.ev));
+					if (need_delete)
+					{
+						m_epoll.del_event(fd);
+					}
+					else
+					{
+						m_epoll.update_event(fd, &(ev.model.ev));
+					}
 				}
 				else
 				{
@@ -972,7 +870,7 @@ namespace stdx
 							_IOContext* cont = ev_.out_contexts.front();
 							lock.unlock();
 							//I/O operation
-							if (m_operate(cont))
+							if (m_operate(cont,))
 							{
 								lock.lock();
 								//I/O operation finish
@@ -1015,10 +913,11 @@ namespace stdx
 				std::unique_lock<stdx::spin_lock> lock(ev.lock);
 				ev.model.enable_in = false;
 				ev.model.enable_out = false;
-				ev.model.is_exist = false;
+				ev.model.is_exist = true;
 				ev.model.is_err_or_hup = true;
 			}
 			_CleanContexts(ev);
+			_HandleCtl(ev, fd);
 		}
 
 		void _InitModel(stdx::epoll_event_model &model,int fd)

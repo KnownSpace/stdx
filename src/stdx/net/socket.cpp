@@ -1339,6 +1339,7 @@ int stdx::_NetworkIOService::_GetFd(stdx::network_io_context* context)
 
 bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 {
+	*need_close = false;
 	ssize_t r = 0;
 	if (context->code == stdx::network_io_context_code::recv)
 	{
@@ -1414,6 +1415,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	}
 	else if(r == 0)
 	{
+		*need_close = true;
 		context->err_code = ECONNRESET;
 	}
 	else
