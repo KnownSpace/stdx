@@ -870,7 +870,7 @@ namespace stdx
 							_IOContext* cont = ev_.out_contexts.front();
 							lock.unlock();
 							//I/O operation
-							if (m_operate(cont,))
+							if (m_operate(cont))
 							{
 								lock.lock();
 								//I/O operation finish

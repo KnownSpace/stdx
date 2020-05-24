@@ -248,9 +248,8 @@ int main(int argc, char** argv)
 	stdx::spin_lock lock;
 	uint32_t num = 0;
 	stdx::logger logger = stdx::make_default_logger();
-	std::list<stdx::http_connection> keeper;
 	stdx::cancel_token accept_token;
-	s.accept_until(accept_token,[file_io_service,logger,&keeper](stdx::network_connected_event ev)  mutable
+	s.accept_until(accept_token,[file_io_service,logger](stdx::network_connected_event ev)  mutable
 		{
 			//handle_client(ev,doc_content);
 			//handle_client_file(ev, file_io_service);
@@ -274,8 +273,9 @@ int main(int argc, char** argv)
 				{
 					token.cancel();
 				}
-			}, [token,logger](std::exception_ptr err) mutable
+			}, [token,logger,conn](std::exception_ptr err) mutable
 			{
+				conn.close();
 				try
 				{
 					if (err)
@@ -288,7 +288,6 @@ int main(int argc, char** argv)
 					token.cancel();
 				}
 			});
-			keeper.push_back(conn);
 		},
 		[accept_token](std::exception_ptr error) mutable
 		{
