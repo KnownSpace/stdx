@@ -371,7 +371,7 @@ namespace stdx
 #else
 		char* buffer;
 		size_t buffer_size;
-		size_t send_size;
+		size_t send_offset;
 #endif
 		stdx::socket_size_t size;
 		
@@ -536,13 +536,6 @@ namespace stdx
 		size_t size;
 		stdx::ipv4_addr addr;
 	};
-
-#ifdef LINUX
-	struct network_io_context_finder
-	{
-		static int find(epoll_event* ev);
-	};
-#endif // LINUX
 
 	struct network_accept_event
 	{

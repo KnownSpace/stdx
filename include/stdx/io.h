@@ -586,10 +586,10 @@ namespace stdx
 
 		virtual _IOContext* get() override
 		{
-			epoll_event ev;
 			//int r = m_epoll.wait(&ev, 1,-1);
 			while (true)
 			{
+				epoll_event ev;
 				int r = m_epoll.wait(&ev, 1, -1);
 				if (r == 1)
 				{
@@ -599,10 +599,12 @@ namespace stdx
 						//need to update epoll
 						while (_DelCtlFd())
 						{
-							std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
-							int fd = m_ctl_changes.front();
-							m_ctl_changes.pop_front();
-							lock.unlock();
+							int fd;
+							{
+								std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
+								fd = m_ctl_changes.front();
+								m_ctl_changes.pop_front();
+							}
 							_HandleCtl(fd);
 						}
 					}
@@ -660,10 +662,12 @@ namespace stdx
 				//need to update epoll
 				while (_DelCtlFd())
 				{
-					std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
-					int fd = m_ctl_changes.front();
-					m_ctl_changes.pop_front();
-					lock.unlock();
+					int fd;
+					{
+						std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
+						fd = m_ctl_changes.front();
+						m_ctl_changes.pop_front();
+					}
 					_HandleCtl(fd);
 				}
 				//return by timeout
@@ -781,9 +785,8 @@ namespace stdx
 				ev.model.enable_out = false;
 				ev.model.is_exist = false;
 				ev.model.is_err_or_hup = true;
-				_CleanContexts(ev);
 			}
-
+			_CleanContexts(ev);
 			//auto& obj = m_map[fd];
 			//std::unique_lock<std::mutex> lock(*obj.m_lock);
 			//if (!obj.m_queue.empty())
@@ -810,8 +813,8 @@ namespace stdx
 				ev.model.enable_out = false;
 				ev.model.is_exist = false;
 				ev.model.is_err_or_hup = true;
-				_CleanContexts(ev);
 			}
+			_CleanContexts(ev);
 			deleter(object);
 			//auto& obj = m_map[object];
 			//std::unique_lock<std::mutex> lock(*obj.m_lock);
@@ -862,16 +865,22 @@ namespace stdx
 
 		void _AddCtlFd()
 		{
-			::eventfd_write(m_ctl_eventfd,1);
+			//::eventfd_write(m_ctl_eventfd,1);
+			eventfd_t val = 1;
+			::write(m_ctl_eventfd, &val, sizeof(eventfd_t));
 		}
 
 		bool _DelCtlFd()
 		{
-			eventfd_t val;
-			::eventfd_read(m_ctl_eventfd, &val);
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			eventfd_t val = UINT64_MAX;
+			//::eventfd_read(m_ctl_eventfd, &val);
+			::read(m_ctl_eventfd, &val, sizeof(eventfd_t));
+			if (val != 1)
 			{
-				return false;
+				if (errno == EAGAIN || errno == EWOULDBLOCK)
+				{
+					return false;
+				}
 			}
 			return true;
 		}
@@ -879,6 +888,7 @@ namespace stdx
 		void _HandleCtl(stdx::epoll_context_list<_IOContext> &ev,int fd)
 		{
 			bool need_update = false;
+			bool exist = true;
 			{
 				std::unique_lock<stdx::spin_lock> lock(ev.lock);
 				if (ev.model.need_enable_in())
@@ -889,7 +899,7 @@ namespace stdx
 				else if (ev.model.need_disable_in())
 				{
 					need_update = true;
-					ev.model.ev.events ^= stdx::epoll_events::in;
+					ev.model.ev.events &= (~stdx::epoll_events::in);
 				}
 				if (ev.model.need_enable_out())
 				{
@@ -899,12 +909,17 @@ namespace stdx
 				else if (ev.model.need_disable_out())
 				{
 					need_update = true;
-					ev.model.ev.events ^= stdx::epoll_events::out;
+					ev.model.ev.events &= (~stdx::epoll_events::out);
+				}
+				if (!ev.model.is_exist)
+				{
+					exist = false;
+					ev.model.is_exist = true;
 				}
 			}
 			if (need_update)
 			{
-				if (ev.model.is_exist)
+				if (exist)
 				{
 					m_epoll.update_event(fd, &(ev.model.ev));
 				}
@@ -1002,8 +1017,8 @@ namespace stdx
 				ev.model.enable_out = false;
 				ev.model.is_exist = false;
 				ev.model.is_err_or_hup = true;
-				_CleanContexts(ev);
 			}
+			_CleanContexts(ev);
 		}
 
 		void _InitModel(stdx::epoll_event_model &model,int fd)
