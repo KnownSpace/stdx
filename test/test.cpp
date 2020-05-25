@@ -175,13 +175,13 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 					response.response_body().push((const unsigned char*)(const char*)ev.buffer, ev.buffer.size());
 					add_keepalive(response, keep);
 					auto t = conn.write(response)
-						.then([conn,keep]() mutable 
-					{
+						.then([conn, keep](stdx::task_result<size_t> r)mutable
+							{
 								if (!keep)
 								{
 									conn.close();
 								}
-					});
+							});
 				}
 				catch (const std::exception &err)
 				{
@@ -192,7 +192,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 					response.response_body().push(body);
 					add_keepalive(response, keep);
 					auto t = conn.write(response)
-						.then([conn, keep]()mutable
+						.then([conn, keep](stdx::task_result<size_t> r)mutable
 							{
 								if (!keep)
 								{
@@ -210,13 +210,13 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 		response.response_body().push(body);
 		add_keepalive(response, keep);
 		auto t = conn.write(response)
-			.then([conn,keep]()mutable 
-		{
+			.then([conn, keep](stdx::task_result<size_t> r)mutable
+				{
 					if (!keep)
 					{
 						conn.close();
 					}
-		});
+				});
 	}
 	return keep;
 }

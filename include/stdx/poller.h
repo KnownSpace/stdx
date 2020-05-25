@@ -119,14 +119,14 @@ namespace stdx
 		return stdx::poller<_Context, _KeyType>(impl);
 	}
 
-	extern std::atomic_size_t _MutilIndexGenerater;
+	extern std::atomic_size_t _MultiIndexGenerater;
 
-	extern size_t _GetMutilIndex();
+	extern size_t _GetMultiIndex();
 
-	extern thread_local size_t _MutilIndex;
+	extern thread_local size_t _MultiIndex;
 
 	template<typename _Impl>
-	class basic_mutilpoller:public stdx::basic_poller<typename _Impl::context_t,typename _Impl::key_t>
+	class basic_multipoller:public stdx::basic_poller<typename _Impl::context_t,typename _Impl::key_t>
 	{
 		using base_t = stdx::basic_poller<typename _Impl::context_t, typename _Impl::key_t>;
 	public:
@@ -137,7 +137,7 @@ namespace stdx
 		using poller_t = stdx::poller<context_t, key_t>;
 
 		template<typename ..._Args>
-		basic_mutilpoller(size_t num_of_poller,dispath_t dispath,get_key_t key_getter,_Args &&...args)
+		basic_multipoller(size_t num_of_poller,dispath_t dispath,get_key_t key_getter,_Args &&...args)
 			:base_t()
 			,m_dispath(dispath)
 			,m_key_getter(key_getter)
@@ -150,7 +150,7 @@ namespace stdx
 			}
 		}
 
-		~basic_mutilpoller() = default;
+		~basic_multipoller() = default;
 
 		virtual void bind(const key_t& object) override
 		{
@@ -194,7 +194,7 @@ namespace stdx
 
 		static size_t _GetIndex()
 		{
-			return stdx::_MutilIndex;
+			return stdx::_MultiIndex;
 		}
 
 		poller_t& _GetPoller(size_t index)
@@ -204,7 +204,7 @@ namespace stdx
 
 		poller_t& _GetPoller()
 		{
-			size_t index = stdx::_MutilIndex % m_pollers.size();
+			size_t index = stdx::_MultiIndex % m_pollers.size();
 			return m_pollers.at(index);
 		}
 
@@ -223,9 +223,9 @@ namespace stdx
 	};
 
 	template<typename _Impl, typename ..._Args, typename _Context = typename _Impl::context_t, typename _KeyType = typename _Impl::key_t>
-	inline stdx::poller<_Context, _KeyType> make_mutilpoller(size_t num_of_poller,typename stdx::basic_mutilpoller<_Impl>::dispath_t dispath, typename stdx::basic_mutilpoller<_Impl>::get_key_t getter,_Args &&...args)
+	inline stdx::poller<_Context, _KeyType> make_multipoller(size_t num_of_poller,typename stdx::basic_multipoller<_Impl>::dispath_t dispath, typename stdx::basic_multipoller<_Impl>::get_key_t getter,_Args &&...args)
 	{
-		std::shared_ptr<stdx::basic_poller<_Context, _KeyType>> impl = std::make_shared<stdx::basic_mutilpoller<_Impl>>(num_of_poller,dispath,getter,args...);
+		std::shared_ptr<stdx::basic_poller<_Context, _KeyType>> impl = std::make_shared<stdx::basic_multipoller<_Impl>>(num_of_poller,dispath,getter,args...);
 		return stdx::poller<_Context, _KeyType>(impl);
 	}
 }

@@ -1,11 +1,11 @@
 #include <stdx/poller.h>
 
-std::atomic_size_t stdx::_MutilIndexGenerater(0);
+std::atomic_size_t stdx::_MultiIndexGenerater(0);
 
-size_t stdx::_GetMutilIndex()
+size_t stdx::_GetMultiIndex()
 {
-	size_t index = stdx::_MutilIndexGenerater.fetch_add(1);
+	size_t index = stdx::_MultiIndexGenerater.fetch_add(1);
 	return index;
 }
 
-thread_local size_t stdx::_MutilIndex = stdx::_GetMutilIndex();
+thread_local size_t stdx::_MultiIndex = stdx::_GetMultiIndex();

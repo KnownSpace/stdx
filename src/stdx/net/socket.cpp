@@ -61,20 +61,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
 #else
-	/*: m_poller(stdx::make_epoll_proactor_poller<stdx::network_io_context>([](stdx::network_io_context *context) 
-		{
-			_Clean(context);
-		}, [](stdx::network_io_context* context) 
-		{
-			return _IOOperate(context);
-		},[](stdx::network_io_context* context) 
-		{
-			return _GetFd(context);
-		}, [](stdx::network_io_context* context) 
-		{
-			return _GetEvents(context);
-		}))*/
-	:m_poller(stdx::make_epoll_mutilpoller<stdx::network_io_context>(cpu_cores(),[](stdx::network_io_context* context)
+	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(cpu_cores(),[](stdx::network_io_context* context)
 		{
 			_Clean(context);
 		}, [](stdx::network_io_context* context)
@@ -152,57 +139,6 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int& addr_family, const i
 }
 #endif
 
-#ifdef LINUX
-void stdx::_NetworkIOService::_Send(int sock,char* buf,size_t size,size_t offset,std::function<void(stdx::network_send_event,std::exception_ptr)> callback)
-{
-	ssize_t r = 0;
-	std::exception_ptr err(nullptr);
-	try
-	{
-		r = ::send(sock, buf+offset, size-offset, MSG_NOSIGNAL|MSG_DONTWAIT);
-		if (r == 0)
-		{
-			throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
-		}
-		else if (r < 0)
-		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
-				stdx::threadpool.run([sock,buf,size,offset,callback,this]() 
-				{
-						_Send(sock, buf, size, offset, callback);
-				});
-				return;
-			}
-			_ThrowLinuxError
-		}
-		offset += r;
-		if (offset != size)
-		{
-			stdx::threadpool.run([sock, buf, size, offset, callback,this]()
-			{
-				_Send(sock, buf, size, offset, callback);
-			});
-			return;
-		}
-	}
-	catch (const std::exception&)
-	{
-		err = std::current_exception();
-	}
-	stdx::free(buf);
-	if (err)
-	{
-		callback(stdx::network_send_event(), err);
-		return;
-	}
-	stdx::network_send_event ev;
-	ev.sock = sock;
-	ev.size = r;
-	callback(ev, err);
-}
-#endif // LINUX
-
 void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket_size_t& size, std::function<void(network_send_event, std::exception_ptr)> callback)
 {
 #ifdef WIN32
@@ -257,9 +193,6 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[Network IO Service]IO操作投递失败\n");
-#endif // DEBUG
 			free(context_ptr->buffer.buf);
 			delete call;
 			delete context_ptr;
@@ -267,21 +200,7 @@ void stdx::_NetworkIOService::send(socket_t sock, const char* data, const socket
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
-	/*char* buf = (char*) stdx::calloc(size, sizeof(char));
-	if (buf == nullptr)
-	{
-		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	memcpy(buf, data, size);
-	stdx::threadpool.run([sock, buf, size, callback,this]()
-	{
-		_Send(sock, buf, size,0, callback);
-	});*/
 	stdx::network_io_context *context = new stdx::network_io_context;
 	if (context == nullptr)
 	{
@@ -680,59 +599,6 @@ void stdx::_NetworkIOService::bind(socket_t sock, ipv4_addr& addr)
 #endif
 }
 
-#ifdef LINUX
-void stdx::_NetworkIOService::_SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offset, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
-{
-	socklen_t len = stdx::ipv4_addr::addr_len;
-	ssize_t r = 0;
-	std::exception_ptr err(nullptr);
-	try
-	{
-		stdx::ipv4_addr &_addr = addr;
-		r = ::sendto(sock, buf+offset, size-offset, MSG_NOSIGNAL|MSG_DONTWAIT, _addr, len);
-		if (r == 0)
-		{
-			throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
-		}
-		else if (r < 0)
-		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
-				m_thread_pool.run([sock,addr, buf, size, offset, callback,this]()
-					{
-						_SendTo(sock,addr, buf, size, offset, callback);
-					});
-				return;
-			}
-			_ThrowLinuxError
-		}
-		offset += r;
-		if (offset != size)
-		{
-			m_thread_pool.run([sock, addr, buf, size, offset, callback,this]()
-				{
-					_SendTo(sock, addr, buf, size, offset, callback);
-				});
-			return;
-		}
-	}
-	catch (const std::exception&)
-	{
-		err = std::current_exception();
-	}
-	stdx::free(buf);
-	if (err)
-	{
-		callback(stdx::network_send_event(), err);
-		return;
-	}
-	stdx::network_send_event ev;
-	ev.sock = sock;
-	ev.size = r;
-	callback(ev, err);
-}
-#endif // LINUX
-
 
 void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, const char* data, const socket_size_t& size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback)
 {
@@ -797,18 +663,6 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, cons
 		}
 	}
 #else
-	/*char* buf = (char*) stdx::calloc(size,sizeof(char));
-	if (buf == nullptr)
-	{
-		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	memcpy(buf, data, size);
-	stdx::threadpool.run([addr,sock, buf, size, callback,this]()
-	{
-		_SendTo(sock,addr, buf, size, 0, callback);
-	});*/
-
 	stdx::network_io_context* context = new stdx::network_io_context;
 	if (context == nullptr)
 	{
@@ -1275,7 +1129,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
-				auto context = poller.get();
+				auto context = poller.get(STDX_LAZY_MAX_TIME);
 				if (context == nullptr)
 				{
 					return;
@@ -1316,7 +1170,7 @@ void stdx::_NetworkIOService::_Clean(stdx::network_io_context* context)
 	{
 		try
 		{
-			(*callback)(context, std::make_exception_ptr(std::system_error(std::error_code(ECONNABORTED, std::system_category()))));
+			(*callback)(context, std::make_exception_ptr(std::system_error(std::error_code(ECONNRESET, std::system_category()))));
 		}
 		catch (const std::exception& err)
 		{
@@ -1632,6 +1486,7 @@ void stdx::_Socket::recv_until(socket_size_t size, stdx::cancel_token token, std
 			}
 			catch (const std::exception&)
 			{
+				err_handler(std::current_exception());
 			}
 			if (!token.is_cancel())
 			{

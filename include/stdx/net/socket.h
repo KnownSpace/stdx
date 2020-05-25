@@ -672,10 +672,6 @@ namespace stdx
 		static bool _IOOperate(stdx::network_io_context* context);
 
 		static uint32_t _GetEvents(stdx::network_io_context* context);
-
-		void _Send(int sock, char* buf, size_t size, size_t offset, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
-
-		void _SendTo(int sock, stdx::ipv4_addr addr, char* buf, size_t size, size_t offset, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
 #endif // LINUX
 
 	private:

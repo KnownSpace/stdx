@@ -20,7 +20,7 @@ void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, s
 	auto parser = m_parser;
 	stdx::cancel_token token;
 	stdx::socket sock = m_socket;
-	m_socket.recv_until(4096, token, [callback,token, parser](stdx::network_recv_event ev) mutable
+	m_socket.recv_until(8192, token, [callback,token, parser](stdx::network_recv_event ev) mutable
 	{
 			parser.push(ev.buffer, ev.size);
 			if (!parser.error())
@@ -83,7 +83,14 @@ void stdx::basic_http_connection::read_until(stdx::cancel_token token, std::func
 		}
 		else
 		{
-			fn(req);
+			try
+			{
+				fn(req);
+			}
+			catch (const std::exception&)
+			{
+				err_handler(std::current_exception());
+			}
 		}
 		if (!token.is_cancel())
 		{
