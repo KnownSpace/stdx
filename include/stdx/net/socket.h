@@ -370,6 +370,7 @@ namespace stdx
 #ifdef WIN32
 		WSABUF buffer;
 #else
+		size_t send_size;
 		size_t send_offset;
 #endif
 		stdx::socket_size_t size;
