@@ -273,29 +273,6 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 		}
 	}
 #else
-	/*stdx::threadpool.run([sock, file_with_cache, callback]()
-		{
-			struct stat stat_buf;
-			fstat(file_with_cache, &stat_buf);
-			int r = ::sendfile(sock, file_with_cache, 0, stat_buf.st_size);
-			std::exception_ptr err(nullptr);
-			try
-			{
-				if (r == 0)
-				{
-					throw std::system_error(std::error_code(ECONNRESET, std::system_category()));
-				}
-				else if (r < 0)
-				{
-					_ThrowLinuxError
-				}
-			}
-			catch (const std::exception&)
-			{
-				err = std::current_exception();
-			}
-			callback(err);
-		});*/
 	stdx::network_io_context* context = new stdx::network_io_context;
 	if (context == nullptr)
 	{
@@ -399,18 +376,12 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[Network IO Service]IO操作投递失败\n");
-#endif // DEBUG
 			delete call;
 			delete context_ptr;
 			callback(stdx::network_recv_event(), std::current_exception());
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[Network IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
 	stdx::network_io_context* context = new stdx::network_io_context;
 	if (context == nullptr)
@@ -808,7 +779,7 @@ void stdx::_NetworkIOService::close(socket_t sock)
 #else
 	m_poller.unbind(sock, [](socket_t sock) 
 	{
-			::close(sock);
+		::close(sock);
 	});
 #endif
 }
@@ -828,7 +799,6 @@ stdx::ipv4_addr stdx::_NetworkIOService::get_local_addr(socket_t sock) const
 #else
 		_ThrowLinuxError
 #endif
-
 	}
 	return addr;
 }
@@ -1039,34 +1009,43 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
-				auto context = poller.get(STDX_LAZY_MAX_TIME);
-				if (context == nullptr)
+				try
 				{
-					return;
-				}
-				auto call = context->callback;
-				if (call == nullptr)
-				{
-					delete context;
-					return;
-				}
-				std::exception_ptr err(nullptr);
-				if (context->err_code != 0)
-				{
-					err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
-				}
-				else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
-				{
-					poller.bind(context->target_socket);
-				}
-				stdx::threadpool.run([call,err,context]() 
-				{
-						stdx::finally fin([call]() 
-						{
-								delete call;
-						});
+					auto context = poller.get(STDX_LAZY_MAX_TIME);
+					if (context == nullptr)
+					{
+						return;
+					}
+					auto call = context->callback;
+					if (call == nullptr)
+					{
+						delete context;
+						return;
+					}
+					std::exception_ptr err(nullptr);
+					if (context->err_code != 0)
+					{
+						err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
+					}
+					else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
+					{
+						poller.bind(context->target_socket);
+					}
+					stdx::threadpool.run([call, err, context]()
+					{
+						stdx::finally fin([call]()
+							{
+									delete call;
+							});
 						(*call)(context, err);
-				});
+					});
+				}
+				catch (const std::exception &err)
+				{
+#ifdef DEBUG
+					::printf("[NetworkIOServcie]出错%s\n", err.what());
+#endif
+				}
 			},m_poller);
 	}
 #endif
@@ -1328,7 +1307,7 @@ stdx::task<stdx::network_recv_event> stdx::_Socket::recv(stdx::buffer buf)
 	return t;
 }
 
-stdx::task<stdx::network_accept_event> stdx::_Socket::accept_ex()
+stdx::task<stdx::network_accept_event> stdx::_Socket::accept()
 {
 	if (!m_io_service)
 	{
@@ -1456,10 +1435,10 @@ void stdx::_Socket::accept_until(stdx::cancel_token token, std::function<void(st
 	});
 }
 
-stdx::task<stdx::network_connected_event> stdx::socket::accept_ex()
+stdx::task<stdx::network_connected_event> stdx::socket::accept()
 {
 	io_service_t io_service = m_impl->get_io_service();
-	return m_impl->accept_ex().then([io_service](stdx::task_result<stdx::network_accept_event> r) mutable
+	return m_impl->accept().then([io_service](stdx::task_result<stdx::network_accept_event> r) mutable
 	{
 			try
 			{

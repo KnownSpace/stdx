@@ -474,45 +474,6 @@ namespace stdx
 		impl_t m_impl;
 	};
 
-	struct ev_queue
-	{
-		ev_queue()
-			:m_lock(std::make_shared<std::mutex>())
-			,m_existed(false)
-			,m_queue()
-		{
-		}
-
-		ev_queue(const ev_queue& other)
-			:m_lock(other.m_lock)
-			, m_existed(other.m_existed)
-			, m_queue(other.m_queue)
-		{}
-
-		ev_queue(ev_queue &&other) noexcept
-			:m_lock(std::move(other.m_lock))
-			,m_existed(other.m_existed)
-			,m_queue(std::move(other.m_queue))
-		{}
-		~ev_queue() = default;
-		ev_queue &operator=(ev_queue &&other) noexcept
-		{
-			m_lock = std::move(other.m_lock);
-			m_existed = other.m_existed;
-			m_queue = std::move(other.m_queue);
-			return *this;
-		}
-		ev_queue& operator=(const ev_queue& other)
-		{
-			stdx::ev_queue tmp(other);
-			stdx::atomic_copy(*this, std::move(tmp));
-			return *this;
-		}
-		std::shared_ptr<std::mutex> m_lock;
-		bool m_existed;
-		std::list<epoll_event> m_queue;
-	};
-
 	struct epoll_event_model
 	{
 		epoll_event ev;
@@ -658,8 +619,15 @@ namespace stdx
 				_CleanFd(fd);
 				return nullptr;
 			}
-			_IOContext* cont = _HandleIoEvent(ev);
-			return cont;
+			try
+			{
+				_IOContext* cont = _HandleIoEvent(ev);
+				return cont;
+			}
+			catch (const std::exception& err)
+			{
+				return nullptr;
+			}
 		}
 
 		virtual void post(_IOContext* p) override

@@ -807,23 +807,7 @@ namespace stdx
 			m_io_service.listen(m_handle, backlog);
 		}
 
-#ifdef WIN32
-		socket_t accept(ipv4_addr& addr)
-		{
-			return m_io_service.accept(m_handle, addr);
-		}
-
-		socket_t accept(ipv4_addr& addr)
-		{
-			return m_io_service.accept(m_handle, addr);
-		}
-
-		socket_t accept()
-		{
-			return m_io_service.accept(m_handle);
-		}
-#endif
-		stdx::task<stdx::network_accept_event> accept_ex();
+		stdx::task<stdx::network_accept_event> accept();
 
 		void close();
 
@@ -905,21 +889,7 @@ namespace stdx
 			m_impl->listen(backlog);
 		}
 
-#ifdef WIN32
-		self_t accept(ipv4_addr& addr)
-		{
-			socket_t s = m_impl->accept(addr);
-			return socket(m_impl->io_service(), s);
-		}
-
-		self_t accept()
-		{
-			socket_t s = m_impl->accept();
-			return socket(m_impl->io_service(), s);
-		}
-#endif // WIN32
-
-		stdx::task<network_connected_event> accept_ex();
+		stdx::task<network_connected_event> accept();
 
 		void close()
 		{
@@ -970,10 +940,6 @@ namespace stdx
 		{
 			return m_impl->recv_until(buf,token, fn,err_handler);
 		}
-
-		//void accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call);
-
-		//void accept_until_error(std::function<void(stdx::network_connected_event)> call,std::function<void(std::exception_ptr)> err_handler);
 
 		void accept_until(stdx::cancel_token token, std::function<void(stdx::network_connected_event)> fn, std::function<void(std::exception_ptr)> err_handler);
 
