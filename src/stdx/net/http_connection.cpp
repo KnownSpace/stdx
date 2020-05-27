@@ -3,6 +3,7 @@
 stdx::basic_http_connection::basic_http_connection(const stdx::socket& sock, uint64_t max_size)
 	:base_t(sock)
 	,m_parser(max_size)
+	,m_read_buf(stdx::make_buffer(8192))
 {}
 
 void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, std::exception_ptr)> callback)
@@ -20,7 +21,7 @@ void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, s
 	auto parser = m_parser;
 	stdx::cancel_token token;
 	stdx::socket sock = m_socket;
-	m_socket.recv_until(8192, token, [callback,token, parser](stdx::network_recv_event ev) mutable
+	m_socket.recv_until(m_read_buf, token, [callback,token, parser](stdx::network_recv_event ev) mutable
 	{
 			parser.push(ev.buffer, ev.size);
 			if (!parser.error())
@@ -65,7 +66,12 @@ stdx::task<stdx::http_request> stdx::basic_http_connection::read()
 stdx::task<size_t> stdx::basic_http_connection::write(const stdx::http_response& package)
 {
 	auto vec = std::move(package.to_bytes());
-	auto t = base_t::write((const char*)vec.data(), vec.size());
+	stdx::buffer buf = stdx::make_buffer(vec.size());
+	for (size_t i = 0; i < vec.size(); i++)
+	{
+		buf[i] = vec[i];
+	}
+	auto t = base_t::write(buf, vec.size());
 	return t;
 }
 

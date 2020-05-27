@@ -25,6 +25,7 @@ namespace stdx
 		stdx::http_request_parser m_parser;
 	private:
 		void _Read(std::function<void(stdx::http_request,std::exception_ptr)> callback);
+		stdx::buffer m_read_buf;
 	};
 
 	extern stdx::http_connection make_http_connection(const stdx::socket &sock,uint64_t max_size);

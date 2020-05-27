@@ -13,7 +13,7 @@ stdx::_Buffer::_Buffer(size_t size, char* data)
 
 stdx::_Buffer::~_Buffer()
 {
-	free();
+	this->free();
 }
 
 void stdx::_Buffer::init(const size_t& size)
@@ -111,7 +111,7 @@ void stdx::_Buffer::copy_from(const stdx::_Buffer& other)
 	memcpy(m_data, (const char*)other, new_size);
 }
 
-char* stdx::_Buffer::to_raw()
+char* stdx::_Buffer::move_to_raw()
 {
 	m_size = 0;
 	char* buf = m_data;
@@ -122,11 +122,6 @@ char* stdx::_Buffer::to_raw()
 void stdx::_Buffer::free()
 {
 	m_size = 0;
-	/*if (m_data)
-	{
-		stdx::free(m_data);
-		m_data = nullptr;
-	}*/
 	ptr_t p = m_data.exchange(nullptr);
 	if (p)
 	{

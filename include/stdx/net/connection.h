@@ -23,7 +23,7 @@ namespace stdx
 
 		virtual stdx::task<size_t> write(const output_t &package) = 0;
 
-		virtual stdx::task<size_t> write(const char* buf, size_t size) = 0;
+		virtual stdx::task<size_t> write(stdx::buffer buf, size_t size) = 0;
 
 		virtual stdx::task<void> write_file(stdx::file_handle file) = 0;
 
@@ -90,6 +90,16 @@ namespace stdx
 		stdx::task<size_t> write(const _Output& package)
 		{
 			return m_impl->write(package);
+		}
+
+		stdx::task<size_t> write(stdx::buffer buf, size_t size)
+		{
+			return m_impl->write(buf, size);
+		}
+
+		stdx::task<void> write_file(stdx::file_handle file)
+		{
+			return m_impl->write_file(file);
 		}
 
 		bool operator==(const self_t& other) const

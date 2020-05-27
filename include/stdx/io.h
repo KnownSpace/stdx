@@ -551,28 +551,6 @@ namespace stdx
 		std::list<_IOContext*> in_contexts;
 	};
 
-	struct epoll_event_buffer
-	{
-		epoll_event* buf;
-		size_t max_size;
-		size_t size;
-		size_t index;
-
-		epoll_event* get()
-		{
-			if ((buf != nullptr) && max_size != 0)
-			{
-				if (index != size)
-				{
-					epoll_event* ev = buf + index;
-					index += 1;
-					return ev;
-				}
-			}
-			return nullptr;
-		}
-	};
-
 	extern int make_semaphore_eventfd(int flags);
 
 	template<typename _IOContext>
@@ -593,21 +571,9 @@ namespace stdx
 			,m_fd_getter(fd_getter)
 			,m_event_getter(event_getter)
 			,m_ctl_eventfd(stdx::make_semaphore_eventfd(EFD_NONBLOCK))
-			,m_ev_buf()
 		{
-			m_ev_buf.buf = (epoll_event*)stdx::calloc(10, sizeof(epoll_event));
-			if (m_ev_buf.buf == nullptr)
-			{
-				::close(m_ctl_eventfd);
-				throw std::bad_alloc();
-			}
-			m_ev_buf.max_size = 10;
-			m_ev_buf.size = 0;
-			m_ev_buf.index = 0;
-
 			epoll_event ev;
-			//use ET mode in event fd
-			ev.events = stdx::epoll_events::in | stdx::epoll_events::et;
+			ev.events = stdx::epoll_events::in;
 			ev.data.fd = m_ctl_eventfd;
 			m_epoll.add_event(m_ctl_eventfd, &ev);
 		}
@@ -615,20 +581,17 @@ namespace stdx
 		~_EpollProactor()
 		{
 			::close(m_ctl_eventfd);
-			if (m_ev_buf.buf)
-			{
-				stdx::free(m_ev_buf.buf);
-			}
 		}
 
 		virtual _IOContext* get() override
 		{
 			while (true)
 			{
-				epoll_event *ev = _WaitIoEvent(-1);
-				if (ev != nullptr)
+				epoll_event ev;
+				int r = m_epoll.wait(&ev, 1, -1);
+				if (r == 1)
 				{
-					if (ev->data.fd == m_ctl_eventfd)
+					if (ev.data.fd == m_ctl_eventfd)
 					{
 						//is event fd
 						//need to update epoll
@@ -643,16 +606,16 @@ namespace stdx
 							_HandleCtl(fd);
 						}
 					}
-					else if (ev->events == stdx::epoll_events::err || ev->events == stdx::epoll_events::hup)
+					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
 					{
 						//has error(s)
 						//clean operation
-						int fd = ev->data.fd;
+						int fd = ev.data.fd;
 						_CleanFd(fd);
 					}
 					else
 					{
-						auto *cont = _HandleIoEvent(*ev);
+						auto *cont = _HandleIoEvent(ev);
 						if (cont)
 						{
 							return cont;
@@ -664,12 +627,13 @@ namespace stdx
 
 		virtual _IOContext* get(uint32_t timeout_ms) override
 		{
-			epoll_event *ev = _WaitIoEvent(timeout_ms);
-			if (ev == nullptr)
+			epoll_event ev;
+			int r = m_epoll.wait(&ev, 1, timeout_ms);
+			if (r != 1)
 			{
 				return nullptr;
 			}
-			if (ev->data.fd == m_ctl_eventfd)
+			if (ev.data.fd == m_ctl_eventfd)
 			{
 				//is event fd
 				//need to update epoll
@@ -686,16 +650,15 @@ namespace stdx
 				//return by timeout
 				return nullptr;
 			}
-			if (ev->events & (stdx::epoll_events::err | stdx::epoll_events::hup))
+			if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
 			{
 				//has error(s)
 				//clean operation
-				::printf("fd hup\n");
-				int fd = ev->data.fd;
+				int fd = ev.data.fd;
 				_CleanFd(fd);
 				return nullptr;
 			}
-			_IOContext* cont = _HandleIoEvent(*ev);
+			_IOContext* cont = _HandleIoEvent(ev);
 			return cont;
 		}
 
@@ -966,24 +929,6 @@ namespace stdx
 			model.ev.events = stdx::epoll_events::hup;
 		}
 
-		epoll_event *_WaitIoEvent(int timeout)
-		{
-			epoll_event* ev = m_ev_buf.get();
-			if (ev)
-			{
-				return ev;
-			}
-			int r = m_epoll.wait(m_ev_buf.buf, m_ev_buf.max_size, timeout);
-			if (r > 0)
-			{
-				//reset buffer
-				m_ev_buf.size = r;
-				m_ev_buf.index = 0;
-				return m_ev_buf.get();
-			}
-			return nullptr;
-		}
-
 		stdx::epoll m_epoll;
 		std::unordered_map<int, stdx::epoll_context_list<_IOContext>> m_map;
 		clean_t m_clean;
@@ -993,7 +938,6 @@ namespace stdx
 		int m_ctl_eventfd;
 		stdx::spin_lock m_ctl_lock;
 		std::list<int> m_ctl_changes;
-		stdx::epoll_event_buffer m_ev_buf;
 	};
 
 	template<typename _IOContext>
