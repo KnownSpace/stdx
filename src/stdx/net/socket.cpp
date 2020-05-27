@@ -954,54 +954,63 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
-				stdx::network_io_context* context_ptr = nullptr;
 				try
 				{
-					context_ptr = poller.get();
-				}
-				catch (const std::exception&)
-				{
-				}
-				if (context_ptr == nullptr)
-				{
-					return;
-				}
-				std::exception_ptr error(nullptr);
-				try
-				{
-					DWORD flag = 0;
-					if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
+					stdx::network_io_context* context_ptr = nullptr;
+					try
 					{
-						_ThrowWSAError
+						context_ptr = poller.get();
 					}
-				}
-				catch (const std::exception&)
-				{
-					error = std::current_exception();
-				}
-				auto* call = context_ptr->callback;
-				if (call == nullptr)
-				{
-					delete context_ptr;
-					return;
-				}
-				stdx::threadpool.run([call,context_ptr,error]() 
-				{
-						stdx::finally fin([call]()
-							{
-								if (call)
+					catch (const std::exception&)
+					{
+					}
+					if (context_ptr == nullptr)
+					{
+						return;
+					}
+					std::exception_ptr error(nullptr);
+					try
+					{
+						DWORD flag = 0;
+						if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
+						{
+							_ThrowWSAError
+						}
+					}
+					catch (const std::exception&)
+					{
+						error = std::current_exception();
+					}
+					auto* call = context_ptr->callback;
+					if (call == nullptr)
+					{
+						delete context_ptr;
+						return;
+					}
+					stdx::threadpool.run([call, context_ptr, error]()
+						{
+							stdx::finally fin([call]()
 								{
-									delete call;
-								}
-							});
-						try
-						{
-							(*call)(context_ptr, error);
-						}
-						catch (const std::exception&)
-						{
-						}
-				});
+									if (call)
+									{
+										delete call;
+									}
+								});
+							try
+							{
+								(*call)(context_ptr, error);
+							}
+							catch (const std::exception&)
+							{
+							}
+						});
+				}
+				catch (const std::exception &err)
+				{
+#ifdef DEBUG
+					::printf("[NetworkIOServcie]出错%s\n", err.what());
+#endif
+				}
 			}, m_poller);
 	}
 #else
