@@ -21,7 +21,8 @@ void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, s
 	auto parser = m_parser;
 	stdx::cancel_token token;
 	stdx::socket sock = m_socket;
-	m_socket.recv_until(m_read_buf, token, [callback,token, parser](stdx::network_recv_event ev) mutable
+	stdx::buffer buf = m_read_buf;
+	m_socket.recv_until(buf, token, [callback,token, parser](stdx::network_recv_event ev) mutable
 	{
 			parser.push(ev.buffer, ev.size);
 			if (!parser.error())

@@ -576,10 +576,14 @@ namespace stdx
 					}
 					else
 					{
-						auto *cont = _HandleIoEvent(ev);
-						if (cont)
+						try
 						{
+							_IOContext* cont = _HandleIoEvent(ev);
 							return cont;
+						}
+						catch (const std::exception& err)
+						{
+							return nullptr;
 						}
 					}
 				}
@@ -711,8 +715,9 @@ namespace stdx
 				ev.model.is_err_or_hup = true;
 			}
 			_CleanContexts(ev);
-			deleter(object);
 			_HandleCtl(ev,object);
+			//must be last line
+			deleter(object);
 		}
 	private:
 
@@ -763,16 +768,24 @@ namespace stdx
 					need_update = true;
 					ev.model.ev.events &= (~stdx::epoll_events::out);
 				}
-				if (!ev.model.is_exist)
-				{
-					exist = false;
-					ev.model.is_exist = true;
-				}
+
 				if (ev.model.is_err_or_hup)
 				{
-					need_update = true;
-					need_delete = true;
-					ev.model.is_exist = false;
+					if (ev.model.is_exist)
+					{
+						ev.model.is_exist = false;
+						need_update = true;
+						need_delete = true;
+					}
+				}
+				else
+				{
+					if (!ev.model.is_exist)
+					{
+						exist = false;
+						need_update = true;
+						ev.model.is_exist = true;
+					}
 				}
 			}
 			if (need_update)
@@ -790,7 +803,10 @@ namespace stdx
 				}
 				else
 				{
-					m_epoll.add_event(fd, &(ev.model.ev));
+					if (!need_delete)
+					{
+						m_epoll.add_event(fd, &(ev.model.ev));
+					}
 				}
 			}
 		}

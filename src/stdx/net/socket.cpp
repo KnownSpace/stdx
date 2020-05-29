@@ -777,10 +777,8 @@ void stdx::_NetworkIOService::close(socket_t sock)
 		_ThrowWSAError
 	}
 #else
-	m_poller.unbind(sock, [](socket_t sock) 
-	{
-		::close(sock);
-	});
+	m_poller.unbind(sock);
+	::close(sock);
 #endif
 }
 
