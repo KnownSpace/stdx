@@ -477,40 +477,19 @@ namespace stdx
 	struct epoll_event_model
 	{
 		epoll_event ev;
-		bool enable_in;
-		bool enable_out;
 		bool is_exist;
 		bool is_err_or_hup;
-
-		bool need_enable_in()
-		{
-			return enable_in && !(ev.events & stdx::epoll_events::in);
-		}
-
-		bool need_enable_out()
-		{
-			return enable_out && !(ev.events & stdx::epoll_events::out);
-		}
-
-		bool need_disable_in()
-		{
-			return !enable_in && (ev.events & stdx::epoll_events::in);
-		}
-
-		bool need_disable_out()
-		{
-			return !enable_out && (ev.events & stdx::epoll_events::out);
-		}
 	};
 
 	template<typename _IOContext>
 	struct epoll_context_list
 	{
-		stdx::spin_lock lock;
 		stdx::epoll_event_model model;
 		std::list<_IOContext*> out_contexts;
 		std::list<_IOContext*> in_contexts;
 	};
+
+	extern int make_eventfd(int flags);
 
 	extern int make_semaphore_eventfd(int flags);
 
@@ -520,9 +499,10 @@ namespace stdx
 	public:
 		using clean_t = std::function<void(_IOContext*)>;
 		using operate_t = std::function<bool(_IOContext*)>;
-		using lock_t = std::timed_mutex;
 		using fd_getter_t = std::function<int(_IOContext*)>;
 		using event_getter_t = std::function<uint32_t(_IOContext*)>;
+		using task_t = std::function<void()>;
+		using lock_t = std::mutex;
 	public:
 		_EpollProactor(clean_t clean,operate_t io_operator,fd_getter_t fd_getter,event_getter_t event_getter)
 			:m_epoll()
@@ -531,17 +511,19 @@ namespace stdx
 			,m_operate(io_operator)
 			,m_fd_getter(fd_getter)
 			,m_event_getter(event_getter)
-			,m_ctl_eventfd(stdx::make_semaphore_eventfd(EFD_NONBLOCK))
+			,m_eventfd(stdx::make_eventfd(EFD_NONBLOCK))
+			,m_ev_lock()
+			,m_tasks()
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in;
-			ev.data.fd = m_ctl_eventfd;
-			m_epoll.add_event(m_ctl_eventfd, &ev);
+			ev.data.fd = m_eventfd;
+			m_epoll.add_event(m_eventfd, &ev);
 		}
 
 		~_EpollProactor()
 		{
-			::close(m_ctl_eventfd);
+			::close(m_eventfd);
 		}
 
 		virtual _IOContext* get() override
@@ -552,19 +534,12 @@ namespace stdx
 				int r = m_epoll.wait(&ev, 1, -1);
 				if (r == 1)
 				{
-					if (ev.data.fd == m_ctl_eventfd)
+					if (ev.data.fd == m_eventfd)
 					{
 						//is event fd
-						//need to update epoll
-						while (_DelCtlFd())
+						if (_ReadEvFd())
 						{
-							int fd;
-							{
-								std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
-								fd = m_ctl_changes.front();
-								m_ctl_changes.pop_front();
-							}
-							_HandleCtl(fd);
+							_HandleTasks();
 						}
 					}
 					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
@@ -598,19 +573,12 @@ namespace stdx
 			{
 				return nullptr;
 			}
-			if (ev.data.fd == m_ctl_eventfd)
+			if (ev.data.fd == m_eventfd)
 			{
 				//is event fd
-				//need to update epoll
-				while (_DelCtlFd())
+				if (_ReadEvFd())
 				{
-					int fd;
-					{
-						std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
-						fd = m_ctl_changes.front();
-						m_ctl_changes.pop_front();
-					}
-					_HandleCtl(fd);
+					_HandleTasks();
 				}
 				//return by timeout
 				return nullptr;
@@ -640,237 +608,198 @@ namespace stdx
 			{
 				return;
 			}
-			int fd = m_fd_getter(p);
-			stdx::epoll_context_list<_IOContext> &ev = m_map[fd];
-			bool need_update = false;
-			//push context
+			_RunInLoop([this](_IOContext *p) 
 			{
-				std::unique_lock<stdx::spin_lock> lock(ev.lock);
-				//has error(s) on this fd
+				//get fd
+				int fd = m_fd_getter(p);
+				//get context manager
+				stdx::epoll_context_list<_IOContext>& ev = m_map[fd];
+				//is hup or error
 				if (ev.model.is_err_or_hup)
 				{
-					throw std::system_error(std::error_code(EBADFD, std::system_category()));
+					//clean context
+					m_clean(p);
+					return;
 				}
 				//get events
 				uint32_t events = m_event_getter(p);
 				if (events & stdx::epoll_events::in)
 				{
-					if (!ev.model.enable_in)
+					//check if update epoll
+					if (!(ev.model.ev.events & stdx::epoll_events::in))
 					{
-						ev.model.enable_in = true;
-						need_update = true;
+						//update epoll
+						ev.model.ev.events |= stdx::epoll_events::in;
+						_UpdateOrAddEvent(ev);
 					}
 					ev.in_contexts.push_back(p);
 				}
 				else if (events & stdx::epoll_events::out)
 				{
-					if (!ev.model.enable_out)
+					//check if update epoll
+					if (!(ev.model.ev.events & stdx::epoll_events::out))
 					{
-						ev.model.enable_out = true;
-						need_update = true;
+						//update epoll
+						ev.model.ev.events |= stdx::epoll_events::out;
+						_UpdateOrAddEvent(ev);
 					}
 					ev.out_contexts.push_back(p);
 				}
-			}
-			//need to update epoll status
-			if (need_update)
-			{
-				{
-					std::unique_lock<stdx::spin_lock> lock(m_ctl_lock);
-					m_ctl_changes.push_back(fd);
-				}
-				_AddCtlFd();
-			}
+			}, p);
 		}
 
 		virtual void bind(const int &fd) override
 		{
-			stdx::epoll_context_list<_IOContext> ev;
-			_InitModel(ev.model, fd);
-			m_map[fd] = std::move(ev);
+			_RunInLoop([this](int fd) 
+			{
+					stdx::epoll_context_list<_IOContext> ev;
+					_InitModel(ev.model, fd);
+					m_map[fd] = std::move(ev);
+			},fd);
 		}
 
 		virtual void unbind(const int &fd) override
 		{
-			auto& ev = m_map[fd];
+			_RunInLoop([this](int fd) mutable
 			{
-				std::unique_lock<stdx::spin_lock> lock(ev.lock);
-				ev.model.enable_in = false;
-				ev.model.enable_out = false;
-				ev.model.is_exist = true;
+				auto& ev = m_map[fd];
 				ev.model.is_err_or_hup = true;
-			}
-			_CleanContexts(ev);
-			_HandleCtl(ev, fd);
+				ev.model.is_exist = false;
+				_CleanContexts(ev);
+				//remove from epoll
+				try
+				{
+					m_epoll.del_event(fd);
+				}
+				catch (const std::exception &err)
+				{
+#ifdef DEBUG
+					::printf("[EpollProactor]Remove event failure: %s\n",err.what());
+#endif
+				}
+			},fd);
 		}
 
 		virtual void unbind(const int& object, std::function<void(int)> deleter)
 		{
-			auto& ev = m_map[object];
-			{
-				std::unique_lock<stdx::spin_lock> lock(ev.lock);
-				ev.model.enable_in = false;
-				ev.model.enable_out = false;
-				ev.model.is_exist = true;
-				ev.model.is_err_or_hup = true;
-			}
-			_CleanContexts(ev);
-			_HandleCtl(ev,object);
-			//must be last line
-			deleter(object);
+			_RunInLoop([this](int fd, std::function<void(int)> deleter) mutable
+				{
+					auto& ev = m_map[fd];
+					ev.model.is_err_or_hup = true;
+					ev.model.is_exist = false;
+					_CleanContexts(ev);
+					//remove from epoll
+					try
+					{
+						m_epoll.del_event(fd);
+						deleter(fd);
+					}
+					catch (const std::exception& err)
+					{
+#ifdef DEBUG
+						::printf("[EpollProactor]Remove event or delete fd failure: %s\n", err.what());
+#endif
+					}
+				},object,deleter);
 		}
 	private:
 
-		void _AddCtlFd()
+		void __RunInLoop(task_t &&task)
 		{
-			eventfd_t val = 1;
-			::write(m_ctl_eventfd, &val, sizeof(eventfd_t));
+			{
+				std::unique_lock<lock_t> lock(m_ev_lock);
+				m_tasks.push_back(std::move(task));
+			}
+			_WokenUpFd();
 		}
 
-		bool _DelCtlFd()
+		template<typename _Fn,typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		void _RunInLoop(_Fn&& fn, _Args &&...args)
+		{
+			task_t task = std::bind(fn, args...);
+			__RunInLoop(std::move(task));
+		}
+
+		void _WokenUpFd()
+		{
+			eventfd_t val = 1;
+			::write(m_eventfd, &val, sizeof(eventfd_t));
+		}
+
+		bool _ReadEvFd()
 		{
 			eventfd_t val = UINT64_MAX;
-			::read(m_ctl_eventfd, &val, sizeof(eventfd_t));
-			if (val != 1)
+			::read(m_eventfd, &val, sizeof(eventfd_t));
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				if (errno == EAGAIN || errno == EWOULDBLOCK)
-				{
-					return false;
-				}
+				return false;
 			}
 			return true;
 		}
 
-		void _HandleCtl(stdx::epoll_context_list<_IOContext> &ev,int fd)
+		void _UpdateOrAddEvent(stdx::epoll_context_list<_IOContext> &ev)
 		{
-			bool need_update = false;
-			bool exist = true;
-			bool need_delete = false;
+			if (ev.model.is_exist)
 			{
-				std::unique_lock<stdx::spin_lock> lock(ev.lock);
-				if (ev.model.need_enable_in())
-				{
-					need_update = true;
-					ev.model.ev.events |= stdx::epoll_events::in;
-				}
-				else if (ev.model.need_disable_in())
-				{
-					need_update = true;
-					ev.model.ev.events &= (~stdx::epoll_events::in);
-				}
-				if (ev.model.need_enable_out())
-				{
-					need_update = true;
-					ev.model.ev.events |= stdx::epoll_events::out;
-				}
-				else if (ev.model.need_disable_out())
-				{
-					need_update = true;
-					ev.model.ev.events &= (~stdx::epoll_events::out);
-				}
-
-				if (ev.model.is_err_or_hup)
-				{
-					if (ev.model.is_exist)
-					{
-						ev.model.is_exist = false;
-						need_update = true;
-						need_delete = true;
-					}
-				}
-				else
-				{
-					if (!ev.model.is_exist)
-					{
-						exist = false;
-						need_update = true;
-						ev.model.is_exist = true;
-					}
-				}
+				m_epoll.update_event(ev.model.ev.data.fd,&(ev.model.ev));
 			}
-			if (need_update)
+			else
 			{
-				if (exist)
-				{
-					if (need_delete)
-					{
-						m_epoll.del_event(fd);
-					}
-					else
-					{
-						m_epoll.update_event(fd, &(ev.model.ev));
-					}
-				}
-				else
-				{
-					if (!need_delete)
-					{
-						m_epoll.add_event(fd, &(ev.model.ev));
-					}
-				}
+				ev.model.is_exist = true;
+				m_epoll.add_event(ev.model.ev.data.fd, &(ev.model.ev));
 			}
-		}
-
-		void _HandleCtl(int fd)
-		{
-			_HandleCtl(m_map[fd],fd);
 		}
 
 		_IOContext *_HandleIoEvent(epoll_event &ev)
 		{
 			int fd = ev.data.fd;
 			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
+			bool need_ctl = false;
+			//handle in event first
+			if (ev.events & stdx::epoll_events::in)
 			{
+				if (!ev_.in_contexts.empty())
 				{
-					std::unique_lock<stdx::spin_lock> lock(ev_.lock);
-					//is in event
-					//handle in event first
-					if (ev.events & stdx::epoll_events::in)
+					_IOContext* cont = ev_.in_contexts.front();
+					//I/O operation
+					if (m_operate(cont))
 					{
-						if (!ev_.in_contexts.empty())
-						{
-							_IOContext* cont = ev_.in_contexts.front();
-							lock.unlock();
-							//I/O operation
-							if (m_operate(cont))
-							{
-								lock.lock();
-								//I/O operation finish
-								ev_.in_contexts.pop_front();
-								return cont;
-							}
-							lock.lock();
-						}
-						else
-						{
-							ev_.model.enable_in = false;
-						}
-					}
-					if (ev.events & stdx::epoll_events::out)
-					{
-						if (!ev_.out_contexts.empty())
-						{
-							_IOContext* cont = ev_.out_contexts.front();
-							lock.unlock();
-							//I/O operation
-							if (m_operate(cont))
-							{
-								lock.lock();
-								//I/O operation finish
-								ev_.out_contexts.pop_front();
-								return cont;
-							}
-							lock.lock();
-						}
-						else
-						{
-							ev_.model.enable_out = false;
-						}
+						//I/O operation finish
+						ev_.in_contexts.pop_front();
+						return cont;
 					}
 				}
-				_HandleCtl(ev_,fd);
-				return nullptr;
+				else
+				{
+					ev_.model.ev.events ^= stdx::epoll_events::in;
+					need_ctl = true;
+				}
 			}
+			//handle out event
+			if (ev.events & stdx::epoll_events::out)
+			{
+				if (!ev_.out_contexts.empty())
+				{
+					_IOContext* cont = ev_.out_contexts.front();
+					//I/O operation
+					if (m_operate(cont))
+					{
+						//I/O operation finish
+						ev_.out_contexts.pop_front();
+						return cont;
+					}
+				}
+				else
+				{
+					ev_.model.ev.events ^= stdx::epoll_events::out;
+					need_ctl = true;
+				}
+			}
+			if (need_ctl)
+			{
+				m_epoll.update_event(fd, &(ev_.model.ev));
+			}
+			return nullptr;
 		}
 
 		void _CleanContexts(stdx::epoll_context_list<_IOContext> &ev)
@@ -892,25 +821,45 @@ namespace stdx
 		void _CleanFd(int fd)
 		{
 			auto& ev = m_map[fd];
-			{
-				std::unique_lock<stdx::spin_lock> lock(ev.lock);
-				ev.model.enable_in = false;
-				ev.model.enable_out = false;
-				ev.model.is_exist = true;
-				ev.model.is_err_or_hup = true;
-				_CleanContexts(ev);
-			}
-			_HandleCtl(ev, fd);
+			ev.model.is_err_or_hup = true;
+			ev.model.is_exist = false;
+			_CleanContexts(ev);
+			m_epoll.del_event(fd);
 		}
 
 		void _InitModel(stdx::epoll_event_model &model,int fd)
 		{
-			model.enable_in = false;
-			model.enable_out = false;
 			model.is_exist = false;
 			model.is_err_or_hup = false;
 			model.ev.data.fd = fd;
 			model.ev.events = stdx::epoll_events::hup;
+		}
+
+		void _HandleTasks()
+		{
+			std::list<task_t> tasks;
+			{
+				std::unique_lock<lock_t> lock(m_ev_lock);
+				std::swap(tasks, m_tasks);
+			}
+			while (!tasks.empty())
+			{
+				task_t task = tasks.front();
+				tasks.pop_front();
+				try
+				{
+					if (task)
+					{
+						task();
+					}
+				}
+				catch (const std::exception& err)
+				{
+#ifdef DEBUG
+					::printf("[EpollProactor]Execute task error: %s\n", err.what());
+#endif
+				}
+			}
 		}
 
 		stdx::epoll m_epoll;
@@ -919,9 +868,9 @@ namespace stdx
 		operate_t m_operate;
 		fd_getter_t m_fd_getter;
 		event_getter_t m_event_getter;
-		int m_ctl_eventfd;
-		stdx::spin_lock m_ctl_lock;
-		std::list<int> m_ctl_changes;
+		int m_eventfd;
+		lock_t m_ev_lock;
+		std::list<task_t> m_tasks;
 	};
 
 	template<typename _IOContext>

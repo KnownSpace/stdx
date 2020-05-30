@@ -110,14 +110,19 @@ int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int
 	return r;
 }
 
-int stdx::make_semaphore_eventfd(int flags)
+int stdx::make_eventfd(int flags)
 {
-	int fd = ::eventfd(0,EFD_SEMAPHORE|flags);
+	int fd = ::eventfd(0,flags);
 	if (fd == -1)
 	{
 		_ThrowLinuxError
 	}
 	return fd;
+}
+
+int stdx::make_semaphore_eventfd(int flags)
+{
+	return stdx::make_eventfd(EFD_SEMAPHORE);
 }
 #endif // LINUX
 
