@@ -8,9 +8,10 @@ namespace stdx
 	class cancel_token
 	{
 		using self_t = stdx::cancel_token;
+		using value_t = std::atomic_bool;
 	public:
 		cancel_token()
-			:m_value(std::make_shared<std::atomic_bool>())
+			:m_value(std::make_shared<value_t>(false))
 		{}
 
 		cancel_token(const self_t& other)
@@ -37,22 +38,22 @@ namespace stdx
 
 		void cancel()
 		{
-			m_value->store(true);
+			*m_value = true;
 		}
 
 		bool is_cancel() const
 		{
-			return m_value->load();
+			return *m_value;
 		}
 
 		operator bool() const
 		{
-			return m_value->load();
+			return *m_value;
 		}
 
 		void reset()
 		{
-			m_value->store(false);
+			*m_value = false;
 		}
 
 		bool check_ptr() const
@@ -66,6 +67,6 @@ namespace stdx
 		}
 
 	private:
-		std::shared_ptr<std::atomic_bool> m_value;
+		std::shared_ptr<value_t> m_value;
 	};
 }

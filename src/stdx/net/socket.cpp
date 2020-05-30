@@ -1158,7 +1158,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	}
 	if (r < 0)
 	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
+		if (errno == EWOULDBLOCK)
 		{
 			return false;
 		}

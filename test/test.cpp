@@ -86,6 +86,23 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 	return keep;
 }
 
+bool handle_request_hello(stdx::http_connection conn, stdx::http_request req)
+{
+
+	bool keep = req.request_header().is_keepalive();
+	stdx::http_response response(200);
+	add_keepalive(response, keep);
+	auto t = conn.write(response)
+		.then([conn, keep](stdx::task_result<size_t> r)mutable
+			{
+				if (!keep)
+				{
+					conn.close();
+				}
+			});
+	return keep;
+}
+
 int main(int argc, char** argv)
 {
 #define ENABLE_WEB
@@ -120,7 +137,7 @@ int main(int argc, char** argv)
 			stdx::cancel_token token;
 			conn.read_until(token, [token,conn,file_io_service](stdx::http_request req) mutable
 			{
-				if (!handle_request(conn, req, file_io_service))
+				if (!handle_request_hello(conn, req))
 				{
 					token.cancel();
 				}
