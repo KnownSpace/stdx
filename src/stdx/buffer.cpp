@@ -1,5 +1,6 @@
 #include <stdx/buffer.h>
 #include <string.h>
+#include <stdx/finally.h>
 
 stdx::_Buffer::_Buffer()
 	:m_size(0)
@@ -13,7 +14,7 @@ stdx::_Buffer::_Buffer(size_t size, char* data)
 
 stdx::_Buffer::~_Buffer()
 {
-	free();
+	this->free();
 }
 
 void stdx::_Buffer::init(const size_t& size)
@@ -111,7 +112,7 @@ void stdx::_Buffer::copy_from(const stdx::_Buffer& other)
 	memcpy(m_data, (const char*)other, new_size);
 }
 
-char* stdx::_Buffer::to_raw()
+char* stdx::_Buffer::move_to_raw()
 {
 	m_size = 0;
 	char* buf = m_data;
@@ -122,16 +123,35 @@ char* stdx::_Buffer::to_raw()
 void stdx::_Buffer::free()
 {
 	m_size = 0;
-	/*if (m_data)
-	{
-		stdx::free(m_data);
-		m_data = nullptr;
-	}*/
 	ptr_t p = m_data.exchange(nullptr);
 	if (p)
 	{
 		stdx::free(p);
 	}
+}
+
+void stdx::_Buffer::memalign(size_t align)
+{
+	char* buf = m_data;
+	stdx::posix_memalign((void**)&buf, align, m_size);
+	m_data = buf;
+}
+
+void stdx::_Buffer::memalign_and_move(size_t align)
+{
+	char* temp = (char*)stdx::malloc(m_size);
+	if (!temp)
+	{
+		throw std::bad_alloc();
+	}
+	stdx::finally fin([temp]() 
+	{
+		stdx::free(temp);
+	});
+	memcpy(temp,m_data,m_size);
+	size_t size = m_size;
+	this->memalign(align);
+	memcpy(m_data, temp, size);
 }
 
 stdx::buffer stdx::make_buffer(size_t size)

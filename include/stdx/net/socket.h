@@ -352,28 +352,11 @@ namespace stdx
 
 		~network_io_context() 
 		{}
-
-//		network_io_context(network_io_context&& other) noexcept
-//#ifdef WIN32
-//			:m_ol(std::move(other.m_ol))
-//#else
-//			:code(other.code)
-//#endif
-//			,this_socket(std::move(other.this_socket))
-//			,target_socket(std::move(other.target_socket))
-//			,addr(std::move(other.addr))
-//#ifdef WIN32
-//			,buffer(std::move(other.buffer))
-//#else
-//			,buffer(std::move(other.buffer))
-//			,buffer_size(other.buffer_size)
-//#endif
-//			,size(other.size)
-//		{}
 #ifdef WIN32
 		WSAOVERLAPPED m_ol;
 #else
 		int code;
+		ssize_t err_code;
 #endif 
 #ifdef WIN32
 		SOCKET this_socket;
@@ -383,11 +366,12 @@ namespace stdx
 		int target_socket;
 #endif
 		ipv4_addr addr;
+		stdx::buffer buf;
 #ifdef WIN32
 		WSABUF buffer;
 #else
-		char* buffer;
-		size_t buffer_size;
+		size_t send_size;
+		size_t send_offset;
 #endif
 		stdx::socket_size_t size;
 		
@@ -399,13 +383,16 @@ namespace stdx
 	{
 		enum
 		{
-			recv = 0,
-			recvfrom = 1,
-			send = 2,
-			sendto = 3,
-			accept = 4,
-			connect = 5,
-			sendfile = 6
+			recv = 1,
+			recvfrom = 2,
+			send = 4,
+			sendto = 8,
+			accept = 16,
+			connect = 32,
+			sendfile = 64,
+			sendto_ipv6 = 128,
+			recvfrom_ipv6 = 256,
+			accept_ipv6 = 512
 		};
 	};
 #endif
@@ -413,30 +400,20 @@ namespace stdx
 	struct network_send_event
 	{
 		network_send_event()
-#ifdef WIN32
-			:sock(INVALID_SOCKET)
-#else
-			: sock(-1)
-#endif
-			, size(0)
+			:buffer()
+			,size(0)
 		{}
 		~network_send_event() = default;
 
 		network_send_event(const network_send_event& other)
-			:sock(other.sock)
-			, size(other.size)
+			:buffer(other.buffer)
+			,size(other.size)
 		{}
 
 		network_send_event(network_send_event&& other) noexcept
-			:sock(std::move(other.sock))
-			, size(std::move(other.size))
+			:buffer(std::move(other.buffer))
+			,size(std::move(other.size))
 		{
-#ifdef WIN32
-			other.sock = INVALID_SOCKET;
-
-#else
-			other.sock = -1;
-#endif
 			other.size = 0;
 		}
 
@@ -449,62 +426,40 @@ namespace stdx
 
 		network_send_event& operator=(network_send_event&& other) noexcept
 		{
-			sock = other.sock;
 			size = other.size;
-#ifdef WIN32
-			other.sock = INVALID_SOCKET;
-#else
-			other.sock = -1;
-#endif
 			other.size = 0;
+			buffer = std::move(other.buffer);
 			return *this;
 		}
 
 		network_send_event(network_io_context* ptr)
-			:sock(ptr->this_socket)
-			, size(ptr->size)
+			:size(ptr->size)
+			,buffer(ptr->buf)
 		{}
-
-#ifdef WIN32
-		SOCKET sock;
-#else
-		int sock;
-#endif
 		size_t size;
+		stdx::buffer buffer;
 	};
-
+	
 	struct network_recv_event
 	{
 		network_recv_event()
-#ifdef WIN32
-			:sock(INVALID_SOCKET)
-#else
-			:sock(-1)
-#endif
-			, buffer(0, nullptr)
+			:buffer()
 			, size(0)
 			, addr()
 		{}
 		~network_recv_event() = default;
 
 		network_recv_event(const network_recv_event& other)
-			:sock(other.sock)
-			, buffer(other.buffer)
+			:buffer(other.buffer)
 			, size(other.size)
 			, addr(other.addr)
 		{}
 
 		network_recv_event(network_recv_event&& other) noexcept
-			:sock(std::move(other.sock))
-			, buffer(other.buffer)
-			, size(other.size)
-			, addr(other.addr)
+			:buffer(std::move(other.buffer))
+			, size(std::move(other.size))
+			, addr(std::move(other.addr))
 		{
-#ifdef WIN32
-			other.sock = INVALID_SOCKET;
-#else
-			other.sock = -1;
-#endif
 			other.size = 0;
 		}
 
@@ -517,45 +472,23 @@ namespace stdx
 
 		network_recv_event& operator=(network_recv_event&& other) noexcept
 		{
-			sock = other.sock;
-			buffer = other.buffer;
+			buffer = std::move(other.buffer);
 			size = other.size;
-			addr = other.addr;
-#ifdef WIN32
-			other.sock = INVALID_SOCKET;
-#else
-			other.sock = -1;
-#endif
+			addr = std::move(other.addr);
 			other.size = 0;
 			return *this;
 		}
 
 		network_recv_event(network_io_context* ptr)
-			:sock(ptr->target_socket)
-#ifdef WIN32
-			, buffer(ptr->buffer.len, ptr->buffer.buf)
-#else
-			, buffer(ptr->buffer_size, ptr->buffer)
-#endif // WIN32
+			:buffer(ptr->buf)
 			, size(ptr->size)
 			, addr(ptr->addr)
 		{}
-#ifdef WIN32
-		SOCKET sock;
-#else
-		int sock;
-#endif // WIN32
+
 		stdx::buffer buffer;
 		size_t size;
 		stdx::ipv4_addr addr;
 	};
-
-#ifdef LINUX
-	struct network_io_context_finder
-	{
-		static int find(epoll_event* ev);
-	};
-#endif // LINUX
 
 	struct network_accept_event
 	{
@@ -601,7 +534,6 @@ namespace stdx
 	{
 	public:
 #ifdef WIN32
-		using iocp_t = stdx::iocp<network_io_context>;
 		using socket_t = SOCKET;
 		using file_handle_t = HANDLE;
 #else
@@ -622,26 +554,28 @@ namespace stdx
 #endif
 
 		//发送数据
-		void send(socket_t sock, const char* data, const stdx::socket_size_t& size, std::function<void(network_send_event, std::exception_ptr)> callback);
+		void send(socket_t sock, stdx::buffer buf, const stdx::socket_size_t& size, std::function<void(network_send_event, std::exception_ptr)> callback);
 
 		void send_file(socket_t sock, file_handle_t file_with_cache, std::function<void(std::exception_ptr)> callback);
 
 		//接收数据
-		void recv(socket_t sock, const  stdx::socket_size_t& size, std::function<void(network_recv_event, std::exception_ptr)> callback);
+		void recv(socket_t sock, stdx::buffer buf, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
 		void connect(socket_t sock, stdx::ipv4_addr& addr);
 
+#ifdef WIN32
 		socket_t accept(socket_t sock, ipv4_addr& addr);
 
 		socket_t accept(socket_t sock);
+#endif // WIN32
 
 		void listen(socket_t sock, int backlog);
 
 		void bind(socket_t sock, ipv4_addr& addr);
 
-		void send_to(socket_t sock, const ipv4_addr& addr, const char* data, const socket_size_t& size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
+		void send_to(socket_t sock, const ipv4_addr& addr, stdx::buffer buf, const socket_size_t& size, std::function<void(stdx::network_send_event, std::exception_ptr)> callback);
 
-		void recv_from(socket_t sock, const socket_size_t& size, std::function<void(network_recv_event, std::exception_ptr)> callback);
+		void recv_from(socket_t sock, stdx::buffer buf, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
 		void close(socket_t sock);
 
@@ -681,27 +615,37 @@ namespace stdx
 #endif
 
 		static std::shared_ptr<_NetworkIOService> get_instance();
+
+#ifdef LINUX
+	private:
+		static void _Clean(stdx::network_io_context* context);
+
+		static int _GetFd(stdx::network_io_context *context);
+
+		static bool _IOOperate(stdx::network_io_context* context);
+
+		static uint32_t _GetEvents(stdx::network_io_context* context);
+#endif // LINUX
+
 	private:
 #ifdef WIN32
-		iocp_t m_iocp;
 		static DWORD recv_flag;
-#else
-		stdx::reactor m_reactor;
 #endif
-		//std::shared_ptr<bool> m_alive;
+		stdx::io_poller<stdx::network_io_context> m_poller;
+
 		stdx::cancel_token m_token;
+
 		void init_threadpoll() noexcept;
 
 		static std::once_flag _once_flag;
 		
 		static std::shared_ptr<_NetworkIOService> _instance;
+
+		stdx::thread_pool m_thread_pool;
 	};
 
 	class network_io_service
 	{
-#ifdef WIN32
-		using iocp_t = _NetworkIOService::iocp_t;
-#endif // WIN32
 		using socket_t = _NetworkIOService::socket_t;
 		using file_handle_t = _NetworkIOService::file_handle_t;
 		using impl_t = std::shared_ptr<_NetworkIOService>;
@@ -735,9 +679,9 @@ namespace stdx
 #endif // WIN32
 		}
 
-		void send(socket_t sock, const char* data, const socket_size_t& size, std::function<void(network_send_event, std::exception_ptr)>&& callback)
+		void send(socket_t sock, stdx::buffer buf, const socket_size_t& size, std::function<void(network_send_event, std::exception_ptr)>&& callback)
 		{
-			m_impl->send(sock, data, size, std::move(callback));
+			m_impl->send(sock, buf, size, std::move(callback));
 		}
 
 		void send_file(socket_t sock, file_handle_t file_with_cache, std::function<void(std::exception_ptr)>&& callback)
@@ -745,9 +689,9 @@ namespace stdx
 			m_impl->send_file(sock, file_with_cache, callback);
 		}
 
-		void recv(socket_t sock, const socket_size_t& size, std::function<void(network_recv_event, std::exception_ptr)>&& callback)
+		void recv(socket_t sock, stdx::buffer buf, std::function<void(network_recv_event, std::exception_ptr)>&& callback)
 		{
-			m_impl->recv(sock, size, callback);
+			m_impl->recv(sock,buf, callback);
 		}
 
 		void connect(socket_t sock, stdx::ipv4_addr& addr)
@@ -761,6 +705,7 @@ namespace stdx
 		}
 
 
+#ifdef WIN32
 		socket_t accept(socket_t sock, ipv4_addr& addr)
 		{
 			return m_impl->accept(sock, addr);
@@ -770,6 +715,7 @@ namespace stdx
 		{
 			return m_impl->accept(sock);
 		}
+#endif // WIN32
 
 		void listen(socket_t sock, int backlog)
 		{
@@ -781,14 +727,14 @@ namespace stdx
 			m_impl->bind(sock, addr);
 		}
 
-		void send_to(socket_t sock, const ipv4_addr& addr, const char* data, const socket_size_t& size, std::function<void(stdx::network_send_event, std::exception_ptr)>&& callback)
+		void send_to(socket_t sock, const ipv4_addr& addr,stdx::buffer buf, const socket_size_t& size, std::function<void(stdx::network_send_event, std::exception_ptr)>&& callback)
 		{
-			m_impl->send_to(sock, addr, data, size, std::move(callback));
+			m_impl->send_to(sock, addr,buf, size, std::move(callback));
 		}
 
-		void recv_from(socket_t sock, const socket_size_t& size, std::function<void(network_recv_event, std::exception_ptr)>&& callback)
+		void recv_from(socket_t sock, stdx::buffer buf, std::function<void(network_recv_event, std::exception_ptr)>&& callback)
 		{
-			m_impl->recv_from(sock, size, callback);
+			m_impl->recv_from(sock, buf, callback);
 		}
 
 		void close(socket_t sock)
@@ -838,18 +784,18 @@ namespace stdx
 		}
 
 
-		stdx::task<stdx::network_send_event> send(const char* data, const socket_size_t& size);
+		stdx::task<stdx::network_send_event> send(stdx::buffer buf, const socket_size_t& size);
 
 		stdx::task<void> send_file(file_handle_t file_handle);
 
 
-		stdx::task<stdx::network_send_event> send_to(const ipv4_addr& addr, const char* data, const socket_size_t& size);
+		stdx::task<stdx::network_send_event> send_to(const ipv4_addr& addr, stdx::buffer buf, const socket_size_t& size);
 
 
-		stdx::task<stdx::network_recv_event> recv(const socket_size_t& size);
+		stdx::task<stdx::network_recv_event> recv(stdx::buffer buf);
 
 
-		stdx::task<stdx::network_recv_event> recv_from(const socket_size_t& size);
+		stdx::task<stdx::network_recv_event> recv_from(stdx::buffer buf);
 
 		void bind(ipv4_addr& addr)
 		{
@@ -861,17 +807,7 @@ namespace stdx
 			m_io_service.listen(m_handle, backlog);
 		}
 
-		socket_t accept(ipv4_addr& addr)
-		{
-			return m_io_service.accept(m_handle, addr);
-		}
-
-		socket_t accept()
-		{
-			return m_io_service.accept(m_handle);
-		}
-
-		stdx::task<stdx::network_accept_event> accept_ex();
+		stdx::task<stdx::network_accept_event> accept();
 
 		void close();
 
@@ -895,7 +831,7 @@ namespace stdx
 			return m_io_service.get_remote_addr(m_handle);
 		}
 
-		void recv_until(socket_size_t size,stdx::cancel_token token,std::function<void(stdx::network_recv_event)> fn,std::function<void(std::exception_ptr)> err_handler);
+		void recv_until(stdx::buffer buf,stdx::cancel_token token,std::function<void(stdx::network_recv_event)> fn,std::function<void(std::exception_ptr)> err_handler);
 
 		io_service_t get_io_service() const;
 
@@ -953,19 +889,7 @@ namespace stdx
 			m_impl->listen(backlog);
 		}
 
-		self_t accept(ipv4_addr& addr)
-		{
-			socket_t s = m_impl->accept(addr);
-			return socket(m_impl->io_service(), s);
-		}
-
-		self_t accept()
-		{
-			socket_t s = m_impl->accept();
-			return socket(m_impl->io_service(), s);
-		}
-
-		stdx::task<network_connected_event> accept_ex();
+		stdx::task<network_connected_event> accept();
 
 		void close()
 		{
@@ -987,9 +911,9 @@ namespace stdx
 			return m_impl->remote_addr();
 		}
 
-		stdx::task<network_send_event> send(const char* data, const socket_size_t& size)
+		stdx::task<network_send_event> send(stdx::buffer buf, const socket_size_t& size)
 		{
-			return m_impl->send(data, size);
+			return m_impl->send(buf, size);
 		}
 
 		stdx::task<void> send_file(file_handle_t file_with_cache)
@@ -997,29 +921,25 @@ namespace stdx
 			return m_impl->send_file(file_with_cache);
 		}
 
-		stdx::task<network_send_event> send_to(const ipv4_addr& addr, const char* data, const socket_size_t& size)
+		stdx::task<network_send_event> send_to(const ipv4_addr& addr, stdx::buffer buf, const socket_size_t& size)
 		{
-			return m_impl->send_to(addr, data, size);
+			return m_impl->send_to(addr,buf, size);
 		}
 
-		stdx::task<network_recv_event> recv(const socket_size_t& size)
+		stdx::task<network_recv_event> recv(stdx::buffer buf)
 		{
-			return m_impl->recv(size);
+			return m_impl->recv(buf);
 		}
 
-		stdx::task<network_recv_event> recv_from(const socket_size_t& size)
+		stdx::task<network_recv_event> recv_from(stdx::buffer buf)
 		{
-			return m_impl->recv_from(size);
+			return m_impl->recv_from(buf);
 		}
 
-		void recv_until(socket_size_t size, stdx::cancel_token token, std::function<void(stdx::network_recv_event)> fn, std::function<void(std::exception_ptr)> err_handler)
+		void recv_until(stdx::buffer buf, stdx::cancel_token token, std::function<void(stdx::network_recv_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 		{
-			return m_impl->recv_until(size,token, fn,err_handler);
+			return m_impl->recv_until(buf,token, fn,err_handler);
 		}
-
-		//void accept_until(std::function<bool(stdx::task_result<stdx::network_connected_event>)> call);
-
-		//void accept_until_error(std::function<void(stdx::network_connected_event)> call,std::function<void(std::exception_ptr)> err_handler);
 
 		void accept_until(stdx::cancel_token token, std::function<void(stdx::network_connected_event)> fn, std::function<void(std::exception_ptr)> err_handler);
 

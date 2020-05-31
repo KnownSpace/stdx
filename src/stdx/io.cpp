@@ -34,9 +34,6 @@ int stdx::io_cancel(aio_context_t ctx_id, struct iocb* iocb, struct io_event* re
 
 void stdx::aio_read(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr)
 {
-#ifdef DEBUG
-	printf("[Native AIO]正在准备IO操作\n");
-#endif // DEBUG
 	iocb cbs[1], * p[1] = { &cbs[0] };
 	memset(&(cbs[0]), 0, sizeof(iocb));
 	(cbs[0]).aio_lio_opcode = IOCB_CMD_PREAD;
@@ -45,29 +42,20 @@ void stdx::aio_read(aio_context_t context, int fd, char* buf, size_t size, int64
 	(cbs[0]).aio_nbytes = size;
 	(cbs[0]).aio_offset = offset;
 	(cbs[0]).aio_data = (uint64_t)ptr;
-	if (resfd != invalid_eventfd)
+	if (resfd != INVALID_EVENTFD)
 	{
 		(cbs[0]).aio_flags = IOCB_FLAG_RESFD;
 		(cbs[0]).aio_resfd = resfd;
 	}
 	if (stdx::io_submit(context, 1, p) != 1)
 	{
-#ifdef DEBUG
-		printf("[Native AIO]IO操作提交失败\n");
-#endif // DEBUG
 		_ThrowLinuxError
 	}
-#ifdef DEBUG
-	printf("[Native AIO]IO操作已提交\n");
-#endif // DEBUG
 	return;
 }
 
 void stdx::aio_write(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr)
 {
-#ifdef DEBUG
-	printf("[Native AIO]正在准备IO操作\n");
-#endif // DEBUG
 	iocb cbs[1], * p[1] = { &cbs[0] };
 	memset(&(cbs[0]), 0, sizeof(iocb));
 	(cbs[0]).aio_lio_opcode = IOCB_CMD_PWRITE;
@@ -76,21 +64,15 @@ void stdx::aio_write(aio_context_t context, int fd, char* buf, size_t size, int6
 	(cbs[0]).aio_nbytes = size;
 	(cbs[0]).aio_offset = offset;
 	(cbs[0]).aio_data = (uint64_t)ptr;
-	if (resfd != invalid_eventfd)
+	if (resfd != INVALID_EVENTFD)
 	{
 		(cbs[0]).aio_flags = IOCB_FLAG_RESFD;
 		(cbs[0]).aio_resfd = resfd;
 	}
 	if (stdx::io_submit(context, 1, p) != 1)
 	{
-#ifdef DEBUG
-		printf("[Native AIO]IO操作提交失败\n");
-#endif // DEBUG
 		_ThrowLinuxError
 	}
-#ifdef DEBUG
-	printf("[Native AIO]IO操作已提交\n");
-#endif // DEBUG
 	return;
 }
 
@@ -127,136 +109,20 @@ int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int
 	}
 	return r;
 }
-void stdx::_Reactor::bind(int fd)
+
+int stdx::make_eventfd(int flags)
 {
-	std::unique_lock<stdx::spin_lock> _lock(m_lock);
-	auto iterator = m_map.find(fd);
-	if (iterator == std::end(m_map))
+	int fd = ::eventfd(0,flags);
+	if (fd == -1)
 	{
-		m_map.emplace(fd,make());
-		_lock.unlock();
+		_ThrowLinuxError
 	}
+	return fd;
 }
 
-void stdx::_Reactor::unbind(int fd)
+int stdx::make_semaphore_eventfd(int flags)
 {
-	std::unique_lock<stdx::spin_lock> _lock(m_lock);
-	auto iterator = m_map.find(fd);
-	if (iterator != std::end(m_map))
-	{
-		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-		_lock.unlock();
-		if (!iterator->second.m_queue.empty())
-		{
-#ifdef DEBUG
-			::printf("[Epoll]IO操作仍未完成,但FD已解除绑定,剩余队列长%zu\n", iterator->second.m_queue.size());
-#endif
-			for (auto qbegin = iterator->second.m_queue.begin(),qend=iterator->second.m_queue.end();qbegin!=qend;qbegin++)
-			{
-				auto ev = *qbegin;
-				m_clean(&ev);
-				iterator->second.m_queue.erase(qbegin);
-			}
-		}
-		iterator->second.m_existed = false;
-	}
-}
-
-void stdx::_Reactor::unbind_and_close(int fd)
-{
-	std::unique_lock<stdx::spin_lock> _lock(m_lock);
-	auto iterator = m_map.find(fd);
-	if (iterator != std::end(m_map))
-	{
-		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-		_lock.unlock();
-		if (!iterator->second.m_queue.empty())
-		{
-#ifdef DEBUG
-			::printf("[Epoll]IO操作仍未完成,但FD已解除绑定,剩余队列长%zu\n", iterator->second.m_queue.size());
-#endif
-			for (auto qbegin = iterator->second.m_queue.begin(), qend = iterator->second.m_queue.end(); qbegin != qend; qbegin++)
-			{
-				auto ev = *qbegin;
-				m_clean(&ev);
-				iterator->second.m_queue.erase(qbegin);
-			}
-		}
-		iterator->second.m_existed = false;
-		::close(fd);
-	}
-}
-
-void stdx::_Reactor::push(int fd, epoll_event & ev)
-{
-	ev.events |= stdx::epoll_events::once;
-	std::unique_lock<stdx::spin_lock> _lock(m_lock);
-	auto iterator = m_map.find(fd);
-	if (iterator != std::end(m_map))
-	{
-		std::unique_lock<stdx::spin_lock> lock(iterator->second.m_lock);
-		_lock.unlock();
-		if (!iterator->second.m_existed)
-		{
-			iterator->second.m_existed = true;
-			lock.unlock();
-			m_poll.add_event(fd, &ev);
-		}
-		else
-		{
-			iterator->second.m_queue.push_back(std::move(ev));
-		}
-	}
-	else
-	{
-		_lock.unlock();
-		bind(fd);
-		return push(fd, ev);
-	}
-}
-
-void stdx::_Reactor::loop(int fd)
-{
-	std::unique_lock<stdx::spin_lock> _lock(m_lock);
-	auto iterator = m_map.find(fd);
-	if (iterator != std::end(m_map))
-	{
-		auto &obj = *iterator;
-		std::unique_lock<stdx::spin_lock> lock(obj.second.m_lock);
-		_lock.unlock();
-		if (obj.second.m_existed)
-		{
-			if (!obj.second.m_queue.empty())
-			{
-				auto ev = obj.second.m_queue.front();
-				iterator->second.m_queue.pop_front();
-#ifdef DEBUG
-				::printf("[Epoll]更新监听事件\n");
-#endif // DEBUG
-				obj.second.m_existed = true;
-				m_poll.update_event(fd, &ev);
-				return;
-			}
-			else
-			{
-#ifdef DEBUG
-				::printf("[Epoll]到达循环尾\n");
-#endif // DEBUG
-				m_poll.del_event(fd);
-				obj.second.m_existed = false;
-				return;
-			}
-		}
-		else
-		{
-			if (!obj.second.m_queue.empty())
-			{
-				lock.unlock();
-				unbind(fd);
-				return;
-			}
-		}
-	}
+	return stdx::make_eventfd(EFD_SEMAPHORE);
 }
 #endif // LINUX
 

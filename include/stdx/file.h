@@ -68,7 +68,7 @@ namespace stdx
 		OVERLAPPED m_ol;
 #endif
 		native_file_handle file;
-		char* buffer;
+		stdx::buffer buf;
 #ifdef WIN32
 		DWORD size;
 #else
@@ -86,31 +86,29 @@ namespace stdx
 	struct file_read_event
 	{
 		file_read_event()
-#ifdef WIN32
-			:file(INVALID_HANDLE_VALUE)
-#else
-			: file(-1)
-#endif
-			, buffer(0, nullptr)
+			: buffer(0, nullptr)
 			, offset(0)
 			, eof(false)
 		{}
+
 		~file_read_event() = default;
+
 		file_read_event(const file_read_event& other)
-			:file(other.file)
-			, buffer(other.buffer)
+			:buffer(other.buffer)
 			, offset(other.offset)
 			, eof(other.eof)
 		{}
+
 		file_read_event(file_read_event&& other) noexcept
-			:file(std::move(other.file))
-			, buffer(std::move(other.buffer))
+			:buffer(std::move(other.buffer))
 			, offset(std::move(other.offset))
 			, eof(std::move(other.eof))
-		{}
+		{
+			other.offset = 0;
+		}
+
 		file_read_event& operator=(const file_read_event& other)
 		{
-			file = other.file;
 			buffer = other.buffer;
 			offset = other.offset;
 			eof = other.eof;
@@ -118,25 +116,18 @@ namespace stdx
 		}
 		file_read_event& operator=(file_read_event&& other) noexcept
 		{
-			file = other.file;
-			buffer = other.buffer;
+			buffer = std::move(other.buffer);
 			offset = other.offset;
 			eof = other.eof;
-#ifdef WIN32
-			other.file = INVALID_HANDLE_VALUE;
-#else
-			other.file = -1;
-#endif
+			other.offset = 0;
 			return *this;
 		}
 		file_read_event(file_io_context* ptr)
-			:file(ptr->file)
-			, buffer(ptr->size, ptr->buffer)
+			: buffer(ptr->buf)
 			, offset(ptr->offset)
 			, eof(ptr->eof)
 		{
 		}
-		native_file_handle file;
 		stdx::buffer buffer;
 		uint64_t offset;
 		bool eof;
@@ -146,48 +137,42 @@ namespace stdx
 	struct file_write_event
 	{
 		file_write_event()
-#ifdef WIN32
-			:file(INVALID_HANDLE_VALUE)
-#else
-			: file(-1)
-#endif
-			, size(0)
+			:size(0)
+			,buffer(0,nullptr)
 		{}
+
 		~file_write_event() = default;
+
 		file_write_event(const file_write_event& other)
-			:file(other.file)
-			, size(other.size)
+			:size(other.size)
+			,buffer(other.buffer)
 		{}
 		file_write_event(file_write_event&& other) noexcept
-			:file(std::move(other.file))
-			, size(std::move(other.size))
+			:size(std::move(other.size))
+			,buffer(std::move(other.buffer))
 		{}
 		file_write_event& operator=(const file_write_event& other)
 		{
-			file = other.file;
 			size = other.size;
+			buffer = other.buffer;
 			return *this;
 		}
 
 		file_write_event& operator=(file_write_event&& other) noexcept
 		{
-			file = other.file;
 			size = other.size;
-#ifdef WIN32
-			other.file = INVALID_HANDLE_VALUE;
-#else
-			other.file = -1;
-#endif
 			other.size = 0;
+			buffer = std::move(other.buffer);
 			return *this;
 		}
 
 		file_write_event(file_io_context* ptr)
-			:file(ptr->file)
-			, size(ptr->size)
+			:size(ptr->size)
+			,buffer(ptr->buf)
 		{}
-		native_file_handle file;
+
 		size_t size;
+		stdx::buffer buffer;
 	};
 
 
@@ -262,13 +247,13 @@ namespace stdx
 	{
 	public:
 #ifdef WIN32
-		using iocp_t = stdx::iocp<file_io_context>;
+		using poller_t = stdx::io_poller<file_io_context>;
 #else
 #ifdef STDX_USE_NATIVE_AIO
-		using iocp_t = stdx::aiocp<file_io_context>;
+		using poller_t = stdx::aiocp<file_io_context>;
 		using aiocp_t = stdx::aiocp<file_io_context>;
 #else
-		using iocp_t = stdx::bio_poller<file_io_context>;
+		using poller_t = stdx::io_poller<stdx::file_io_context>;
 #endif
 #endif
 		_FileIOService();
@@ -284,24 +269,24 @@ namespace stdx
 		native_file_handle create_file(const stdx::string& path, file_enum_value_t access_type, file_enum_value_t file_open_type);
 #endif
 
-		void read_file(native_file_handle file, file_size_t size, const uint64_t& offset, std::function<void(file_read_event, std::exception_ptr)> callback);
+		void read_file(native_file_handle file, stdx::buffer buf, const uint64_t& offset, std::function<void(file_read_event, std::exception_ptr)> callback);
 
-		void write_file(native_file_handle file, const char* buffer, const file_size_t& size, const uint64_t& offset, std::function<void(file_write_event, std::exception_ptr)> callback);
+		void write_file(native_file_handle file,stdx::buffer buf, const file_size_t& size, const uint64_t& offset, std::function<void(file_write_event, std::exception_ptr)> callback);
 
 		uint64_t get_file_size(native_file_handle file) const;
 
 		void close_file(native_file_handle file)
 		{
 #ifdef WIN32
-			CloseHandle(file);
+			::CloseHandle(file);
 #else
-			close(file);
+			::close(file);
 #endif
 		}
 
 		static std::shared_ptr<_FileIOService> get_instance();
 	private:
-		iocp_t m_iocp;
+		poller_t m_poller;
 
 		stdx::cancel_token m_token;
 
@@ -310,13 +295,14 @@ namespace stdx
 		static std::once_flag _once_flag;
 
 		static std::shared_ptr<_FileIOService> _instance;
+
+		stdx::thread_pool m_thread_pool;
 	};
 
 	//文件IO服务
 	class file_io_service
 	{
 		using impl_t = std::shared_ptr<_FileIOService>;
-		using iocp_t = typename _FileIOService::iocp_t;
 	public:
 		file_io_service()
 			:m_impl(stdx::_FileIOService::get_instance())
@@ -355,13 +341,13 @@ namespace stdx
 		}
 #endif
 
-		void read_file(native_file_handle file, const file_size_t& size, const uint64_t& offset, std::function<void(file_read_event, std::exception_ptr)>&& callback)
+		void read_file(native_file_handle file,stdx::buffer buf, const uint64_t& offset, std::function<void(file_read_event, std::exception_ptr)>&& callback)
 		{
-			return m_impl->read_file(file, size, offset, callback);
+			return m_impl->read_file(file, buf, offset, callback);
 		}
-		void write_file(native_file_handle file, const char* buffer, const file_size_t& size, const uint64_t& offset, std::function<void(file_write_event, std::exception_ptr)>&& callback)
+		void write_file(native_file_handle file,stdx::buffer buf, const file_size_t& size, const uint64_t& offset, std::function<void(file_write_event, std::exception_ptr)>&& callback)
 		{
-			return m_impl->write_file(file, buffer, size, offset, callback);
+			return m_impl->write_file(file, buf, size, offset, callback);
 		}
 		void close_file(native_file_handle file)
 		{
@@ -409,15 +395,9 @@ namespace stdx
 		}
 #endif
 
-		stdx::task<file_read_event> read(const file_size_t& size, const uint64_t& offset);
+		stdx::task<file_read_event> read(stdx::buffer buf, const uint64_t& offset);
 
-
-		//直到call返回true停止
-		//void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call);
-
-		//void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler);
-
-		void read_until(stdx::cancel_token token,file_size_t size,uint64_t offset,std::function<void(stdx::file_read_event)> fn,std::function<void(std::exception_ptr)> err_handler);
+		void read_until(stdx::cancel_token token,stdx::buffer buf,uint64_t offset,std::function<void(stdx::file_read_event)> fn,std::function<void(std::exception_ptr)> err_handler);
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)
 		{
@@ -425,14 +405,17 @@ namespace stdx
 			u.value = size() - offset;
 			if (u.height != 0)
 			{
-				throw std::out_of_range("file is too big");
+				return stdx::error_task<stdx::file_read_event>(std::make_exception_ptr(std::out_of_range("file is too big")));
 			}
-			return this->read(u.low, offset);
+			stdx::buffer buf = stdx::make_buffer(u.value);
+			if (!buf.check())
+			{
+				return stdx::error_task<stdx::file_read_event>(std::make_exception_ptr(std::bad_alloc()));
+			}
+			return this->read(buf, offset);
 		}
 
-
-		stdx::task<file_write_event> write(const char* buffer, const file_size_t& size, const uint64_t& offset);
-
+		stdx::task<file_write_event> write(stdx::buffer buf, const file_size_t& size, const uint64_t& offset);
 
 		void close();
 
@@ -495,37 +478,19 @@ namespace stdx
 			return *this;
 		}
 
-		stdx::task<file_read_event> read(const file_size_t& size, const uint64_t& offset)
+		stdx::task<file_read_event> read(stdx::buffer buf, const uint64_t& offset)
 		{
-			return m_impl->read(size, offset);
+			return m_impl->read(buf, offset);
 		}
 
-		stdx::task<file_write_event> write(const char* buffer, const file_size_t& size, const uint64_t& offset)
+		stdx::task<file_write_event> write(stdx::buffer buf, const file_size_t& size, const uint64_t& offset)
 		{
-			return m_impl->write(buffer, size, offset);
+			return m_impl->write(buf, size, offset);
 		}
 
-		stdx::task<file_write_event> write(const stdx::string& str, const uint64_t& offset)
+		void read_until(stdx::cancel_token token, stdx::buffer buf, uint64_t offset, std::function<void(stdx::file_read_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 		{
-			uint64_union u64;
-			u64.value = str.size() * sizeof(wchar_t);
-			return write((char*)str.c_str(), u64.low, offset);
-		}
-
-		//直到call返回true停止
-		/*void read_utill(const file_size_t& size, uint64_t offset, std::function<bool(stdx::task_result<stdx::file_read_event>)> call)
-		{
-			m_impl->read_utill(size, offset, call);
-		}
-
-		void read_utill_eof(const file_size_t& size, uint64_t offset, std::function<void(stdx::file_read_event)> call, std::function<void(std::exception_ptr)> err_handler)
-		{
-			m_impl->read_utill_eof(size, offset, call, err_handler);
-		}*/
-
-		void read_until(stdx::cancel_token token, file_size_t size, uint64_t offset, std::function<void(stdx::file_read_event)> fn, std::function<void(std::exception_ptr)> err_handler)
-		{
-			return m_impl->read_until(token, size, offset, fn, err_handler);
+			return m_impl->read_until(token, buf, offset, fn, err_handler);
 		}
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)

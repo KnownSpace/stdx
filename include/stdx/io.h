@@ -6,6 +6,19 @@
 #include <stdio.h>
 #include <stdx/async/threadpool.h>
 #include <stdx/finally.h>
+#include <stdx/poller.h>
+#include <stdx/async/callback_flag.h>
+
+namespace stdx
+{
+#ifdef WIN32
+	template<typename _IOContext>
+	using io_poller = stdx::poller<_IOContext, HANDLE>;
+#else
+	template<typename _IOContext>
+	using io_poller = stdx::poller<_IOContext, int>;
+#endif
+}
 
 #ifdef WIN32
 
@@ -27,19 +40,21 @@
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
 #endif
-						
 
 namespace stdx
 {
 	//IOCP封装
 	template<typename _IOContext>
-	class _IOCP
+	class _IOCP :public stdx::basic_poller<_IOContext, HANDLE>
 	{
+		using base_t = stdx::basic_poller<_IOContext, HANDLE>;
 	public:
 		_IOCP()
-			:m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, suggested_threads_number()))
+			:base_t()
+			, m_iocp(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0))
 		{
 		}
+
 		~_IOCP()
 		{
 			if (m_iocp != INVALID_HANDLE_VALUE)
@@ -47,8 +62,10 @@ namespace stdx
 				CloseHandle(m_iocp);
 			}
 		}
+
 		delete_copy(_IOCP<_IOContext>);
-		void bind(const HANDLE &file_handle)
+
+		virtual void bind(const HANDLE& file_handle) override
 		{
 			if (CreateIoCompletionPort(file_handle, m_iocp, (ULONG_PTR)file_handle, cpu_cores() * 2 + 2) == NULL)
 			{
@@ -57,7 +74,7 @@ namespace stdx
 		}
 
 		template<typename _HandleType>
-		void bind(const _HandleType &file_handle)
+		void bind(const _HandleType& file_handle)
 		{
 			if (CreateIoCompletionPort((HANDLE)file_handle, m_iocp, file_handle, 0) == NULL)
 			{
@@ -65,12 +82,12 @@ namespace stdx
 			}
 		}
 
-		_IOContext *get()
+		virtual _IOContext* get() override
 		{
 			DWORD size = 0;
-			OVERLAPPED *ol= nullptr;
+			OVERLAPPED* ol = nullptr;
 			ULONG_PTR key = 0;
-			bool r = GetQueuedCompletionStatus(m_iocp, &size,&key,&ol, INFINITE);
+			bool r = GetQueuedCompletionStatus(m_iocp, &size, &key, &ol, INFINITE);
 			if (!r)
 			{
 				//处理错误
@@ -80,15 +97,15 @@ namespace stdx
 			{
 				return nullptr;
 			}
-			return CONTAINING_RECORD(ol,_IOContext, m_ol);
+			return CONTAINING_RECORD(ol, _IOContext, m_ol);
 		}
 
-		_IOContext* get(DWORD ms)
+		virtual _IOContext* get(uint32_t ms) override
 		{
 			DWORD size = 0;
 			OVERLAPPED* ol = nullptr;
 			ULONG_PTR key = 0;
-			bool r = GetQueuedCompletionStatus(m_iocp, &size, &key, &ol,ms);
+			bool r = GetQueuedCompletionStatus(m_iocp, &size, &key, &ol, ms);
 			if (!r)
 			{
 				if (GetLastError() == 258)
@@ -105,7 +122,7 @@ namespace stdx
 			return CONTAINING_RECORD(ol, _IOContext, m_ol);
 		}
 
-		void post(DWORD size,_IOContext *context_ptr,OVERLAPPED *ol_ptr)
+		void post(DWORD size, _IOContext* context_ptr, OVERLAPPED* ol_ptr)
 		{
 			bool r = PostQueuedCompletionStatus(m_iocp, size, (ULONG_PTR)context_ptr, ol_ptr);
 			if (!r)
@@ -115,63 +132,96 @@ namespace stdx
 			}
 		}
 
+		virtual void post(_IOContext* p) override
+		{
+			if (p != nullptr)
+			{
+				if (!PostQueuedCompletionStatus(m_iocp, 0, (ULONG_PTR)p, &(p->m_ol)))
+				{
+					//处理错误
+					_ThrowWinError
+				}
+			}
+			else
+			{
+				if (!PostQueuedCompletionStatus(m_iocp, 0, (ULONG_PTR)p, nullptr))
+				{
+					//处理错误
+					_ThrowWinError
+				}
+			}
+		}
+
 	private:
 		HANDLE m_iocp;
 	};
 
 	//IOCP引用封装
+	//template<typename _IOContext>
+	//class iocp
+	//{
+	//	using impl_t = std::shared_ptr<stdx::_IOCP<_IOContext>>;
+	//public:
+	//	iocp()
+	//		:m_impl(std::make_shared<stdx::_IOCP<_IOContext>>())
+	//	{}
+
+	//	iocp(const iocp<_IOContext> &other)
+	//		:m_impl(other.m_impl)
+	//	{}
+
+	//	iocp(iocp<_IOContext> &&other) noexcept
+	//		:m_impl(std::move(other.m_impl))
+	//	{}
+
+	//	~iocp() = default;
+
+	//	iocp<_IOContext> &operator=(const iocp<_IOContext> &other)
+	//	{
+	//		m_impl = other.m_impl;
+	//		return *this;
+	//	}
+
+	//	_IOContext *get()
+	//	{
+	//		return m_impl->get();
+	//	}
+
+	//	_IOContext* get(DWORD ms)
+	//	{
+	//		return m_impl->get(ms);
+	//	}
+
+	//	void bind(const HANDLE &file_handle)
+	//	{
+	//		m_impl->bind(file_handle);
+	//	}
+
+	//	template<typename _HandleType>
+	//	void bind(const _HandleType &file_handle)
+	//	{
+	//		m_impl->bind<_HandleType>(file_handle);
+	//	}
+
+	//	void post(DWORD size, _IOContext *context_ptr, OVERLAPPED *ol_ptr)
+	//	{
+	//		m_impl->post(size, context_ptr, ol_ptr);
+	//	}
+
+	//	bool operator==(const iocp &other) const
+	//	{
+	//		return m_impl == other.m_impl;
+	//	}
+
+	//private:
+	//	impl_t m_impl;
+	//};
+
 	template<typename _IOContext>
-	class iocp
+	inline stdx::io_poller<_IOContext> make_iocp_poller()
 	{
-		using impl_t = std::shared_ptr<stdx::_IOCP<_IOContext>>;
-	public:
-		iocp()
-			:m_impl(std::make_shared<stdx::_IOCP<_IOContext>>())
-		{}
-		iocp(const iocp<_IOContext> &other)
-			:m_impl(other.m_impl)
-		{}
-		iocp(iocp<_IOContext> &&other) noexcept
-			:m_impl(std::move(other.m_impl))
-		{}
-		~iocp() = default;
-		iocp<_IOContext> &operator=(const iocp<_IOContext> &other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-		_IOContext *get()
-		{
-			return m_impl->get();
-		}
-
-		_IOContext* get(DWORD ms)
-		{
-			return m_impl->get(ms);
-		}
-
-		void bind(const HANDLE &file_handle)
-		{
-			m_impl->bind(file_handle);
-		}
-		template<typename _HandleType>
-		void bind(const _HandleType &file_handle)
-		{
-			m_impl->bind<_HandleType>(file_handle);
-		}
-		void post(DWORD size, _IOContext *context_ptr, OVERLAPPED *ol_ptr)
-		{
-			m_impl->post(size, context_ptr, ol_ptr);
-		}
-
-		bool operator==(const iocp &other) const
-		{
-			return m_impl == other.m_impl;
-		}
-
-	private:
-		impl_t m_impl;
-	};
+		return stdx::make_poller<stdx::_IOCP<_IOContext>>();
+	}
 }
 #undef _ThrowWinError
 #endif
@@ -190,13 +240,14 @@ namespace stdx
 #include <fcntl.h>
 #include <unistd.h>
 #include <unordered_map>
+#include <list>
 #include <queue>
 #include <stdx/async/spin_lock.h>
 #include <mutex>
 #include <stdx/function.h>
 #include <stdx/async/threadpool.h>
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
-						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()),strerror(_ERROR_CODE)); 
+						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
 
 namespace stdx
 {
@@ -223,13 +274,13 @@ namespace stdx
 			close(m_handle);
 		}
 
-		void add_event(int fd, epoll_event *event_ptr);
+		void add_event(int fd, epoll_event* event_ptr);
 
 		void del_event(int fd);
 
-		void update_event(int fd, epoll_event *event_ptr);
+		void update_event(int fd, epoll_event* event_ptr);
 
-		int wait(epoll_event *event_ptr, const int &maxevents, const int &timeout);
+		int wait(epoll_event* event_ptr, const int& maxevents, const int& timeout);
 	private:
 		int m_handle;
 	};
@@ -240,22 +291,22 @@ namespace stdx
 		epoll()
 			:m_impl(std::make_shared<_EPOLL>())
 		{}
-		epoll(const epoll &other)
+		epoll(const epoll& other)
 			:m_impl(other.m_impl)
 		{}
 		~epoll() = default;
 
-		epoll &operator=(const epoll &other)
+		epoll& operator=(const epoll& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
 
-		void add_event(int fd, epoll_event *event_ptr)
+		void add_event(int fd, epoll_event* event_ptr)
 		{
 			return m_impl->add_event(fd, event_ptr);
 		}
-		void update_event(int fd, epoll_event *event_ptr)
+		void update_event(int fd, epoll_event* event_ptr)
 		{
 			return m_impl->update_event(fd, event_ptr);
 		}
@@ -264,14 +315,14 @@ namespace stdx
 			return m_impl->del_event(fd);
 		}
 
-		int wait(epoll_event *event_ptr,const int &maxevents,const int &timeout)
+		int wait(epoll_event* event_ptr, const int& maxevents, const int& timeout)
 		{
 			return m_impl->wait(event_ptr, maxevents, timeout);
 		}
 
-		epoll_event wait(const int &timeout)
+		epoll_event wait(const int& timeout)
 		{
-			
+
 			epoll_event ev;
 			if (this->wait(&ev, 1, timeout) != 1)
 			{
@@ -292,16 +343,16 @@ namespace stdx
 	extern int io_getevents(aio_context_t ctx_id, long min_nr, long nr, struct io_event* events, struct timespec* timeout);
 
 	extern int io_cancel(aio_context_t ctx_id, struct iocb* iocb, struct io_event* result);
-#define invalid_eventfd -1
+#define INVALID_EVENTFD -1
 	extern void aio_read(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr);
-	
+
 	extern void aio_write(aio_context_t context, int fd, char* buf, size_t size, int64_t offset, int resfd, void* ptr);
 
 	template<typename _IOContext>
 	class _AIOCP
 	{
 	public:
-		_AIOCP(unsigned nr_events=2048)
+		_AIOCP(unsigned nr_events = 2048)
 			:m_ctxid(0)
 		{
 			memset(&m_ctxid, 0, sizeof(aio_context_t));
@@ -312,7 +363,7 @@ namespace stdx
 			io_destroy(m_ctxid);
 		}
 
-		_IOContext *get(int64_t &res)
+		_IOContext* get(int64_t& res)
 		{
 			io_event ev;
 			timespec tm;
@@ -331,7 +382,7 @@ namespace stdx
 							_ThrowLinuxError
 						}
 					}
-					catch (const std::exception &err)
+					catch (const std::exception& err)
 					{
 						::printf("[Native AIO]发生意外错误:%s\n", err.what());
 					}
@@ -343,11 +394,11 @@ namespace stdx
 			return (_IOContext*)ev.data;
 		}
 
-		_IOContext* get(int64_t& res,int32_t ms)
+		_IOContext* get(int64_t& res, int32_t ms)
 		{
 			io_event ev;
 			timespec tm;
-			tm.tv_nsec = ms*1000*1000;
+			tm.tv_nsec = ms * 1000 * 1000;
 			tm.tv_sec = 0;
 			int r = io_getevents(m_ctxid, 1, 1, &ev, &tm);
 			if (r < 1)
@@ -389,14 +440,14 @@ namespace stdx
 		aiocp(unsigned nr_events)
 			:m_impl(std::make_shared<_AIOCP<_IOContext>>(nr_events))
 		{}
-		aiocp(const aiocp<_IOContext> &other)
+		aiocp(const aiocp<_IOContext>& other)
 			:m_impl(other.m_impl)
 		{}
-		aiocp(aiocp<_IOContext> &&other)
+		aiocp(aiocp<_IOContext>&& other)
 			:m_impl(std::move(other.m_impl))
 		{}
-		~aiocp()=default;
-		aiocp &operator=(const aiocp<_IOContext> &other)
+		~aiocp() = default;
+		aiocp& operator=(const aiocp<_IOContext>& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
@@ -405,16 +456,16 @@ namespace stdx
 		{
 			return m_impl->get_context();
 		}
-		_IOContext *get(int64_t &res)
+		_IOContext* get(int64_t& res)
 		{
 			return m_impl->get(res);
 		}
 		_IOContext* get(int64_t& res, int32_t ms)
 		{
-			return m_impl->get(res,ms);
+			return m_impl->get(res, ms);
 		}
 
-		bool operator==(const aiocp &other) const
+		bool operator==(const aiocp& other) const
 		{
 			return m_impl == other.m_impl;
 		}
@@ -423,225 +474,441 @@ namespace stdx
 		impl_t m_impl;
 	};
 
-	struct ev_queue
+	struct epoll_event_model
 	{
-		ev_queue()
-			:m_lock()
-			,m_existed(false)
-			,m_queue()
-		{
-		}
-
-		ev_queue(const ev_queue& other)
-			:m_lock(other.m_lock)
-			, m_existed(other.m_existed)
-			, m_queue(other.m_queue)
-		{}
-
-		ev_queue(ev_queue &&other) noexcept
-			:m_lock(std::cref(other.m_lock))
-			,m_existed(other.m_existed)
-			,m_queue(std::move(other.m_queue))
-		{}
-		~ev_queue() = default;
-		ev_queue &operator=(ev_queue &&other) noexcept
-		{
-			m_lock = std::cref(other.m_lock);
-			m_existed = other.m_existed;
-			m_queue = std::move(other.m_queue);
-			return *this;
-		}
-		ev_queue& operator=(const ev_queue& other)
-		{
-			m_lock = other.m_lock;
-			m_existed = other.m_existed;
-			m_queue = other.m_queue;
-			return *this;
-		}
-		stdx::spin_lock m_lock;
-		bool m_existed;
-		std::list<epoll_event> m_queue;
+		epoll_event ev;
+		bool is_exist;
+		bool is_err_or_hup;
 	};
 
-	class _Reactor
+	template<typename _IOContext>
+	struct epoll_context_list
+	{
+		stdx::epoll_event_model model;
+		std::list<_IOContext*> out_contexts;
+		std::list<_IOContext*> in_contexts;
+	};
+
+	extern int make_eventfd(int flags);
+
+	extern int make_semaphore_eventfd(int flags);
+
+	template<typename _IOContext>
+	class _EpollProactor :public stdx::basic_poller<_IOContext, int>
 	{
 	public:
-		_Reactor(std::function<void(epoll_event*)> clean)
-			:m_lock()
-			,m_map()
-			,m_poll()
-			,m_clean(clean)
-		{}
-		~_Reactor()=default;
-
-		void bind(int fd);
-
-		void unbind(int fd);
-
-		void unbind_and_close(int fd);
-
-		template<typename _Finder,typename _Fn>
-		void get(_Fn execute)
+		using clean_t = std::function<void(_IOContext*)>;
+		using operate_t = std::function<bool(_IOContext*)>;
+		using fd_getter_t = std::function<int(_IOContext*)>;
+		using event_getter_t = std::function<uint32_t(_IOContext*)>;
+		using task_t = std::function<void()>;
+		using lock_t = std::mutex;
+	public:
+		_EpollProactor(clean_t clean, operate_t io_operator, fd_getter_t fd_getter, event_getter_t event_getter)
+			:m_epoll()
+			, m_map()
+			, m_clean(clean)
+			, m_operate(io_operator)
+			, m_fd_getter(fd_getter)
+			, m_event_getter(event_getter)
+			, m_eventfd(stdx::make_eventfd(EFD_NONBLOCK))
+			, m_ev_lock()
+			, m_tasks()
 		{
-			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
-#ifdef DEBUG
-			::printf("[Epoll]等待事件到达\n");
-#endif // DEBUG
 			epoll_event ev;
-			int r = m_poll.wait(&ev,1,-1);
-			auto* ev_ptr = new epoll_event;
-			*ev_ptr = ev;
-			int fd = _Finder::find(ev_ptr);
-			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
-				{
-					stdx::finally fin([this,fd,ev]() 
-					{
-							//在IO操作后执行
-							//loop(fd);
-							delete ev;
-					});
-					try
-					{
-						execute(ev);
-					}
-					catch (const std::exception &err)
-					{
-#ifdef DEBUG
-						::printf("[Epoll]Callback出错%s\n",err.what());
-#endif // DEBUG
-					}
-				}, ev_ptr, execute, fd);
+			ev.events = stdx::epoll_events::in;
+			ev.data.fd = m_eventfd;
+			m_epoll.add_event(m_eventfd, &ev);
 		}
 
-		template<typename _Finder, typename _Fn>
-		bool get(_Fn execute,int ms)
+		~_EpollProactor()
 		{
-			static_assert(is_arguments_type(_Fn, epoll_event*), "ths input function not be allowed");
-#ifdef DEBUG
-			::printf("[Epoll]等待事件到达\n");
-#endif // DEBUG
+			::close(m_eventfd);
+		}
+
+		virtual _IOContext* get() override
+		{
+			while (true)
+			{
+				epoll_event ev;
+				int r = m_epoll.wait(&ev, 1, -1);
+				if (r == 1)
+				{
+					if (ev.data.fd == m_eventfd)
+					{
+						//is event fd
+						if (_ReadEvFd())
+						{
+							_HandleTasks();
+						}
+					}
+					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
+					{
+						//has error(s)
+						//clean operation
+						int fd = ev.data.fd;
+						_CleanFd(fd);
+					}
+					else
+					{
+						try
+						{
+							_IOContext* cont = _HandleIoEvent(ev);
+							return cont;
+						}
+						catch (const std::exception& err)
+						{
+							return nullptr;
+						}
+					}
+				}
+			}
+		}
+
+		virtual _IOContext* get(uint32_t timeout_ms) override
+		{
 			epoll_event ev;
-			int r = m_poll.wait(&ev, 1,ms);
+			int r = m_epoll.wait(&ev, 1, timeout_ms);
 			if (r != 1)
 			{
-				return false;
+				return nullptr;
 			}
-			auto* ev_ptr = new epoll_event;
-			*ev_ptr = ev;
-			int fd = _Finder::find(ev_ptr);
-			stdx::threadpool::run([this](epoll_event* ev, _Fn execute, int fd) mutable
+			if (ev.data.fd == m_eventfd)
+			{
+				//is event fd
+				if (_ReadEvFd())
 				{
-					stdx::finally fin([this, fd, ev]()
+					_HandleTasks();
+				}
+				//return by timeout
+				return nullptr;
+			}
+			if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
+			{
+				//has error(s)
+				//clean operation
+				int fd = ev.data.fd;
+				_CleanFd(fd);
+				return nullptr;
+			}
+			try
+			{
+				_IOContext* cont = _HandleIoEvent(ev);
+				return cont;
+			}
+			catch (const std::exception& err)
+			{
+				return nullptr;
+			}
+		}
+
+		virtual void post(_IOContext* p) override
+		{
+			if (p == nullptr)
+			{
+				return;
+			}
+			_RunInLoop([this](_IOContext* p)
+				{
+					//get fd
+					int fd = m_fd_getter(p);
+					//get context manager
+					stdx::epoll_context_list<_IOContext>& ev = m_map[fd];
+					//is hup or error
+					if (ev.model.is_err_or_hup)
+					{
+						//clean context
+						m_clean(p);
+						return;
+					}
+					//get events
+					uint32_t events = m_event_getter(p);
+					if (events & stdx::epoll_events::in)
+					{
+						//check if update epoll
+						if (!(ev.model.ev.events & stdx::epoll_events::in))
 						{
-							//在IO操作后执行
-							//loop(fd);
-							delete ev;
-						});
+							//update epoll
+							ev.model.ev.events |= stdx::epoll_events::in;
+							_UpdateOrAddEvent(ev);
+						}
+						ev.in_contexts.push_back(p);
+					}
+					else if (events & stdx::epoll_events::out)
+					{
+						//check if update epoll
+						if (!(ev.model.ev.events & stdx::epoll_events::out))
+						{
+							//update epoll
+							ev.model.ev.events |= stdx::epoll_events::out;
+							_UpdateOrAddEvent(ev);
+						}
+						ev.out_contexts.push_back(p);
+					}
+				}, p);
+		}
+
+		virtual void bind(const int& fd) override
+		{
+			_RunInLoop([this](int fd)
+				{
+					stdx::epoll_context_list<_IOContext> ev;
+					_InitModel(ev.model, fd);
+					m_map[fd] = std::move(ev);
+				}, fd);
+		}
+
+		virtual void unbind(const int& fd) override
+		{
+			_RunInLoop([this](int fd) mutable
+				{
+					auto& ev = m_map[fd];
+					ev.model.is_err_or_hup = true;
+					ev.model.is_exist = false;
+					_CleanContexts(ev);
+					//remove from epoll
 					try
 					{
-						execute(ev);
+						m_epoll.del_event(fd);
 					}
 					catch (const std::exception& err)
 					{
 #ifdef DEBUG
-						::printf("[Epoll]Callback出错%s\n", err.what());
-#endif // DEBUG
+						::printf("[EpollProactor]Remove event failure: %s\n", err.what());
+#endif
 					}
-				}, ev_ptr, execute, fd);
+				}, fd);
+		}
+
+		virtual void unbind(const int& object, std::function<void(int)> deleter)
+		{
+			_RunInLoop([this](int fd, std::function<void(int)> deleter) mutable
+				{
+					auto& ev = m_map[fd];
+					ev.model.is_err_or_hup = true;
+					ev.model.is_exist = false;
+					_CleanContexts(ev);
+					//remove from epoll
+					try
+					{
+						m_epoll.del_event(fd);
+						deleter(fd);
+					}
+					catch (const std::exception& err)
+					{
+#ifdef DEBUG
+						::printf("[EpollProactor]Remove event or delete fd failure: %s\n", err.what());
+#endif
+					}
+				}, object, deleter);
+		}
+	private:
+
+		void __RunInLoop(task_t&& task)
+		{
+			{
+				std::unique_lock<lock_t> lock(m_ev_lock);
+				m_tasks.push_back(std::move(task));
+			}
+			_WokenUpFd();
+		}
+
+		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		void _RunInLoop(_Fn&& fn, _Args&&...args)
+		{
+			task_t task = std::bind(fn, args...);
+			__RunInLoop(std::move(task));
+		}
+
+		void _WokenUpFd()
+		{
+			eventfd_t val = 1;
+			::write(m_eventfd, &val, sizeof(eventfd_t));
+		}
+
+		bool _ReadEvFd()
+		{
+			eventfd_t val = UINT64_MAX;
+			::read(m_eventfd, &val, sizeof(eventfd_t));
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				return false;
+			}
 			return true;
 		}
 
-		void push(int fd, epoll_event &ev);
-
-		void loop(int fd);
-	private:
-		stdx::ev_queue make()
+		void _UpdateOrAddEvent(stdx::epoll_context_list<_IOContext>& ev)
 		{
-			return ev_queue();
-		}
-	private:
-		stdx::spin_lock m_lock;
-		std::unordered_map<int,ev_queue> m_map;
-		stdx::epoll m_poll;
-		std::function<void(epoll_event*)> m_clean;
-	};
-	
-	class reactor
-	{
-		using impl_t = std::shared_ptr<stdx::_Reactor>;
-	public:
-		reactor(std::function<void(epoll_event*)> &&clean)
-			:m_impl(std::make_shared<stdx::_Reactor>(clean))
-		{}
-		reactor(const reactor &other)
-			:m_impl(other.m_impl)
-		{}
-		~reactor()=default;
-		reactor &operator=(const reactor &other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-		void bind(int fd)
-		{
-			return m_impl->bind(fd);
+			if (ev.model.is_exist)
+			{
+				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
+			}
+			else
+			{
+				ev.model.is_exist = true;
+				m_epoll.add_event(ev.model.ev.data.fd, &(ev.model.ev));
+			}
 		}
 
-		void unbind(int fd)
+		_IOContext* _HandleIoEvent(epoll_event& ev)
 		{
-			return m_impl->unbind(fd);
+			int fd = ev.data.fd;
+			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
+			bool need_ctl = false;
+			//handle in event first
+			if (ev.events & stdx::epoll_events::in)
+			{
+				if (!ev_.in_contexts.empty())
+				{
+					_IOContext* cont = ev_.in_contexts.front();
+					//I/O operation
+					if (m_operate(cont))
+					{
+						//I/O operation finish
+						ev_.in_contexts.pop_front();
+						return cont;
+					}
+				}
+				else
+				{
+					ev_.model.ev.events ^= stdx::epoll_events::in;
+					need_ctl = true;
+				}
+			}
+			//handle out event
+			if (ev.events & stdx::epoll_events::out)
+			{
+				if (!ev_.out_contexts.empty())
+				{
+					_IOContext* cont = ev_.out_contexts.front();
+					//I/O operation
+					if (m_operate(cont))
+					{
+						//I/O operation finish
+						ev_.out_contexts.pop_front();
+						return cont;
+					}
+				}
+				else
+				{
+					ev_.model.ev.events ^= stdx::epoll_events::out;
+					need_ctl = true;
+				}
+			}
+			if (need_ctl)
+			{
+				m_epoll.update_event(fd, &(ev_.model.ev));
+			}
+			return nullptr;
 		}
 
-		void unbind_and_close(int fd)
+		void _CleanContexts(stdx::epoll_context_list<_IOContext>& ev)
 		{
-			return m_impl->unbind_and_close(fd);
+			auto* contexts = &(ev.in_contexts);
+			for (auto begin = contexts->begin(), end = contexts->end(); begin != end; ++begin)
+			{
+				m_clean(*begin);
+			}
+			contexts->clear();
+			contexts = &(ev.out_contexts);
+			for (auto begin = contexts->begin(), end = contexts->end(); begin != end; ++begin)
+			{
+				m_clean(*begin);
+			}
+			contexts->clear();
 		}
 
-		//在execute中手动调用loop
-		template<typename _Finder, typename _Fn, class = typename std::enable_if<is_arguments_type(_Fn, epoll_event*)>::type >
-		void get(_Fn &&execute)
+		void _CleanFd(int fd)
 		{
-			return m_impl->get<_Finder>(std::move(execute));
+			auto& ev = m_map[fd];
+			ev.model.is_err_or_hup = true;
+			ev.model.is_exist = false;
+			_CleanContexts(ev);
+			m_epoll.del_event(fd);
 		}
 
-		template<typename _Finder, typename _Fn>
-		bool get(_Fn execute, int ms)
+		void _InitModel(stdx::epoll_event_model& model, int fd)
 		{
-			return m_impl->get<_Finder>(std::move(execute),ms);
+			model.is_exist = false;
+			model.is_err_or_hup = false;
+			model.ev.data.fd = fd;
+			model.ev.events = stdx::epoll_events::hup;
 		}
 
-		void push(int fd,epoll_event &ev)
+		void _HandleTasks()
 		{
-			return m_impl->push(fd,ev);
+			std::list<task_t> tasks;
+			{
+				std::unique_lock<lock_t> lock(m_ev_lock);
+				std::swap(tasks, m_tasks);
+			}
+			while (!tasks.empty())
+			{
+				task_t task = tasks.front();
+				tasks.pop_front();
+				try
+				{
+					if (task)
+					{
+						task();
+					}
+				}
+				catch (const std::exception& err)
+				{
+#ifdef DEBUG
+					::printf("[EpollProactor]Execute task error: %s\n", err.what());
+#endif
+				}
+			}
 		}
 
-		void loop(int fd)
-		{
-			return m_impl->loop(fd);
-		}
-
-		bool operator==(const reactor &other) const
-		{
-			return m_impl == other.m_impl;
-		}
-
-	private:
-		impl_t m_impl;
+		stdx::epoll m_epoll;
+		std::unordered_map<int, stdx::epoll_context_list<_IOContext>> m_map;
+		clean_t m_clean;
+		operate_t m_operate;
+		fd_getter_t m_fd_getter;
+		event_getter_t m_event_getter;
+		int m_eventfd;
+		lock_t m_ev_lock;
+		std::list<task_t> m_tasks;
 	};
 
 	template<typename _IOContext>
-	class _BIOPoller
+	inline stdx::io_poller<_IOContext> make_epoll_proactor_poller(typename stdx::_EpollProactor<_IOContext>::clean_t clean,
+		typename stdx::_EpollProactor<_IOContext>::operate_t io_operate,
+		typename stdx::_EpollProactor<_IOContext>::fd_getter_t fd_getter,
+		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
+	{
+		return stdx::make_poller<stdx::_EpollProactor<_IOContext>>(clean, io_operate, fd_getter, event_getter);
+	}
+
+	template<typename _IOContext>
+	inline stdx::io_poller<_IOContext> make_epoll_multipoller(size_t num_of_poller,
+		typename stdx::_EpollProactor<_IOContext>::clean_t clean,
+		typename stdx::_EpollProactor<_IOContext>::operate_t io_operate,
+		typename stdx::_EpollProactor<_IOContext>::fd_getter_t fd_getter,
+		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
+	{
+		return stdx::make_multipoller<stdx::_EpollProactor<_IOContext>>(num_of_poller, [](const int& fd, size_t size)
+			{
+				size_t index = fd % size;
+				return index;
+			}, fd_getter, clean, io_operate, fd_getter, event_getter);
+	}
+
+	template<typename _IOContext>
+	class _BIOPoller :public stdx::basic_poller<_IOContext, int>
 	{
 	public:
 		_BIOPoller()
 			:m_lock()
-			,m_cv()
-			,m_list()
+			, m_cv()
+			, m_list()
 		{}
 
 		~_BIOPoller() = default;
 
-		_IOContext* get()
+		virtual _IOContext* get() override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
@@ -653,12 +920,12 @@ namespace stdx
 			return p;
 		}
 
-		_IOContext* get(size_t ms)
+		virtual _IOContext* get(uint32_t ms) override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
 			{
-				auto status = m_cv.wait_for(lock,std::chrono::milliseconds(ms));
+				auto status = m_cv.wait_for(lock, std::chrono::milliseconds(ms));
 				if (status == std::cv_status::timeout)
 				{
 					return nullptr;
@@ -669,11 +936,11 @@ namespace stdx
 			return p;
 		}
 
-		void push(_IOContext* p)
+		virtual void post(_IOContext* p) override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
 			m_list.push_back(p);
-			m_cv.notify_all();
+			m_cv.notify_one();
 		}
 
 	private:
@@ -683,65 +950,10 @@ namespace stdx
 	};
 
 	template<typename _IOContext>
-	class bio_poller
+	inline stdx::io_poller<_IOContext> make_bio_poller()
 	{
-		using impl_t = std::shared_ptr<stdx::_BIOPoller<_IOContext>>;
-		using self_t = stdx::bio_poller<_IOContext>;
-	public:
-		bio_poller()
-			:m_impl(std::make_shared<_BIOPoller<_IOContext>>())
-		{}
-
-		bio_poller(const self_t& other)
-			:m_impl(other.m_impl)
-		{}
-
-		bio_poller(self_t&& other) noexcept
-			:m_impl(std::move(other.m_impl))
-		{}
-
-		self_t& operator=(const self_t& other)
-		{
-			m_impl = other.m_impl;
-			return *this;
-		}
-
-		self_t &operator=(self_t &&other) noexcept
-		{
-			m_impl = std::move(other.m_impl);
-			return *this;
-		}
-
-		~bio_poller() = default;
-
-		_IOContext* get()
-		{
-			return m_impl->get();
-		}
-
-		_IOContext* get(size_t ms)
-		{
-			return m_impl->get(ms);
-		}
-
-		void push(_IOContext* p)
-		{
-			return m_impl->push(p);
-		}
-		
-		bool operator==(const self_t&& other) const
-		{
-			return m_impl == other.m_impl;
-		}
-
-		operator bool() const
-		{
-			return (bool)m_impl;
-		}
-
-	private:
-		impl_t m_impl;
-	};
+		return stdx::make_poller<stdx::_BIOPoller<_IOContext>>();
+	}
 }
 
 #undef _ThrowLinuxError
@@ -759,7 +971,7 @@ namespace stdx
 	extern std::ostream& cerr();
 #endif
 
-	void _Fprintf(FILE *stream,stdx::string&& format, std::initializer_list<stdx::string>&& list);
+	void _Fprintf(FILE* stream, stdx::string&& format, std::initializer_list<stdx::string>&& list);
 
 	void _Plogf(stdx::string&& format, std::initializer_list<stdx::string>&& list);
 
@@ -767,13 +979,13 @@ namespace stdx
 	void printf(const stdx::string& format, const _Args&...args)
 	{
 		stdx::string _format(format);
-		_Fprintf(stdout,std::move(_format),std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+		_Fprintf(stdout, std::move(_format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 
 	template<typename ..._Args>
-	void printf(stdx::string &&format, const _Args&...args)
+	void printf(stdx::string&& format, const _Args&...args)
 	{
-		_Fprintf(stdout,std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
+		_Fprintf(stdout, std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 
 	template<typename ..._Args>

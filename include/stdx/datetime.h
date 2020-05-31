@@ -118,7 +118,7 @@ namespace stdx
 
 		operator time_t() const;
 
-		virtual stdx::string to_string(typename stdx::string::char_t *format) const;
+		virtual stdx::string to_string(const typename stdx::string::char_t *format) const;
 
 		static stdx::datetime now();
 

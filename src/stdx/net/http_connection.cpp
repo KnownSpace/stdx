@@ -3,6 +3,7 @@
 stdx::basic_http_connection::basic_http_connection(const stdx::socket& sock, uint64_t max_size)
 	:base_t(sock)
 	,m_parser(max_size)
+	,m_read_buf(stdx::make_buffer(8192))
 {}
 
 void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, std::exception_ptr)> callback)
@@ -19,7 +20,9 @@ void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, s
 	}
 	auto parser = m_parser;
 	stdx::cancel_token token;
-	m_socket.recv_until(4096, token, [callback,token, parser](stdx::network_recv_event ev) mutable
+	stdx::socket sock = m_socket;
+	stdx::buffer buf = m_read_buf;
+	m_socket.recv_until(buf, token, [callback,token, parser](stdx::network_recv_event ev) mutable
 	{
 			parser.push(ev.buffer, ev.size);
 			if (!parser.error())
@@ -34,10 +37,10 @@ void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, s
 			{
 				callback(stdx::http_request(), std::make_exception_ptr(std::make_exception_ptr(stdx::parse_error("parse fault"))));
 			}
-	}, [token,callback](std::exception_ptr err) mutable
+	}, [token,callback,sock](std::exception_ptr err) mutable
 	{
 			token.cancel();
-			callback(stdx::http_request(), std::make_exception_ptr(std::make_exception_ptr(stdx::parse_error("parse fault"))));
+			callback(stdx::http_request(),err);
 	});
 }
 
@@ -64,7 +67,12 @@ stdx::task<stdx::http_request> stdx::basic_http_connection::read()
 stdx::task<size_t> stdx::basic_http_connection::write(const stdx::http_response& package)
 {
 	auto vec = std::move(package.to_bytes());
-	auto t = base_t::write((const char*)vec.data(), vec.size());
+	stdx::buffer buf = stdx::make_buffer(vec.size());
+	for (size_t i = 0; i < vec.size(); i++)
+	{
+		buf[i] = vec[i];
+	}
+	auto t = base_t::write(buf, vec.size());
 	return t;
 }
 
@@ -82,7 +90,14 @@ void stdx::basic_http_connection::read_until(stdx::cancel_token token, std::func
 		}
 		else
 		{
-			fn(req);
+			try
+			{
+				fn(req);
+			}
+			catch (const std::exception&)
+			{
+				err_handler(std::current_exception());
+			}
 		}
 		if (!token.is_cancel())
 		{

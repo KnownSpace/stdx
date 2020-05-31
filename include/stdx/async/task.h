@@ -7,10 +7,6 @@
 #include <stdx/function.h>
 #include <stdx/env.h>
 
-#ifndef STDX_LAZY_MAX_TIME
-#define STDX_LAZY_MAX_TIME 64
-#endif
-
 
 namespace stdx
 {
@@ -806,7 +802,7 @@ namespace stdx
 				stdx::_TaskCompleter<R>::call(r, promise, next, lock, state, future);
 			};
 			//放入线程池
-			stdx::threadpool::run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
+			stdx::threadpool.run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
 		}
 
 		virtual void run_on_this_thread() noexcept override
@@ -1217,21 +1213,5 @@ namespace stdx
 		ev.set_exception(err);
 		ev.run_on_this_thread();
 		return ev.get_task();
-	}
-
-	template<typename _T>
-	inline stdx::task_result<_T> make_task_result(_T &&val)
-	{
-		std::promise<_T> promise;
-		promise.set_value(std::move(val));
-		return stdx::task_result<_T>(promise.get_future().share());
-	}
-
-	template<typename _T>
-	inline stdx::task_result<_T> make_error_result(std::exception_ptr &&err)
-	{
-		std::promise<_T> promise;
-		promise.set_exception(std::move(err));
-		return stdx::task_result<_T>(promise.get_future().share());
 	}
 }

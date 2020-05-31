@@ -44,15 +44,16 @@ std::shared_ptr<stdx::_FileIOService> stdx::_FileIOService::get_instance()
 
 stdx::_FileIOService::_FileIOService()
 #ifdef WIN32
-	:m_iocp()
+	:m_poller(stdx::make_iocp_poller<stdx::file_io_context>())
 #else
 #ifdef STDX_USE_NATIVE_AIO
-	:m_iocp(STDX_NATIVE_AIO_EVENTS)
+	:m_poller(STDX_NATIVE_AIO_EVENTS)
 #else
-	:m_iocp()
+	:m_poller(stdx::make_bio_poller<stdx::file_io_context>())
 #endif
 #endif
 	,m_token()
+	,m_thread_pool(stdx::make_fixed_size_thread_pool(cpu_cores()))
 {
 	init_threadpoll();
 }
@@ -62,9 +63,9 @@ stdx::_FileIOService::~_FileIOService()
 {
 	m_token.cancel();
 #ifdef WIN32
-	for (size_t i = 0, size = suggested_threads_number(); i < size; i++)
+	for (size_t i = 0, size = cpu_cores(); i < size; i++)
 	{
-		m_iocp.post(0, nullptr, nullptr);
+		m_poller.post(nullptr);
 	}
 #endif
 }
@@ -77,7 +78,7 @@ stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & 
 	{
 		_ThrowWinError
 	}
-	m_iocp.bind(file);
+	m_poller.bind(file);
 	return file;
 }
 #else
@@ -112,7 +113,7 @@ stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & 
 
 
 
-void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_size_t size, const uint64_t & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer buf, const uint64_t & offset, std::function<void(file_read_event, std::exception_ptr)> callback)
 {
 #ifdef WIN32
 	file_io_context* context = new file_io_context;
@@ -128,33 +129,24 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	context->eof = false;
 	context->file = file;
 	context->offset = offset;
-	context->buffer = (char*)stdx::calloc(size, sizeof(char));
-	if (context->buffer == nullptr)
-	{
-		delete context;
-		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	memset(context->buffer, 0, size);
-	context->size = size;
+	context->buf = buf;
+	context->size = buf.size();
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		stdx::free(context->buffer);
 		delete context;
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	*call = [callback, size](file_io_context* context_ptr, std::exception_ptr error)
+	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
-			stdx::free(context_ptr->buffer);
 			callback(file_read_event(), error);
 			delete context_ptr;
 			return;
 		}
-		if (context_ptr->size < size)
+		if (context_ptr->size < context_ptr->buf.size())
 		{
 			context_ptr->eof = true;
 		}
@@ -166,7 +158,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 		callback(context, nullptr);
 	};
 	context->callback = call;
-	if (!ReadFile(file, context->buffer, size, &(context->size), &(context->m_ol)))
+	if (!ReadFile(file,(char *)context->buf, context->buf.size(), &(context->size), &(context->m_ol)))
 	{
 		try
 		{
@@ -196,53 +188,40 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[File IO Service]IO操作投递失败\n");
-#endif // DEBUG
-			free(context->buffer);
 			delete call;
 			delete context;
 			callback(stdx::file_read_event(), std::current_exception());
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
+	size_t size = buf.size();
 	auto  r_size = size;
 	auto tmp = size % 512;
 	if (tmp != 0)
 	{
 		r_size += (512 - tmp);
+		buf.realloc(r_size);
 	}
-	char* buffer = (char*)stdx::calloc(r_size, sizeof(char));
-	if (buffer == nullptr)
-	{
-		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	stdx::posix_memalign((void**)&buffer, 512, r_size);
-	memset(buffer, 0, r_size);
-	auto context = m_iocp.get_context();
+	buf.memalign(512);
+	buf.set_zero();
+	auto context = m_poller.get_context();
 	file_io_context* ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
-		stdx::free(buffer);
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
 	ptr->size = r_size;
-	ptr->buffer = buffer;
+	ptr->buf= buf;
 	ptr->offset = offset;
 	ptr->file = file;
 	//设置回调
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		stdx::free(buffer);
 		delete ptr;
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
@@ -251,7 +230,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	{
 		if (error)
 		{
-			stdx::free(context_ptr->buffer);
 			callback(file_read_event(), error);
 			delete context_ptr;
 			return;
@@ -271,55 +249,42 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	//投递操作
 	try
 	{
-		stdx::aio_read(context, file, buffer, r_size, offset, invalid_eventfd, ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
+		stdx::aio_read(context, file, buf, r_size, offset, INVALID_EVENTFD, ptr);
 	}
 	catch (const std::exception&)
 	{
-		stdx::free(buffer);
 		delete call;
 		delete ptr;
 		callback(file_read_event(), std::current_exception());
 	}
 #else
 	//Buffer IO
-	char* buf =  (char*)stdx::calloc(size, sizeof(char));
-	if (buf == nullptr)
-	{
-		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
 	file_io_context* ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
-		stdx::free(buf);
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	ptr->size = size;
-	ptr->buffer = buf;
+	ptr->size = buf.size();
+	ptr->buf = buf;
 	ptr->offset = offset;
 	ptr->file = file;
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		stdx::free(buf);
 		delete ptr;
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	*call = [callback, size](file_io_context* context_ptr, std::exception_ptr error)
+	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
-			stdx::free(context_ptr->buffer);
 			callback(file_read_event(), error);
 			delete context_ptr;
 			return;
 		}
-		if (context_ptr->size < size)
+		if (context_ptr->size < context_ptr->buf.size())
 		{
 			context_ptr->eof = true;
 		}
@@ -334,14 +299,10 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	ptr->op_code = stdx::file_bio_op_code::read;
 	try
 	{
-		m_iocp.push(ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
+		m_poller.post(ptr);
 	}
 	catch (const std::exception&)
 	{
-		stdx::free(buf);
 		delete call;
 		delete ptr;
 		callback(file_read_event(), std::current_exception());
@@ -351,7 +312,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::file_s
 	return;
 }
 
-void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char* buffer, const stdx::file_size_t & size, const uint64_t & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
+void stdx::_FileIOService::write_file(stdx::native_file_handle file, stdx::buffer buf, const stdx::file_size_t & size, const uint64_t & offset, std::function<void(file_write_event, std::exception_ptr)> callback)
 {
 #ifdef WIN32
 	file_io_context* context_ptr = new file_io_context;
@@ -366,25 +327,16 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	context_ptr->m_ol.OffsetHigh = li.height;
 	context_ptr->size = 0;
 	context_ptr->offset = 0;
-	char* buf = (char*)stdx::calloc(size, sizeof(char));
-	if (buf == nullptr)
-	{
-		delete context_ptr;
-		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	memcpy(buf, buffer, size);
+	context_ptr->buf = buf;
 	auto* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
 		delete context_ptr;
-		stdx::free(buf);
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	*call = [callback, buf](file_io_context* context_ptr, std::exception_ptr error)
+	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
-		stdx::free(buf);
 		if (error)
 		{
 			delete context_ptr;
@@ -396,7 +348,7 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
-	if (!WriteFile(file, buf, size, &(context_ptr->size), &(context_ptr->m_ol)))
+	if (!WriteFile(file, (char*)context_ptr->buf, size, &(context_ptr->size), &(context_ptr->m_ol)))
 	{
 		try
 		{
@@ -404,10 +356,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 		}
 		catch (const std::exception&)
 		{
-#ifdef DEBUG
-			::printf("[File IO Service]IO操作投递失败\n");
-#endif // DEBUG
-			stdx::free(context_ptr->buffer);
 			delete call;
 			stdx::finally fin([context_ptr]()
 				{
@@ -417,63 +365,52 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 			return;
 		}
 	}
-#ifdef DEBUG
-	::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
+	auto size = buf.size();
 	auto  r_size = size;
 	auto tmp = size % 512;
 	if (tmp != 0)
 	{
 		r_size += (512 - tmp);
+		buf.realloc(r_size);
 	}
-	char* buf = (char*)stdx::calloc(r_size, sizeof(char));
-	if (buf == nullptr)
+	try
 	{
-		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
+		buf.memalign_and_move(512);
+	}
+	catch (const std::exception &ex)
+	{
+		callback(stdx::file_write_event(), std::current_exception());
 		return;
 	}
-	stdx::posix_memalign((void**)&buf, 512, r_size);
-	memset(buf, 0, r_size);
-	memcpy(buf, buffer, size);
-	auto context = m_iocp.get_context();
+	auto context = m_poller.get_context();
 	file_io_context* ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
-		stdx::free(buf);
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
 	ptr->size = r_size;
-	ptr->buffer = buf;
+	ptr->buf = buf;
 	ptr->offset = offset;
 	ptr->file = file;
 	//设置回调
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		stdx::free(buf);
 		delete ptr;
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	*call = [callback, size](file_io_context* context_ptr, std::exception_ptr error)
+	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
-		if (context_ptr->buffer != nullptr)
-		{
-			stdx::free(context_ptr->buffer);
-		}
 		if (error)
 		{
 			callback(file_write_event(), error);
 			delete context_ptr;
 			return;
-		}
-		if (context_ptr->size < size)
-		{
-			context_ptr->eof = true;
 		}
 		file_write_event context(context_ptr);
 		stdx::finally fin([context_ptr]()
@@ -486,61 +423,40 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	//投递操作
 	try
 	{
-		stdx::aio_write(context, file, buf, r_size, offset, invalid_eventfd, ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
+		stdx::aio_write(context, file, buf, r_size, offset, INVALID_EVENTFD, ptr);
 	}
 	catch (const std::exception&)
 	{
-		stdx::free(buf);
 		delete call;
 		delete ptr;
 		callback(file_write_event(), std::current_exception());
 	}
 #else
 	//Buffered IO
-	char* buf = (char*)stdx::calloc(size,sizeof(char));
-	if (buf == nullptr)
-	{
-		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	memcpy(buf, buffer, size);
 	file_io_context* ptr = new file_io_context;
 	if (ptr == nullptr)
 	{
-		stdx::free(buf);
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
 	ptr->size = size;
-	ptr->buffer = buf;
+	ptr->buf = buf;
 	ptr->offset = offset;
 	ptr->file = file;
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
-		stdx::free(buf);
 		delete ptr;
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	*call = [callback, size](file_io_context* context_ptr, std::exception_ptr error)
+	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
-		if (context_ptr->buffer != nullptr)
-		{
-			stdx::free(context_ptr->buffer);
-		}
 		if (error)
 		{
 			callback(file_write_event(), error);
 			delete context_ptr;
 			return;
-		}
-		if (context_ptr->size < size)
-		{
-			context_ptr->eof = true;
 		}
 		file_write_event context(context_ptr);
 		stdx::finally fin([context_ptr]()
@@ -553,14 +469,10 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, const char*
 	ptr->op_code = stdx::file_bio_op_code::write;
 	try
 	{
-		m_iocp.push(ptr);
-#ifdef DEBUG
-		::printf("[File IO Service]IO操作已投递\n");
-#endif // DEBUG
+		m_poller.post(ptr);
 	}
 	catch (const std::exception&)
 	{
-		stdx::free(buf);
 		delete call;
 		delete ptr;
 		callback(file_write_event(), std::current_exception());
@@ -589,17 +501,14 @@ uint64_t stdx::_FileIOService::get_file_size(stdx::native_file_handle file) cons
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-#ifdef DEBUG
-	::printf("[File IO Service]正在初始化IO服务\n");
-#endif // DEBUG
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token,[](iocp_t iocp)
+		m_thread_pool.long_loop(m_token,[](poller_t poller)
 			{
 				stdx::file_io_context* context_ptr = nullptr;
 				try
 				{
-					context_ptr = iocp.get(STDX_LAZY_MAX_TIME);
+					context_ptr = poller.get();
 				}
 				catch (const std::exception&)
 				{
@@ -623,17 +532,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 							}
 							else
 							{
-								LPVOID msg;
-								if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msg, 0, NULL))\
-								{
-									throw std::runtime_error((char*)msg);
-								}
-								else
-								{
-									std::string _ERROR_MSG("windows system error:");
-									_ERROR_MSG.append(std::to_string(code));
-									throw std::runtime_error(_ERROR_MSG.c_str());
-								}
+								throw std::system_error(std::error_code(code, std::system_category()));
 							}
 						}
 					}
@@ -642,9 +541,6 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				{
 					error = std::current_exception();
 				}
-#ifdef DEBUG
-				::printf("[IOCP]IO操作完成\n");
-#endif
 				auto* call = context_ptr->callback;
 				stdx::finally fin([call]()
 					{
@@ -657,24 +553,18 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				catch (const std::exception&)
 				{
 				}
-			}, m_iocp);
+			}, m_poller);
 	}
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
-#ifdef DEBUG
-	::printf("[File IO Service]正在初始化IO服务\n");
-#endif
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
+		m_thread_pool.long_loop(m_token, [](poller_t poller)
 			{
 				std::exception_ptr error(nullptr);
 				int64_t res = 0;
-				auto* context_ptr = iocp.get(res, STDX_LAZY_MAX_TIME);
-#ifdef DEBUG
-				::printf("[Native AIO]IO操作完成\n");
-#endif
+				auto* context_ptr = poller.get(res);
 				if (context_ptr == nullptr)
 				{
 					return;
@@ -707,18 +597,15 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 
 					}
 				}
-			}, m_iocp);
+			}, m_poller);
 	}
 #else
 	//Buffered IO
-#ifdef DEBUG
-::printf("[File IO Service]正在初始化IO服务\n");
-#endif
-	for (size_t i = 0, cores = stdx::suggested_threads_number(); i < cores; i++)
+	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
 	{
-		stdx::threadpool::loop_run(m_token, [](iocp_t iocp)
+		m_thread_pool.long_loop(m_token, [](poller_t poller)
 		{
-			auto* context = iocp.get(STDX_LAZY_MAX_TIME);
+			auto* context = poller.get();
 			if (context == nullptr)
 			{
 				return;
@@ -727,24 +614,18 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			if (context->op_code == stdx::file_bio_op_code::write)
 			{
 				//pwrite
-				r = ::pwrite(context->file,context->buffer,context->size,context->offset);
+				r = ::pwrite(context->file, (char*)context->buf, context->size, context->offset);
 			}
 			else if (context->op_code == stdx::file_bio_op_code::read)
 			{
 				//pread
-				r = ::pread(context->file, context->buffer, context->size, context->offset);
+				r = ::pread(context->file, (char*)context->buf, context->buf.size(), context->offset);
 				if (r == 0)
 				{
 					context->eof = true;
 				}
 			}
 			auto* callback = context->callback;
-			if (callback == nullptr)
-			{
-#ifdef DEBUG
-				::printf("[BIO Poller]Callback为空\n");
-#endif
-			}
 			std::exception_ptr err(nullptr);
 			try
 			{
@@ -757,22 +638,28 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			{
 				err = std::current_exception();
 			}
+			context->size = r;
 			if (callback != nullptr)
 			{
 				stdx::finally fin([callback]()
-				{
-					delete callback;
-				});
+					{
+						if (callback)
+						{
+							delete callback;
+						}
+					});
 				try
 				{
 					(*callback)(context, err);
 				}
-				catch (const std::exception&)
+				catch (const std::exception &ex)
 				{
-
+#ifdef DEBUG
+					::printf("[FileIOService]Callback error: %s\n",ex.what());
+#endif
 				}
 			}
-		}, m_iocp);
+		}, m_poller);
 	}
 #endif
 #endif
@@ -804,14 +691,14 @@ stdx::_FileStream::~_FileStream()
 #endif
 }
 
-stdx::task<stdx::file_read_event> stdx::_FileStream::read(const stdx::file_size_t & size, const uint64_t & offset)
+stdx::task<stdx::file_read_event> stdx::_FileStream::read(const stdx::buffer buf, const uint64_t & offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
 	stdx::task_completion_event<stdx::file_read_event> ce;
-	m_io_service.read_file(m_file, size, offset, [ce](file_read_event context, std::exception_ptr error) mutable
+	m_io_service.read_file(m_file, buf, offset, [ce](file_read_event context, std::exception_ptr error) mutable
 		{
 			if (error)
 			{
@@ -827,14 +714,14 @@ stdx::task<stdx::file_read_event> stdx::_FileStream::read(const stdx::file_size_
 	return t;
 }
 
-stdx::task<stdx::file_write_event> stdx::_FileStream::write(const char* buffer, const stdx::file_size_t & size, const uint64_t & offset)
+stdx::task<stdx::file_write_event> stdx::_FileStream::write(stdx::buffer buf, const stdx::file_size_t & size, const uint64_t & offset)
 {
 	if (!m_io_service)
 	{
 		throw std::logic_error("this io service has been free");
 	}
 	stdx::task_completion_event<stdx::file_write_event> ce;
-	m_io_service.write_file(m_file, buffer, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
+	m_io_service.write_file(m_file, buf, size, offset, [ce](file_write_event context, std::exception_ptr error) mutable
 		{
 			if (error)
 			{
@@ -867,13 +754,13 @@ void stdx::_FileStream::close()
 #endif
 }
 
-void stdx::_FileStream::read_until(stdx::cancel_token token, file_size_t size, uint64_t offset, std::function<void(stdx::file_read_event)> fn, std::function<void(std::exception_ptr)> err_handler)
+void stdx::_FileStream::read_until(stdx::cancel_token token, stdx::buffer buf, uint64_t offset, std::function<void(stdx::file_read_event)> fn, std::function<void(std::exception_ptr)> err_handler)
 {
 	if (token.is_cancel())
 	{
 		return;
 	}
-	m_io_service.read_file(m_file, size,offset, [err_handler,fn,token,offset,size,this](stdx::file_read_event ev,std::exception_ptr err) mutable
+	m_io_service.read_file(m_file, buf,offset, [err_handler,fn,token,offset,this](stdx::file_read_event ev,std::exception_ptr err) mutable
 	{
 		try
 		{
@@ -895,7 +782,7 @@ void stdx::_FileStream::read_until(stdx::cancel_token token, file_size_t size, u
 		}
 		if (!token.is_cancel())
 		{
-			read_until(token, size, offset, fn, err_handler);
+			read_until(token, ev.buffer, offset, fn, err_handler);
 		}
 	});
 }
@@ -965,7 +852,7 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 		.then([path]()
 			{
 #ifdef WIN32
-				wchar_t* buf = (wchar_t*)calloc(MAX_PATH, sizeof(wchar_t));
+				wchar_t* buf = (wchar_t*)stdx::calloc(MAX_PATH, sizeof(wchar_t));
 				if (buf == nullptr)
 				{
 					_FullpathNameFlag.unlock();
@@ -974,15 +861,15 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 				if (!GetFullPathNameW(path.c_str(), MAX_PATH, buf, nullptr))
 				{
 					_FullpathNameFlag.unlock();
-					free(buf);
+					stdx::free(buf);
 					_ThrowWinError
 				}
 				_FullpathNameFlag.unlock();
 				stdx::string str(buf);
-				free(buf);
+				stdx::free(buf);
 				return str;
 #else
-				char* buf = (char*)calloc(MAX_PATH, sizeof(char));
+				char* buf = (char*)stdx::calloc(MAX_PATH, sizeof(char));
 				if (!buf)
 				{
 					throw std::bad_alloc();
@@ -990,12 +877,12 @@ stdx::task<stdx::string> stdx::realpath(stdx::string path)
 				if (::realpath(path.c_str(), buf) == nullptr)
 				{
 					_FullpathNameFlag.unlock();
-					free(buf);
+					stdx::free(buf);
 					_ThrowLinuxError
 				}
 				_FullpathNameFlag.unlock();
 				stdx::string str(buf);
-				free(buf);
+				stdx::free(buf);
 				return str;
 #endif
 			});
@@ -1300,7 +1187,7 @@ HANDLE stdx::file::open_for_sendfile_native(const stdx::file_access_type & acces
 #else
 int stdx::file::open_for_sendfile_native(const stdx::file_access_type & access_type, const stdx::file_open_type & open_type)
 {
-	::open(m_path->c_str(), stdx::forward_file_access_type(access_type) | stdx::forward_file_open_type(open_type));
+	return ::open(m_path->c_str(), stdx::forward_file_access_type(access_type) | stdx::forward_file_open_type(open_type));
 }
 #endif
 

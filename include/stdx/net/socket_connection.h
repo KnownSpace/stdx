@@ -13,7 +13,7 @@ namespace stdx
 
 		virtual ~basic_socket_connection() = default;
 
-		virtual stdx::task<size_t> write(const char* buf, size_t size) override
+		virtual stdx::task<size_t> write(stdx::buffer buf, size_t size) override
 		{
 			stdx::uint64_union u;
 			u.value = size;
