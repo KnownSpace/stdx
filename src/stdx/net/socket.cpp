@@ -987,28 +987,28 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						delete context_ptr;
 						return;
 					}
-					stdx::threadpool.run([call, context_ptr, error]()
+					stdx::finally fin([call]()
 						{
-							stdx::finally fin([call]()
-								{
-									if (call)
-									{
-										delete call;
-									}
-								});
-							try
+							if (call)
 							{
-								(*call)(context_ptr, error);
-							}
-							catch (const std::exception&)
-							{
+								delete call;
 							}
 						});
+					try
+					{
+						(*call)(context_ptr, error);
+					}
+					catch (const std::exception &ex)
+					{
+#ifdef DEBUG
+						::printf("[NetworkIOService]Callback error: %s\n", ex.what());
+#endif
+					}
 				}
-				catch (const std::exception &err)
+				catch (const std::exception &ex)
 				{
 #ifdef DEBUG
-					::printf("[NetworkIOServcie]出错%s\n", err.what());
+					::printf("[NetworkIOServcie]出错 %s\n", ex.what());
 #endif
 				}
 			}, m_poller);
@@ -1040,19 +1040,25 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					{
 						poller.bind(context->target_socket);
 					}
-					stdx::threadpool.run([call, err, context]()
+					stdx::finally fin([call]()
 					{
-						stdx::finally fin([call]()
-							{
-									delete call;
-							});
-						(*call)(context, err);
+							delete call;
 					});
+					try
+					{
+						(*call)(context, err);
+					}
+					catch (const std::exception &ex)
+					{
+#ifdef DEBUG
+						::printf("[NetworkIOService]Callback error: %s\n",ex.what());
+#endif
+					}
 				}
-				catch (const std::exception &err)
+				catch (const std::exception &ex)
 				{
 #ifdef DEBUG
-					::printf("[NetworkIOServcie]出错%s\n", err.what());
+					::printf("[NetworkIOServcie]出错 %s\n", ex.what());
 #endif
 				}
 			},m_poller);

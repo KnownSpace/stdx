@@ -137,7 +137,7 @@ int main(int argc, char** argv)
 			stdx::cancel_token token;
 			conn.read_until(token, [token,conn,file_io_service](stdx::http_request req) mutable
 			{
-				if (!handle_request_hello(conn, req))
+				if (!handle_request(conn, req,file_io_service))
 				{
 					token.cancel();
 				}

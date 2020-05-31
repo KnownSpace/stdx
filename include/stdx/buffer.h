@@ -66,6 +66,9 @@ namespace stdx
 			return m_data != nullptr;
 		}
 
+		void memalign(size_t align);
+
+		void memalign_and_move(size_t align);
 	private:
 		size_t m_size;
 		data_t m_data;
@@ -175,7 +178,7 @@ namespace stdx
 			return m_impl->free();
 		}
 
-		operator bool() const
+		bool check() const
 		{
 			if (m_impl)
 			{
@@ -184,9 +187,14 @@ namespace stdx
 			return false;
 		}
 
-		bool check() const
+		void memalign(size_t align)
 		{
-			return m_impl->check();
+			m_impl->memalign(align);
+		}
+
+		void memalign_and_move(size_t align)
+		{
+			m_impl->memalign_and_move(align);
 		}
 	private:
 		impl_t m_impl;

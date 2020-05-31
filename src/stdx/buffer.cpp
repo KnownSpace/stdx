@@ -1,5 +1,6 @@
 #include <stdx/buffer.h>
 #include <string.h>
+#include <stdx/finally.h>
 
 stdx::_Buffer::_Buffer()
 	:m_size(0)
@@ -127,6 +128,30 @@ void stdx::_Buffer::free()
 	{
 		stdx::free(p);
 	}
+}
+
+void stdx::_Buffer::memalign(size_t align)
+{
+	char* buf = m_data;
+	stdx::posix_memalign((void**)&buf, align, m_size);
+	m_data = buf;
+}
+
+void stdx::_Buffer::memalign_and_move(size_t align)
+{
+	char* temp = (char*)stdx::malloc(m_size);
+	if (!temp)
+	{
+		throw std::bad_alloc();
+	}
+	stdx::finally fin([temp]() 
+	{
+		stdx::free(temp);
+	});
+	memcpy(temp,m_data,m_size);
+	size_t size = m_size;
+	this->memalign(align);
+	memcpy(m_data, temp, size);
 }
 
 stdx::buffer stdx::make_buffer(size_t size)
