@@ -502,7 +502,7 @@ namespace stdx
 		using fd_getter_t = std::function<int(_IOContext*)>;
 		using event_getter_t = std::function<uint32_t(_IOContext*)>;
 		using task_t = std::function<void()>;
-		using lock_t = std::mutex;
+		using lock_t = stdx::spin_lock;
 	public:
 		_EpollProactor(clean_t clean, operate_t io_operator, fd_getter_t fd_getter, event_getter_t event_getter)
 			:m_epoll()
