@@ -121,6 +121,10 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 	{
 		_ThrowLinuxError
 	}
+	//set non-blocking
+	int flags = fcntl(sock, F_GETFL, 0);
+	flags |= SOCK_NONBLOCK;
+	fcntl(sock, F_SETFL, flags);
 	m_poller.bind(sock);
 #endif
 	return sock;
@@ -503,10 +507,6 @@ void stdx::_NetworkIOService::listen(socket_t sock, int backlog)
 	{
 		_ThrowLinuxError
 	}
-	//set non-blocking
-	int flags = fcntl(sock, F_GETFL, 0);
-	flags |= SOCK_NONBLOCK;
-	fcntl(sock, F_SETFL, flags);
 #endif
 }
 
@@ -1164,7 +1164,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	}
 	if (r < 0)
 	{
-		if (errno == EWOULDBLOCK)
+		if (errno == EWOULDBLOCK || errno == EAGAIN)
 		{
 			return false;
 		}
