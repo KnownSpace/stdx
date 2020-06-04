@@ -706,7 +706,6 @@ namespace stdx
 			return m_impl->accept_ex(sock,callback);
 		}
 
-
 #ifdef WIN32
 		socket_t accept(socket_t sock, ipv4_addr& addr)
 		{
