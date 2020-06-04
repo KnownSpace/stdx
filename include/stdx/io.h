@@ -156,66 +156,6 @@ namespace stdx
 		HANDLE m_iocp;
 	};
 
-	//IOCP引用封装
-	//template<typename _IOContext>
-	//class iocp
-	//{
-	//	using impl_t = std::shared_ptr<stdx::_IOCP<_IOContext>>;
-	//public:
-	//	iocp()
-	//		:m_impl(std::make_shared<stdx::_IOCP<_IOContext>>())
-	//	{}
-
-	//	iocp(const iocp<_IOContext> &other)
-	//		:m_impl(other.m_impl)
-	//	{}
-
-	//	iocp(iocp<_IOContext> &&other) noexcept
-	//		:m_impl(std::move(other.m_impl))
-	//	{}
-
-	//	~iocp() = default;
-
-	//	iocp<_IOContext> &operator=(const iocp<_IOContext> &other)
-	//	{
-	//		m_impl = other.m_impl;
-	//		return *this;
-	//	}
-
-	//	_IOContext *get()
-	//	{
-	//		return m_impl->get();
-	//	}
-
-	//	_IOContext* get(DWORD ms)
-	//	{
-	//		return m_impl->get(ms);
-	//	}
-
-	//	void bind(const HANDLE &file_handle)
-	//	{
-	//		m_impl->bind(file_handle);
-	//	}
-
-	//	template<typename _HandleType>
-	//	void bind(const _HandleType &file_handle)
-	//	{
-	//		m_impl->bind<_HandleType>(file_handle);
-	//	}
-
-	//	void post(DWORD size, _IOContext *context_ptr, OVERLAPPED *ol_ptr)
-	//	{
-	//		m_impl->post(size, context_ptr, ol_ptr);
-	//	}
-
-	//	bool operator==(const iocp &other) const
-	//	{
-	//		return m_impl == other.m_impl;
-	//	}
-
-	//private:
-	//	impl_t m_impl;
-	//};
 
 	template<typename _IOContext>
 	inline stdx::io_poller<_IOContext> make_iocp_poller()
@@ -650,6 +590,16 @@ namespace stdx
 					uint32_t events = m_event_getter(p);
 					if (events & stdx::epoll_events::in)
 					{
+						//if (ev.in_contexts.empty())
+						//{
+						//	bool r = m_operate(p);
+						//	if (r)
+						//	{
+						//		m_completions.push_back(p);
+						//		return;
+						//	}
+						//}
+						ev.in_contexts.push_back(p);
 						//check if update epoll
 						if (!(ev.model.ev.events & stdx::epoll_events::in))
 						{
@@ -657,7 +607,6 @@ namespace stdx
 							ev.model.ev.events |= stdx::epoll_events::in;
 							_UpdateOrAddEvent(ev);
 						}
-						ev.in_contexts.push_back(p);
 					}
 					else if (events & stdx::epoll_events::out)
 					{
@@ -670,6 +619,7 @@ namespace stdx
 								return;
 							}
 						}
+						ev.out_contexts.push_back(p);
 						//check if update epoll
 						if (!(ev.model.ev.events & stdx::epoll_events::out))
 						{
@@ -677,7 +627,6 @@ namespace stdx
 							ev.model.ev.events |= stdx::epoll_events::out;
 							_UpdateOrAddEvent(ev);
 						}
-						ev.out_contexts.push_back(p);
 					}
 				}, p);
 		}
@@ -810,7 +759,7 @@ namespace stdx
 				}
 			}
 			//handle out event
-			if (ev.events & stdx::epoll_events::out)
+			else if (ev.events & stdx::epoll_events::out)
 			{
 				if (ev_.out_contexts.size() > 1)
 				{

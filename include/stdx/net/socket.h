@@ -625,6 +625,8 @@ namespace stdx
 		static bool _IOOperate(stdx::network_io_context* context);
 
 		static uint32_t _GetEvents(stdx::network_io_context* context);
+
+		static void _SetNonBlocking(socket_t sock);
 #endif // LINUX
 
 	private:
