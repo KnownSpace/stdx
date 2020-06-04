@@ -92,7 +92,7 @@ bool handle_request_hello(stdx::http_connection conn, stdx::http_request req)
 	bool keep = req.request_header().is_keepalive();
 	stdx::http_response response(200);
 	add_keepalive(response, keep);
-	response.response_body().push(U("Hello World"));
+	response.response_body().push(U("<html><body><h1>Not Found</h1></body></html>"));
 	auto t = conn.write(response)
 		.then([conn, keep](stdx::task_result<size_t> r)mutable
 			{

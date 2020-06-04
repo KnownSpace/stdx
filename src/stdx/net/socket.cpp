@@ -503,10 +503,7 @@ void stdx::_NetworkIOService::listen(socket_t sock, int backlog)
 	{
 		_ThrowLinuxError
 	}
-	//set non-blocking
-	int flags = fcntl(sock, F_GETFL, 0);
-	flags |= SOCK_NONBLOCK;
-	fcntl(sock, F_SETFL, flags);
+	_SetNonBlocking(sock);
 #endif
 }
 
@@ -1095,6 +1092,13 @@ int stdx::_NetworkIOService::_GetFd(stdx::network_io_context* context)
 	return context->this_socket;
 }
 
+void stdx::_NetworkIOService::_SetNonBlocking(socket_t sock)
+{
+	int flags = fcntl(sock, F_GETFL, 0);
+	flags |= SOCK_NONBLOCK;
+	fcntl(sock, F_SETFL, flags);
+}
+
 bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 {
 	ssize_t r = 0;
@@ -1113,15 +1117,23 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	{
 		sockaddr_in addr;
 		socklen_t addr_size = sizeof(sockaddr_in);
-		context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK);
-		context->addr = stdx::ipv4_addr(addr);
-		if (context->target_socket == -1)
+		context->target_socket = ::accept(context->this_socket, (sockaddr*)&addr, &addr_size);
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
 			return false;
 		}
 		else
 		{
-			r = 1;
+			if (context->target_socket != -1)
+			{
+				context->addr = stdx::ipv4_addr(addr);
+				_SetNonBlocking(context->target_socket);
+				r = 1;
+			}
+			else
+			{
+				r = -1;
+			}
 		}
 	}
 	else if (context->code == stdx::network_io_context_code::send)
@@ -1164,7 +1176,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	}
 	if (r < 0)
 	{
-		if (errno == EWOULDBLOCK)
+		if (errno == EWOULDBLOCK || errno == EAGAIN)
 		{
 			return false;
 		}

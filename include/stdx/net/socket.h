@@ -625,6 +625,8 @@ namespace stdx
 		static bool _IOOperate(stdx::network_io_context* context);
 
 		static uint32_t _GetEvents(stdx::network_io_context* context);
+
+		static void _SetNonBlocking(socket_t sock);
 #endif // LINUX
 
 	private:
@@ -703,7 +705,6 @@ namespace stdx
 		{
 			return m_impl->accept_ex(sock,callback);
 		}
-
 
 #ifdef WIN32
 		socket_t accept(socket_t sock, ipv4_addr& addr)

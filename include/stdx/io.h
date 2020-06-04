@@ -156,66 +156,6 @@ namespace stdx
 		HANDLE m_iocp;
 	};
 
-	//IOCP引用封装
-	//template<typename _IOContext>
-	//class iocp
-	//{
-	//	using impl_t = std::shared_ptr<stdx::_IOCP<_IOContext>>;
-	//public:
-	//	iocp()
-	//		:m_impl(std::make_shared<stdx::_IOCP<_IOContext>>())
-	//	{}
-
-	//	iocp(const iocp<_IOContext> &other)
-	//		:m_impl(other.m_impl)
-	//	{}
-
-	//	iocp(iocp<_IOContext> &&other) noexcept
-	//		:m_impl(std::move(other.m_impl))
-	//	{}
-
-	//	~iocp() = default;
-
-	//	iocp<_IOContext> &operator=(const iocp<_IOContext> &other)
-	//	{
-	//		m_impl = other.m_impl;
-	//		return *this;
-	//	}
-
-	//	_IOContext *get()
-	//	{
-	//		return m_impl->get();
-	//	}
-
-	//	_IOContext* get(DWORD ms)
-	//	{
-	//		return m_impl->get(ms);
-	//	}
-
-	//	void bind(const HANDLE &file_handle)
-	//	{
-	//		m_impl->bind(file_handle);
-	//	}
-
-	//	template<typename _HandleType>
-	//	void bind(const _HandleType &file_handle)
-	//	{
-	//		m_impl->bind<_HandleType>(file_handle);
-	//	}
-
-	//	void post(DWORD size, _IOContext *context_ptr, OVERLAPPED *ol_ptr)
-	//	{
-	//		m_impl->post(size, context_ptr, ol_ptr);
-	//	}
-
-	//	bool operator==(const iocp &other) const
-	//	{
-	//		return m_impl == other.m_impl;
-	//	}
-
-	//private:
-	//	impl_t m_impl;
-	//};
 
 	template<typename _IOContext>
 	inline stdx::io_poller<_IOContext> make_iocp_poller()
@@ -502,7 +442,7 @@ namespace stdx
 		using fd_getter_t = std::function<int(_IOContext*)>;
 		using event_getter_t = std::function<uint32_t(_IOContext*)>;
 		using task_t = std::function<void()>;
-		using lock_t = std::mutex;
+		using lock_t = stdx::spin_lock;
 	public:
 		_EpollProactor(clean_t clean, operate_t io_operator, fd_getter_t fd_getter, event_getter_t event_getter)
 			:m_epoll()
@@ -514,6 +454,7 @@ namespace stdx
 			, m_eventfd(stdx::make_eventfd(EFD_NONBLOCK))
 			, m_ev_lock()
 			, m_tasks()
+			, m_completions()
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in;
@@ -528,6 +469,13 @@ namespace stdx
 
 		virtual _IOContext* get() override
 		{
+			{
+				auto* cont = _CheckCompletions();
+				if (cont)
+				{
+					return cont;
+				}
+			}
 			while (true)
 			{
 				epoll_event ev;
@@ -540,6 +488,11 @@ namespace stdx
 						if (_ReadEvFd())
 						{
 							_HandleTasks();
+						}
+						auto* cont = _CheckCompletions();
+						if (cont)
+						{
+							return cont;
 						}
 					}
 					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
@@ -567,6 +520,13 @@ namespace stdx
 
 		virtual _IOContext* get(uint32_t timeout_ms) override
 		{
+			{
+				auto* cont = _CheckCompletions();
+				if (cont)
+				{
+					return cont;
+				}
+			}
 			epoll_event ev;
 			int r = m_epoll.wait(&ev, 1, timeout_ms);
 			if (r != 1)
@@ -579,6 +539,11 @@ namespace stdx
 				if (_ReadEvFd())
 				{
 					_HandleTasks();
+				}
+				auto* cont = _CheckCompletions();
+				if (cont)
+				{
+					return cont;
 				}
 				//return by timeout
 				return nullptr;
@@ -625,6 +590,16 @@ namespace stdx
 					uint32_t events = m_event_getter(p);
 					if (events & stdx::epoll_events::in)
 					{
+						//if (ev.in_contexts.empty())
+						//{
+						//	bool r = m_operate(p);
+						//	if (r)
+						//	{
+						//		m_completions.push_back(p);
+						//		return;
+						//	}
+						//}
+						ev.in_contexts.push_back(p);
 						//check if update epoll
 						if (!(ev.model.ev.events & stdx::epoll_events::in))
 						{
@@ -632,10 +607,19 @@ namespace stdx
 							ev.model.ev.events |= stdx::epoll_events::in;
 							_UpdateOrAddEvent(ev);
 						}
-						ev.in_contexts.push_back(p);
 					}
 					else if (events & stdx::epoll_events::out)
 					{
+						if (ev.out_contexts.empty())
+						{
+							bool r = m_operate(p);
+							if (r)
+							{
+								m_completions.push_back(p);
+								return;
+							}
+						}
+						ev.out_contexts.push_back(p);
 						//check if update epoll
 						if (!(ev.model.ev.events & stdx::epoll_events::out))
 						{
@@ -643,7 +627,6 @@ namespace stdx
 							ev.model.ev.events |= stdx::epoll_events::out;
 							_UpdateOrAddEvent(ev);
 						}
-						ev.out_contexts.push_back(p);
 					}
 				}, p);
 		}
@@ -776,9 +759,9 @@ namespace stdx
 				}
 			}
 			//handle out event
-			if (ev.events & stdx::epoll_events::out)
+			else if (ev.events & stdx::epoll_events::out)
 			{
-				if (!ev_.out_contexts.empty())
+				if (ev_.out_contexts.size() > 1)
 				{
 					_IOContext* cont = ev_.out_contexts.front();
 					//I/O operation
@@ -786,6 +769,19 @@ namespace stdx
 					{
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
+						return cont;
+					}
+				}
+				else if (ev_.out_contexts.size() == 1)
+				{
+					_IOContext* cont = ev_.out_contexts.front();
+					//I/O operation
+					if (m_operate(cont))
+					{
+						//I/O operation finish
+						ev_.out_contexts.pop_front();
+						ev_.model.ev.events ^= stdx::epoll_events::out;
+						m_epoll.update_event(fd, &(ev_.model.ev));
 						return cont;
 					}
 				}
@@ -862,6 +858,17 @@ namespace stdx
 			}
 		}
 
+		_IOContext* _CheckCompletions()
+		{
+			if (!m_completions.empty())
+			{
+				auto* p = m_completions.front();
+				m_completions.pop_front();
+				return p;
+			}
+			return nullptr;
+		}
+
 		stdx::epoll m_epoll;
 		std::unordered_map<int, stdx::epoll_context_list<_IOContext>> m_map;
 		clean_t m_clean;
@@ -871,6 +878,7 @@ namespace stdx
 		int m_eventfd;
 		lock_t m_ev_lock;
 		std::list<task_t> m_tasks;
+		std::list<_IOContext*> m_completions;
 	};
 
 	template<typename _IOContext>
