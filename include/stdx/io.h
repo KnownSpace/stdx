@@ -9,6 +9,8 @@
 #include <stdx/poller.h>
 #include <stdx/async/callback_flag.h>
 
+#define STDX_IO_LOOP_NUM() cpu_cores()*2
+
 namespace stdx
 {
 #ifdef WIN32

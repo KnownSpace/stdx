@@ -53,7 +53,7 @@ stdx::_FileIOService::_FileIOService()
 #endif
 #endif
 	,m_token()
-	,m_thread_pool(stdx::make_fixed_size_thread_pool(cpu_cores()))
+	,m_thread_pool(stdx::make_fixed_size_thread_pool(STDX_IO_LOOP_NUM()))
 {
 	init_threadpoll();
 }
@@ -63,7 +63,7 @@ stdx::_FileIOService::~_FileIOService()
 {
 	m_token.cancel();
 #ifdef WIN32
-	for (size_t i = 0, size = cpu_cores(); i < size; i++)
+	for (uint32_t i = 0, size = STDX_IO_LOOP_NUM(); i < size; i++)
 	{
 		m_poller.post(nullptr);
 	}
@@ -501,7 +501,7 @@ uint64_t stdx::_FileIOService::get_file_size(stdx::native_file_handle file) cons
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[](poller_t poller)
 			{
@@ -558,7 +558,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
-	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token, [](poller_t poller)
 			{
@@ -601,7 +601,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	}
 #else
 	//Buffered IO
-	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token, [](poller_t poller)
 		{

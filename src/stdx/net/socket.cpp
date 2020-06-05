@@ -61,7 +61,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
 #else
-	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(cpu_cores(),[](stdx::network_io_context* context)
+	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(STDX_IO_LOOP_NUM(),[](stdx::network_io_context* context)
 		{
 			_Clean(context);
 		}, [](stdx::network_io_context* context)
@@ -76,7 +76,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 		}))
 #endif
 	, m_token()
-	, m_thread_pool(stdx::make_fixed_size_thread_pool(cpu_cores()))
+	, m_thread_pool(stdx::make_fixed_size_thread_pool(STDX_IO_LOOP_NUM()))
 {
 	init_threadpoll();
 }
@@ -85,7 +85,7 @@ stdx::_NetworkIOService::~_NetworkIOService()
 {
 	m_token.cancel();
 #ifdef WIN32
-	for (size_t i = 0, size = cpu_cores(); i < size; i++)
+	for (uint32_t i = 0, size = STDX_IO_LOOP_NUM(); i < size; i++)
 	{
 		m_poller.post(nullptr);
 	}
@@ -947,7 +947,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
@@ -1011,7 +1011,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 			}, m_poller);
 	}
 #else
-	for (uint32_t i = 0, cores = cpu_cores(); i < cores; i++)
+	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
@@ -1038,17 +1038,17 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 						poller.bind(context->target_socket);
 					}
 					stdx::finally fin([call]()
-					{
+						{
 							delete call;
-					});
+						});
 					try
 					{
 						(*call)(context, err);
 					}
-					catch (const std::exception &ex)
+					catch (const std::exception& ex)
 					{
 #ifdef DEBUG
-						::printf("[NetworkIOService]Callback error: %s\n",ex.what());
+						::printf("[NetworkIOService]Callback error: %s\n", ex.what());
 #endif
 					}
 				}
