@@ -421,6 +421,7 @@ namespace stdx
 		epoll_event ev;
 		bool is_exist;
 		bool is_err_or_hup;
+		int fd;
 	};
 
 	template<typename _IOContext>
@@ -460,7 +461,7 @@ namespace stdx
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in;
-			ev.data.fd = m_eventfd;
+			ev.data.ptr = nullptr;
 			m_epoll.add_event(m_eventfd, &ev);
 		}
 
@@ -471,50 +472,25 @@ namespace stdx
 
 		virtual _IOContext* get() override
 		{
+			auto* cont = _CheckCompletions();
+			if (cont)
 			{
-				auto* cont = _CheckCompletions();
-				if (cont)
-				{
-					return cont;
-				}
+				return cont;
 			}
 			while (true)
 			{
-				epoll_event ev;
-				int r = m_epoll.wait(&ev, 1, -1);
-				if (r == 1)
+				epoll_event ev[64];
+				int r = m_epoll.wait(ev, sizeof(ev), -1);
+				if (r > 0)
 				{
-					if (ev.data.fd == m_eventfd)
+					for (int i = 0; i < r; i++)
 					{
-						//is event fd
-						if (_ReadEvFd())
-						{
-							_HandleTasks();
-						}
-						auto* cont = _CheckCompletions();
-						if (cont)
-						{
-							return cont;
-						}
+						_HandleEv(ev[i]);
 					}
-					else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
+					cont = _CheckCompletions();
+					if (cont)
 					{
-						//has error(s)
-						//clean operation
-						int fd = ev.data.fd;
-						_CleanFd(fd);
-					}
-					else
-					{
-						try
-						{
-							_IOContext* cont = _HandleIoEvent(ev);
-							return cont;
-						}
-						catch (const std::exception& err)
-						{
-							return nullptr;
-						}
+						return cont;
 					}
 				}
 			}
@@ -522,51 +498,27 @@ namespace stdx
 
 		virtual _IOContext* get(uint32_t timeout_ms) override
 		{
+			auto* cont = _CheckCompletions();
+			if (cont)
 			{
-				auto* cont = _CheckCompletions();
-				if (cont)
-				{
-					return cont;
-				}
-			}
-			epoll_event ev;
-			int r = m_epoll.wait(&ev, 1, timeout_ms);
-			if (r != 1)
-			{
-				return nullptr;
-			}
-			if (ev.data.fd == m_eventfd)
-			{
-				//is event fd
-				if (_ReadEvFd())
-				{
-					_HandleTasks();
-				}
-				auto* cont = _CheckCompletions();
-				if (cont)
-				{
-					return cont;
-				}
-				//return by timeout
-				return nullptr;
-			}
-			if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
-			{
-				//has error(s)
-				//clean operation
-				int fd = ev.data.fd;
-				_CleanFd(fd);
-				return nullptr;
-			}
-			try
-			{
-				_IOContext* cont = _HandleIoEvent(ev);
 				return cont;
 			}
-			catch (const std::exception& err)
+			epoll_event ev[64];
+			int r = m_epoll.wait(ev,sizeof(ev), timeout_ms);
+			if (r < 1)
 			{
 				return nullptr;
 			}
+			for (int i = 0; i < r; i++)
+			{
+				_HandleEv(ev[i]);
+			}
+			cont = _CheckCompletions();
+			if (cont)
+			{
+				return cont;
+			}
+			return nullptr;
 		}
 
 		virtual void post(_IOContext* p) override
@@ -592,22 +544,13 @@ namespace stdx
 					uint32_t events = m_event_getter(p);
 					if (events & stdx::epoll_events::in)
 					{
-						//if (ev.in_contexts.empty())
-						//{
-						//	bool r = m_operate(p);
-						//	if (r)
-						//	{
-						//		m_completions.push_back(p);
-						//		return;
-						//	}
-						//}
 						ev.in_contexts.push_back(p);
 						//check if update epoll
 						if (!(ev.model.ev.events & stdx::epoll_events::in))
 						{
 							//update epoll
 							ev.model.ev.events |= stdx::epoll_events::in;
-							_UpdateOrAddEvent(ev);
+							_UpdateOrAddEvent(ev,fd);
 						}
 					}
 					else if (events & stdx::epoll_events::out)
@@ -627,7 +570,7 @@ namespace stdx
 						{
 							//update epoll
 							ev.model.ev.events |= stdx::epoll_events::out;
-							_UpdateOrAddEvent(ev);
+							_UpdateOrAddEvent(ev,fd);
 						}
 					}
 				}, p);
@@ -640,6 +583,7 @@ namespace stdx
 					stdx::epoll_context_list<_IOContext> ev;
 					_InitModel(ev.model, fd);
 					m_map[fd] = std::move(ev);
+					m_map[fd].model.ev.data.ptr = &(m_map[fd]);
 				}, fd);
 		}
 
@@ -722,23 +666,35 @@ namespace stdx
 			return true;
 		}
 
-		void _UpdateOrAddEvent(stdx::epoll_context_list<_IOContext>& ev)
+		void _UpdateOrAddEvent(stdx::epoll_context_list<_IOContext>& ev,int fd)
 		{
 			if (ev.model.is_exist)
 			{
-				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
+				m_epoll.update_event(fd, &(ev.model.ev));
 			}
 			else
 			{
 				ev.model.is_exist = true;
-				m_epoll.add_event(ev.model.ev.data.fd, &(ev.model.ev));
+				m_epoll.add_event(fd, &(ev.model.ev));
 			}
+		}
+
+		_IOContext* _CheckCompletions()
+		{
+			if (!m_completions.empty())
+			{
+				auto* p = m_completions.front();
+				m_completions.pop_front();
+				return p;
+			}
+			return nullptr;
 		}
 
 		_IOContext* _HandleIoEvent(epoll_event& ev)
 		{
-			int fd = ev.data.fd;
-			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
+			//int fd = ev.data.fd;
+			stdx::epoll_context_list<_IOContext>& ev_ = *((stdx::epoll_context_list<_IOContext>*)ev.data.ptr);
+			int fd = ev_.model.fd;
 			bool need_ctl = false;
 			//handle in event first
 			if (ev.events & stdx::epoll_events::in)
@@ -800,6 +756,45 @@ namespace stdx
 			return nullptr;
 		}
 
+		void _HandleEv(epoll_event &ev)
+		{
+			if (ev.data.ptr == nullptr)
+			{
+				//is event fd
+				if (_ReadEvFd())
+				{
+					_HandleTasks();
+				}
+			}
+			else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
+			{
+				//has error(s)
+				//clean operation
+				/*int fd = ev.data.fd;
+				_CleanFd(fd);*/
+				stdx::epoll_context_list<_IOContext>& ev_ = *((stdx::epoll_context_list<_IOContext>*)ev.data.ptr);
+				__CleanFd(ev_, ev_.model.fd);
+			}
+			else
+			{
+				_IOContext* cont = nullptr;
+				try
+				{
+					cont = _HandleIoEvent(ev);
+				}
+				catch (const std::exception& err)
+				{
+#ifdef DEBUG
+					::printf("[EpollProactor]Handle IO Event Fail: %s",err.what());
+#endif 
+				}
+				if (cont)
+				{
+					m_completions.push_back(cont);
+				}
+			}
+		}
+
 		void _CleanContexts(stdx::epoll_context_list<_IOContext>& ev)
 		{
 			auto* contexts = &(ev.in_contexts);
@@ -819,6 +814,11 @@ namespace stdx
 		void _CleanFd(int fd)
 		{
 			auto& ev = m_map[fd];
+			__CleanFd(ev,fd);
+		}
+
+		void __CleanFd(stdx::epoll_context_list<_IOContext>& ev,int fd)
+		{
 			ev.model.is_err_or_hup = true;
 			ev.model.is_exist = false;
 			_CleanContexts(ev);
@@ -829,7 +829,8 @@ namespace stdx
 		{
 			model.is_exist = false;
 			model.is_err_or_hup = false;
-			model.ev.data.fd = fd;
+			model.fd = fd;
+			//model.ev.data.ptr = &model;
 			model.ev.events = stdx::epoll_events::hup;
 		}
 
@@ -858,17 +859,6 @@ namespace stdx
 #endif
 				}
 			}
-		}
-
-		_IOContext* _CheckCompletions()
-		{
-			if (!m_completions.empty())
-			{
-				auto* p = m_completions.front();
-				m_completions.pop_front();
-				return p;
-			}
-			return nullptr;
 		}
 
 		stdx::epoll m_epoll;
