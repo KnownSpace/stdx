@@ -1017,7 +1017,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 			{
 				try
 				{
-					auto context = poller.get(STDX_LAZY_MAX_TIME);
+					auto context = poller.get(/*STDX_LAZY_MAX_TIME*/);
 					if (context == nullptr)
 					{
 						return;
