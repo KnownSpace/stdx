@@ -627,6 +627,8 @@ namespace stdx
 		static uint32_t _GetEvents(stdx::network_io_context* context);
 
 		static void _SetNonBlocking(socket_t sock);
+
+		static void _SetReuseAddr(socket_t sock);
 #endif // LINUX
 
 	private:

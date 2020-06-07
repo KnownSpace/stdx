@@ -254,7 +254,7 @@ namespace stdx
 		>
 			stdx::task<__R> then(_Fn&& fn)
 		{
-			stdx::task<__R> t((*m_impl).then(std::move(fn)));
+			stdx::task<__R> t(m_impl->then(std::move(fn)));
 			return t;
 		}
 
