@@ -121,6 +121,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 	{
 		_ThrowLinuxError
 	}
+	_SetReuseAddr(sock);
 	m_poller.bind(sock);
 #endif
 	return sock;
@@ -1097,6 +1098,12 @@ void stdx::_NetworkIOService::_SetNonBlocking(socket_t sock)
 	int flags = fcntl(sock, F_GETFL, 0);
 	flags |= SOCK_NONBLOCK;
 	fcntl(sock, F_SETFL, flags);
+}
+
+void stdx::_NetworkIOService::_SetReuseAddr(socket_t sock)
+{
+	int opt = 1;
+	::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 }
 
 bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)

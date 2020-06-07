@@ -421,7 +421,6 @@ namespace stdx
 		epoll_event ev;
 		bool is_exist;
 		bool is_err_or_hup;
-		int fd;
 	};
 
 	template<typename _IOContext>
@@ -461,7 +460,7 @@ namespace stdx
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in;
-			ev.data.ptr = nullptr;
+			ev.data.fd = m_eventfd;
 			m_epoll.add_event(m_eventfd, &ev);
 		}
 
@@ -580,10 +579,17 @@ namespace stdx
 		{
 			_RunInLoop([this](int fd)
 				{
-					stdx::epoll_context_list<_IOContext> ev;
-					_InitModel(ev.model, fd);
-					m_map[fd] = std::move(ev);
-					m_map[fd].model.ev.data.ptr = &(m_map[fd]);
+					if (m_map.find(fd) == m_map.end())
+					{
+						stdx::epoll_context_list<_IOContext> ev;
+						_InitModel(ev.model, fd);
+						m_map[fd] = std::move(ev);
+					}
+					else
+					{
+						stdx::epoll_context_list<_IOContext> &ev = m_map[fd];
+						_InitModel(ev.model, fd);
+					}
 				}, fd);
 		}
 
@@ -692,9 +698,8 @@ namespace stdx
 
 		_IOContext* _HandleIoEvent(epoll_event& ev)
 		{
-			//int fd = ev.data.fd;
-			stdx::epoll_context_list<_IOContext>& ev_ = *((stdx::epoll_context_list<_IOContext>*)ev.data.ptr);
-			int fd = ev_.model.fd;
+			int fd = ev.data.fd;
+			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
 			bool need_ctl = false;
 			//handle in event first
 			if (ev.events & stdx::epoll_events::in)
@@ -758,7 +763,7 @@ namespace stdx
 
 		void _HandleEv(epoll_event &ev)
 		{
-			if (ev.data.ptr == nullptr)
+			if (ev.data.fd == m_eventfd)
 			{
 				//is event fd
 				if (_ReadEvFd())
@@ -770,10 +775,8 @@ namespace stdx
 			{
 				//has error(s)
 				//clean operation
-				/*int fd = ev.data.fd;
-				_CleanFd(fd);*/
-				stdx::epoll_context_list<_IOContext>& ev_ = *((stdx::epoll_context_list<_IOContext>*)ev.data.ptr);
-				__CleanFd(ev_, ev_.model.fd);
+				int fd = ev.data.fd;
+				_CleanFd(fd);
 			}
 			else
 			{
@@ -785,7 +788,7 @@ namespace stdx
 				catch (const std::exception& err)
 				{
 #ifdef DEBUG
-					::printf("[EpollProactor]Handle IO Event Fail: %s",err.what());
+					::printf("[EpollProactor]Handle IO Event Fail: %s\n",err.what());
 #endif 
 				}
 				if (cont)
@@ -829,8 +832,7 @@ namespace stdx
 		{
 			model.is_exist = false;
 			model.is_err_or_hup = false;
-			model.fd = fd;
-			//model.ev.data.ptr = &model;
+			model.ev.data.fd = fd;
 			model.ev.events = stdx::epoll_events::hup;
 		}
 
