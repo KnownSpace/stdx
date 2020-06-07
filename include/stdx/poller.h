@@ -148,6 +148,7 @@ namespace stdx
 			{
 				m_pollers.push_back(stdx::make_poller<_Impl>(args...));
 			}
+			m_pollers.shrink_to_fit();
 		}
 
 		~basic_multipoller() = default;
@@ -205,7 +206,7 @@ namespace stdx
 		poller_t& _GetPoller()
 		{
 			size_t index = stdx::_MultiIndex % m_pollers.size();
-			return m_pollers.at(index);
+			return m_pollers[index];
 		}
 
 		poller_t& _GetPollerByKey(const key_t& key)

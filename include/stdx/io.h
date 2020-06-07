@@ -478,7 +478,7 @@ namespace stdx
 			}
 			while (true)
 			{
-				epoll_event ev[64];
+				epoll_event ev[128];
 				int r = m_epoll.wait(ev, sizeof(ev), -1);
 				if (r > 0)
 				{
@@ -502,7 +502,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[64];
+			epoll_event ev[128];
 			int r = m_epoll.wait(ev,sizeof(ev), timeout_ms);
 			if (r < 1)
 			{
