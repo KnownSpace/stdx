@@ -544,13 +544,8 @@ namespace stdx
 					if (events & stdx::epoll_events::in)
 					{
 						ev.in_contexts.push_back(p);
-						//check if update epoll
-						if (!(ev.model.ev.events & stdx::epoll_events::in))
-						{
-							//update epoll
-							ev.model.ev.events |= stdx::epoll_events::in;
-							_UpdateOrAddEvent(ev,fd);
-						}
+						ev.model.ev.events |= stdx::epoll_events::in;
+						_UpdateOrAddEvent(ev, fd);
 					}
 					else if (events & stdx::epoll_events::out)
 					{
@@ -564,13 +559,8 @@ namespace stdx
 							}
 						}
 						ev.out_contexts.push_back(p);
-						//check if update epoll
-						if (!(ev.model.ev.events & stdx::epoll_events::out))
-						{
-							//update epoll
-							ev.model.ev.events |= stdx::epoll_events::out;
-							_UpdateOrAddEvent(ev,fd);
-						}
+						ev.model.ev.events |= stdx::epoll_events::out;
+						_UpdateOrAddEvent(ev, fd);
 					}
 				}, p);
 		}
@@ -700,8 +690,7 @@ namespace stdx
 		{
 			int fd = ev.data.fd;
 			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
-			bool need_ctl = false;
-			//handle in event first
+			//handle in event
 			if (ev.events & stdx::epoll_events::in)
 			{
 				if (!ev_.in_contexts.empty())
@@ -715,16 +704,11 @@ namespace stdx
 						return cont;
 					}
 				}
-				else
-				{
-					ev_.model.ev.events ^= stdx::epoll_events::in;
-					need_ctl = true;
-				}
 			}
 			//handle out event
-			else if (ev.events & stdx::epoll_events::out)
+			if (ev.events & stdx::epoll_events::out)
 			{
-				if (ev_.out_contexts.size() > 1)
+				if (!ev_.out_contexts.empty())
 				{
 					_IOContext* cont = ev_.out_contexts.front();
 					//I/O operation
@@ -735,28 +719,6 @@ namespace stdx
 						return cont;
 					}
 				}
-				else if (ev_.out_contexts.size() == 1)
-				{
-					_IOContext* cont = ev_.out_contexts.front();
-					//I/O operation
-					if (m_operate(cont))
-					{
-						//I/O operation finish
-						ev_.out_contexts.pop_front();
-						ev_.model.ev.events ^= stdx::epoll_events::out;
-						m_epoll.update_event(fd, &(ev_.model.ev));
-						return cont;
-					}
-				}
-				else
-				{
-					ev_.model.ev.events ^= stdx::epoll_events::out;
-					need_ctl = true;
-				}
-			}
-			if (need_ctl)
-			{
-				m_epoll.update_event(fd, &(ev_.model.ev));
 			}
 			return nullptr;
 		}
@@ -833,7 +795,7 @@ namespace stdx
 			model.is_exist = false;
 			model.is_err_or_hup = false;
 			model.ev.data.fd = fd;
-			model.ev.events = stdx::epoll_events::hup;
+			model.ev.events = stdx::epoll_events::hup |stdx::epoll_events::et;
 		}
 
 		void _HandleTasks()
