@@ -429,6 +429,8 @@ namespace stdx
 		stdx::epoll_event_model model;
 		std::list<_IOContext*> out_contexts;
 		std::list<_IOContext*> in_contexts;
+		bool ready_in;
+		bool ready_out;
 	};
 
 	extern int make_eventfd(int flags);
@@ -543,13 +545,24 @@ namespace stdx
 					uint32_t events = m_event_getter(p);
 					if (events & stdx::epoll_events::in)
 					{
+						if (ev.ready_in)
+						{
+							bool r = m_operate(p);
+							if (r)
+							{
+								m_completions.push_back(p);
+								ev.ready_in = false;
+								return;
+							}
+						}
+						ev.ready_in = false;
 						ev.in_contexts.push_back(p);
 						ev.model.ev.events |= stdx::epoll_events::in;
 						_UpdateOrAddEvent(ev, fd);
 					}
 					else if (events & stdx::epoll_events::out)
 					{
-						if (ev.out_contexts.empty())
+						if (ev.ready_out)
 						{
 							bool r = m_operate(p);
 							if (r)
@@ -558,6 +571,7 @@ namespace stdx
 								return;
 							}
 						}
+						ev.ready_out = false;
 						ev.out_contexts.push_back(p);
 						ev.model.ev.events |= stdx::epoll_events::out;
 						_UpdateOrAddEvent(ev, fd);
@@ -572,12 +586,16 @@ namespace stdx
 					if (m_map.find(fd) == m_map.end())
 					{
 						stdx::epoll_context_list<_IOContext> ev;
+						ev.ready_in = false;
+						ev.ready_out = true;
 						_InitModel(ev.model, fd);
 						m_map[fd] = std::move(ev);
 					}
 					else
 					{
 						stdx::epoll_context_list<_IOContext> &ev = m_map[fd];
+						ev.ready_in = false;
+						ev.ready_out = true;
 						_InitModel(ev.model, fd);
 					}
 				}, fd);
@@ -701,8 +719,14 @@ namespace stdx
 					{
 						//I/O operation finish
 						ev_.in_contexts.pop_front();
+						ev_.ready_in = false;
 						return cont;
 					}
+					ev_.ready_in = false;
+				}
+				else
+				{
+					ev_.ready_out = true;
 				}
 			}
 			//handle out event
@@ -716,8 +740,17 @@ namespace stdx
 					{
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
+						//ev_.ready_out = false;
 						return cont;
 					}
+					else
+					{
+						ev_.ready_out = false;
+					}
+				}
+				else
+				{
+					ev_.ready_out = true;
 				}
 			}
 			return nullptr;
