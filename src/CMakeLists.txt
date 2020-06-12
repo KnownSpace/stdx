@@ -51,7 +51,7 @@ endif()
 
 #定义DEBUG符号
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-	message(STATUS "Enable debug message generating.")
+	message(STATUS "Enable debug message generating")
 	add_definitions(-DDEBUG)
 	if(UNIX)
 		set_target_properties(libstdx PROPERTIES OUTPUT_NAME "stdxd")
