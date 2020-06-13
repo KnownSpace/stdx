@@ -536,34 +536,45 @@ namespace stdx
 					uint32_t events = m_event_getter(p);
 					if (events & stdx::epoll_events::in)
 					{
-						if (ev.ready_in)
+						if (ev.in_contexts.empty())
 						{
-							bool r = m_operate(p);
-							if (r)
+							if (ev.ready_in)
 							{
-								m_completions.push_back(p);
+								bool r = m_operate(p);
+								if (r)
+								{
+									m_completions.push_back(p);
+									ev.ready_in = false;
+									return;
+								}
 								ev.ready_in = false;
-								return;
 							}
+							ev.in_contexts.push_back(p);
+							_ResetFd(ev);
+							return;
 						}
-						ev.ready_in = false;
 						ev.in_contexts.push_back(p);
-						_ResetFd(ev);
 					}
 					else if (events & stdx::epoll_events::out)
 					{
-						if (ev.ready_out)
+						if (ev.out_contexts.empty())
 						{
-							bool r = m_operate(p);
-							if (r)
+							if (ev.ready_out)
 							{
-								m_completions.push_back(p);
-								return;
+								bool r = m_operate(p);
+								if (r)
+								{
+									m_completions.push_back(p);
+									ev.ready_out = false;
+									return;
+								}
+								ev.ready_out = false;
 							}
+							ev.out_contexts.push_back(p);
+							_ResetFd(ev);
+							return;
 						}
-						ev.ready_out = false;
 						ev.out_contexts.push_back(p);
-						_ResetFd(ev);
 					}
 				}, p);
 		}
