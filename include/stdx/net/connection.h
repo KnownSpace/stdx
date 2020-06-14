@@ -27,7 +27,7 @@ namespace stdx
 
 		virtual stdx::task<void> write_file(stdx::file_handle file) = 0;
 
-		virtual ~basic_connection() = default;
+		interface_class_helper(basic_connection);
 	};
 
 	//connection
@@ -145,7 +145,7 @@ namespace stdx
 
 		virtual bool is_running() const = 0;
 
-		virtual ~basic_listener() = default;
+		interface_class_helper(basic_listener);
 	};
 
 	//listener
@@ -280,7 +280,7 @@ namespace stdx
 
 		virtual bool is_running() const = 0;
 
-		virtual ~basic_server() = default;
+		interface_class_helper(basic_server);
 	};
 
 	//server

@@ -46,6 +46,12 @@ namespace stdx
 #define get_byte(x,ptr) *((char*)ptr+(x))
 #define delete_copy(type) type(const type &)=delete
 #define delete_move(type) type(type&&)=delete
+#define interface_class_helper(type) virtual ~type() = default;\
+									type() = default;\
+									type(const type&) =default;\
+									type(type&&) noexcept = default; \
+									type &operator=(const type &) = default;\
+									type &operator=(type &&) = default;
 
 #ifdef WIN32
 #define CRLF L"\r\n"

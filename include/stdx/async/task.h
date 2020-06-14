@@ -312,7 +312,7 @@ namespace stdx
 	interface_class basic_task : public stdx::basic_runable<void>
 	{
 	public:
-		virtual ~basic_task() = default;
+		interface_class_helper(basic_task);
 		virtual void run_on_this_thread() = 0;
 	};
 

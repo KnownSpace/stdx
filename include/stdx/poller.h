@@ -14,7 +14,7 @@ namespace stdx
 
 		using key_t = _KeyType;
 
-		virtual ~basic_poller() = default;
+		interface_class_helper(basic_poller);
 
 		virtual _Context* get() = 0;
 

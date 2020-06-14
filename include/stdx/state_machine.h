@@ -18,7 +18,7 @@ namespace stdx
 
 		virtual const _State& state() const = 0;
 
-		virtual ~basic_state_machine() = default;
+		interface_class_helper(basic_state_machine);
 
 		virtual bool is_end() const = 0;
 

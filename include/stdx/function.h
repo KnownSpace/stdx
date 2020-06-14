@@ -150,7 +150,7 @@ namespace stdx
 	interface_class basic_runable
 	{
 	public:
-		virtual ~basic_runable() = default;
+		interface_class_helper(basic_runable);
 		virtual _R run() = 0;
 	};
 
