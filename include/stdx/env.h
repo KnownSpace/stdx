@@ -51,7 +51,7 @@ namespace stdx
 									type(const type&) =default;\
 									type(type&&) noexcept = default; \
 									type &operator=(const type &) = default;\
-									type &operator=(type &&) = default;
+									type &operator=(type &&) = default
 
 #ifdef WIN32
 #define CRLF L"\r\n"
@@ -77,6 +77,8 @@ namespace stdx
 #define typename_of(_T) typeid(_T).name()
 
 #define name_of(_Var) #_Var
+
+#define noused(var) (void)var
 
 namespace stdx
 {

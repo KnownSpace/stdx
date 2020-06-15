@@ -768,10 +768,7 @@ namespace stdx
 
 		//析构函数
 		virtual ~_Task() noexcept
-		{
-			
-		}
-
+		{}
 		//启动一个Task
 		virtual void run() noexcept override
 		{
