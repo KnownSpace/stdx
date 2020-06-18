@@ -19,7 +19,7 @@ namespace stdx
 	{
 		virtual void log(logger_level level,const stdx::string &msg) const = 0;
 
-		virtual ~basic_logger() = default;
+		interface_class_helper(basic_logger);
 	};
 
 	class logger

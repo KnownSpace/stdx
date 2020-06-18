@@ -419,7 +419,6 @@ namespace stdx
 	struct epoll_event_model
 	{
 		epoll_event ev;
-		bool is_exist;
 		bool is_err_or_hup;
 	};
 
@@ -429,6 +428,8 @@ namespace stdx
 		stdx::epoll_event_model model;
 		std::list<_IOContext*> out_contexts;
 		std::list<_IOContext*> in_contexts;
+		bool ready_in;
+		bool ready_out;
 	};
 
 	extern int make_eventfd(int flags);
@@ -445,6 +446,7 @@ namespace stdx
 		using event_getter_t = std::function<uint32_t(_IOContext*)>;
 		using task_t = std::function<void()>;
 		using lock_t = stdx::spin_lock;
+		using map_t = std::unordered_map<int, stdx::epoll_context_list<_IOContext>>;
 	public:
 		_EpollProactor(clean_t clean, operate_t io_operator, fd_getter_t fd_getter, event_getter_t event_getter)
 			:m_epoll()
@@ -457,6 +459,7 @@ namespace stdx
 			, m_ev_lock()
 			, m_tasks()
 			, m_completions()
+			, m_wokeup(false)
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in;
@@ -466,45 +469,40 @@ namespace stdx
 
 		~_EpollProactor()
 		{
+			_WokenUpFd();
 			::close(m_eventfd);
 		}
 
 		virtual _IOContext* get() override
 		{
-			auto* cont = _CheckCompletions();
-			if (cont)
-			{
-				return cont;
-			}
-			while (true)
-			{
-				epoll_event ev[128];
-				int r = m_epoll.wait(ev, sizeof(ev), -1);
-				if (r > 0)
-				{
-					for (int i = 0; i < r; i++)
-					{
-						_HandleEv(ev[i]);
-					}
-					cont = _CheckCompletions();
-					if (cont)
-					{
-						return cont;
-					}
-				}
-			}
-		}
-
-		virtual _IOContext* get(uint32_t timeout_ms) override
-		{
-			auto* cont = _CheckCompletions();
+			_IOContext* cont = _CheckCompletions();
 			if (cont)
 			{
 				return cont;
 			}
 			epoll_event ev[128];
-			int r = m_epoll.wait(ev,sizeof(ev), timeout_ms);
-			if (r < 1)
+			int r = m_epoll.wait(ev, 128, -1);
+			if (r > 0)
+			{
+				for (int i = 0; i < r; i++)
+				{
+					_HandleEv(ev[i]);
+				}
+				cont = _CheckCompletions();
+			}
+			return cont;
+		}
+
+		virtual _IOContext* get(uint32_t timeout_ms) override
+		{
+			_IOContext* cont = _CheckCompletions();
+			if (cont)
+			{
+				return cont;
+			}
+			epoll_event ev[128];
+			int r = m_epoll.wait(ev,128, timeout_ms);
+			if (r < 0)
 			{
 				return nullptr;
 			}
@@ -513,11 +511,7 @@ namespace stdx
 				_HandleEv(ev[i]);
 			}
 			cont = _CheckCompletions();
-			if (cont)
-			{
-				return cont;
-			}
-			return nullptr;
+			return cont;
 		}
 
 		virtual void post(_IOContext* p) override
@@ -543,52 +537,67 @@ namespace stdx
 					uint32_t events = m_event_getter(p);
 					if (events & stdx::epoll_events::in)
 					{
-						ev.in_contexts.push_back(p);
-						//check if update epoll
-						if (!(ev.model.ev.events & stdx::epoll_events::in))
+						if (ev.in_contexts.empty())
 						{
-							//update epoll
-							ev.model.ev.events |= stdx::epoll_events::in;
-							_UpdateOrAddEvent(ev,fd);
+							if (ev.ready_in)
+							{
+								bool r = m_operate(p);
+								if (r)
+								{
+									m_completions.push_back(p);
+									ev.ready_in = false;
+									return;
+								}
+								ev.ready_in = false;
+							}
+							ev.in_contexts.push_back(p);
+							_ResetFd(ev);
+							return;
 						}
+						ev.in_contexts.push_back(p);
 					}
 					else if (events & stdx::epoll_events::out)
 					{
 						if (ev.out_contexts.empty())
 						{
-							bool r = m_operate(p);
-							if (r)
+							if (ev.ready_out)
 							{
-								m_completions.push_back(p);
-								return;
+								bool r = m_operate(p);
+								if (r)
+								{
+									m_completions.push_back(p);
+									ev.ready_out = false;
+									return;
+								}
+								ev.ready_out = false;
 							}
+							ev.out_contexts.push_back(p);
+							_ResetFd(ev);
+							return;
 						}
 						ev.out_contexts.push_back(p);
-						//check if update epoll
-						if (!(ev.model.ev.events & stdx::epoll_events::out))
-						{
-							//update epoll
-							ev.model.ev.events |= stdx::epoll_events::out;
-							_UpdateOrAddEvent(ev,fd);
-						}
 					}
 				}, p);
 		}
 
 		virtual void bind(const int& fd) override
 		{
-			_RunInLoop([this](int fd)
+			_RunInLoop([this](int fd) mutable
 				{
-					if (m_map.find(fd) == m_map.end())
+					stdx::epoll_context_list<_IOContext> ev;
+					ev.ready_in = false;
+					ev.ready_out = true;
+					_InitModel(ev.model, fd);
+					try
 					{
-						stdx::epoll_context_list<_IOContext> ev;
-						_InitModel(ev.model, fd);
 						m_map[fd] = std::move(ev);
+						m_epoll.add_event(fd, &(ev.model.ev));
 					}
-					else
+					catch (const std::exception &ex)
 					{
-						stdx::epoll_context_list<_IOContext> &ev = m_map[fd];
-						_InitModel(ev.model, fd);
+#ifdef DEBUG
+						::printf("[EpollProactor]Add event fail: %s\n",ex.what());
+#endif
 					}
 				}, fd);
 		}
@@ -599,7 +608,6 @@ namespace stdx
 				{
 					auto& ev = m_map[fd];
 					ev.model.is_err_or_hup = true;
-					ev.model.is_exist = false;
 					_CleanContexts(ev);
 					//remove from epoll
 					try
@@ -621,7 +629,6 @@ namespace stdx
 				{
 					auto& ev = m_map[fd];
 					ev.model.is_err_or_hup = true;
-					ev.model.is_exist = false;
 					_CleanContexts(ev);
 					//remove from epoll
 					try
@@ -639,13 +646,18 @@ namespace stdx
 		}
 	private:
 
-		void __RunInLoop(task_t&& task)
+		void __RunInLoop(task_t &&task)
 		{
+			bool wokeup = true;
 			{
 				std::unique_lock<lock_t> lock(m_ev_lock);
 				m_tasks.push_back(std::move(task));
+				std::swap(m_wokeup, wokeup);
 			}
-			_WokenUpFd();
+			if (!wokeup)
+			{
+				_WokenUpFd();
+			}
 		}
 
 		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
@@ -672,16 +684,17 @@ namespace stdx
 			return true;
 		}
 
-		void _UpdateOrAddEvent(stdx::epoll_context_list<_IOContext>& ev,int fd)
+		void _ResetFd(stdx::epoll_context_list<_IOContext> &ev)
 		{
-			if (ev.model.is_exist)
+			try
 			{
-				m_epoll.update_event(fd, &(ev.model.ev));
+				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
 			}
-			else
+			catch (const std::exception &ex)
 			{
-				ev.model.is_exist = true;
-				m_epoll.add_event(fd, &(ev.model.ev));
+#ifdef DEBUG
+				::printf("[EpollProactor]Reset event fail: %s\n");
+#endif
 			}
 		}
 
@@ -689,19 +702,18 @@ namespace stdx
 		{
 			if (!m_completions.empty())
 			{
-				auto* p = m_completions.front();
+				_IOContext* p = m_completions.front();
 				m_completions.pop_front();
 				return p;
 			}
 			return nullptr;
 		}
 
-		_IOContext* _HandleIoEvent(epoll_event& ev)
+		void _HandleIoEvent(epoll_event& ev)
 		{
 			int fd = ev.data.fd;
 			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
-			bool need_ctl = false;
-			//handle in event first
+			//handle in event
 			if (ev.events & stdx::epoll_events::in)
 			{
 				if (!ev_.in_contexts.empty())
@@ -712,19 +724,19 @@ namespace stdx
 					{
 						//I/O operation finish
 						ev_.in_contexts.pop_front();
-						return cont;
+						m_completions.push_back(cont);
 					}
+					ev_.ready_in = false;
 				}
 				else
 				{
-					ev_.model.ev.events ^= stdx::epoll_events::in;
-					need_ctl = true;
+					ev_.ready_in = true;
 				}
 			}
 			//handle out event
-			else if (ev.events & stdx::epoll_events::out)
+			if (ev.events & stdx::epoll_events::out)
 			{
-				if (ev_.out_contexts.size() > 1)
+				if (!ev_.out_contexts.empty())
 				{
 					_IOContext* cont = ev_.out_contexts.front();
 					//I/O operation
@@ -732,33 +744,18 @@ namespace stdx
 					{
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
-						return cont;
+						m_completions.push_back(cont);
 					}
-				}
-				else if (ev_.out_contexts.size() == 1)
-				{
-					_IOContext* cont = ev_.out_contexts.front();
-					//I/O operation
-					if (m_operate(cont))
+					else
 					{
-						//I/O operation finish
-						ev_.out_contexts.pop_front();
-						ev_.model.ev.events ^= stdx::epoll_events::out;
-						m_epoll.update_event(fd, &(ev_.model.ev));
-						return cont;
+						ev_.ready_out = false;
 					}
 				}
 				else
 				{
-					ev_.model.ev.events ^= stdx::epoll_events::out;
-					need_ctl = true;
+					ev_.ready_out = true;
 				}
 			}
-			if (need_ctl)
-			{
-				m_epoll.update_event(fd, &(ev_.model.ev));
-			}
-			return nullptr;
 		}
 
 		void _HandleEv(epoll_event &ev)
@@ -780,20 +777,15 @@ namespace stdx
 			}
 			else
 			{
-				_IOContext* cont = nullptr;
 				try
 				{
-					cont = _HandleIoEvent(ev);
+					_HandleIoEvent(ev);
 				}
 				catch (const std::exception& err)
 				{
 #ifdef DEBUG
 					::printf("[EpollProactor]Handle IO Event Fail: %s\n",err.what());
 #endif 
-				}
-				if (cont)
-				{
-					m_completions.push_back(cont);
 				}
 			}
 		}
@@ -823,17 +815,15 @@ namespace stdx
 		void __CleanFd(stdx::epoll_context_list<_IOContext>& ev,int fd)
 		{
 			ev.model.is_err_or_hup = true;
-			ev.model.is_exist = false;
 			_CleanContexts(ev);
 			m_epoll.del_event(fd);
 		}
 
 		void _InitModel(stdx::epoll_event_model& model, int fd)
 		{
-			model.is_exist = false;
 			model.is_err_or_hup = false;
 			model.ev.data.fd = fd;
-			model.ev.events = stdx::epoll_events::hup;
+			model.ev.events = stdx::epoll_events::hup |stdx::epoll_events::et |stdx::epoll_events::in | stdx::epoll_events::out | stdx::epoll_events::err;
 		}
 
 		void _HandleTasks()
@@ -842,6 +832,7 @@ namespace stdx
 			{
 				std::unique_lock<lock_t> lock(m_ev_lock);
 				std::swap(tasks, m_tasks);
+				m_wokeup = false;
 			}
 			while (!tasks.empty())
 			{
@@ -864,7 +855,7 @@ namespace stdx
 		}
 
 		stdx::epoll m_epoll;
-		std::unordered_map<int, stdx::epoll_context_list<_IOContext>> m_map;
+		map_t m_map;
 		clean_t m_clean;
 		operate_t m_operate;
 		fd_getter_t m_fd_getter;
@@ -873,6 +864,7 @@ namespace stdx
 		lock_t m_ev_lock;
 		std::list<task_t> m_tasks;
 		std::list<_IOContext*> m_completions;
+		bool m_wokeup;
 	};
 
 	template<typename _IOContext>

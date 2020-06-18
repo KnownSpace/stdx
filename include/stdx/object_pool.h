@@ -15,7 +15,7 @@ namespace stdx
 		virtual _T get() = 0;
 		//move
 		virtual void store(_T&& obj) = 0;
-		virtual ~basic_object_pool() = default;
+		interface_class_helper(basic_object_pool);
 		virtual void fill(size_t n) = 0;
 		virtual void init()
 		{

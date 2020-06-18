@@ -312,7 +312,7 @@ namespace stdx
 	interface_class basic_task : public stdx::basic_runable<void>
 	{
 	public:
-		virtual ~basic_task() = default;
+		interface_class_helper(basic_task);
 		virtual void run_on_this_thread() = 0;
 	};
 
@@ -768,10 +768,7 @@ namespace stdx
 
 		//析构函数
 		virtual ~_Task() noexcept
-		{
-			
-		}
-
+		{}
 		//启动一个Task
 		virtual void run() noexcept override
 		{

@@ -66,6 +66,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req,stdx::fil
 							});
 				}
 		});
+		noused(x);
 	}
 	else
 	{

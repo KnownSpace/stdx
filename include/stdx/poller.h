@@ -14,7 +14,7 @@ namespace stdx
 
 		using key_t = _KeyType;
 
-		virtual ~basic_poller() = default;
+		interface_class_helper(basic_poller);
 
 		virtual _Context* get() = 0;
 
@@ -119,12 +119,6 @@ namespace stdx
 		return stdx::poller<_Context, _KeyType>(impl);
 	}
 
-	extern std::atomic_size_t _MultiIndexGenerater;
-
-	extern size_t _GetMultiIndex();
-
-	extern thread_local size_t _MultiIndex;
-
 	template<typename _Impl>
 	class basic_multipoller:public stdx::basic_poller<typename _Impl::context_t,typename _Impl::key_t>
 	{
@@ -148,7 +142,6 @@ namespace stdx
 			{
 				m_pollers.push_back(stdx::make_poller<_Impl>(args...));
 			}
-			m_pollers.shrink_to_fit();
 		}
 
 		~basic_multipoller() = default;
@@ -195,7 +188,7 @@ namespace stdx
 
 		static size_t _GetIndex()
 		{
-			return stdx::_MultiIndex;
+			return stdx::thread_id;
 		}
 
 		poller_t& _GetPoller(size_t index)
@@ -205,8 +198,8 @@ namespace stdx
 
 		poller_t& _GetPoller()
 		{
-			size_t index = stdx::_MultiIndex % m_pollers.size();
-			return m_pollers[index];
+			size_t index = stdx::thread_id % m_pollers.size();
+			return m_pollers.at(index);
 		}
 
 		poller_t& _GetPollerByKey(const key_t& key)
