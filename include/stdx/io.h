@@ -459,6 +459,7 @@ namespace stdx
 			, m_ev_lock()
 			, m_tasks()
 			, m_completions()
+			, m_wokeup(false)
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in;
@@ -647,11 +648,16 @@ namespace stdx
 
 		void __RunInLoop(task_t &&task)
 		{
+			bool wokeup = true;
 			{
 				std::unique_lock<lock_t> lock(m_ev_lock);
 				m_tasks.push_back(std::move(task));
+				std::swap(m_wokeup, wokeup);
 			}
-			_WokenUpFd();
+			if (!wokeup)
+			{
+				_WokenUpFd();
+			}
 		}
 
 		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
@@ -826,6 +832,7 @@ namespace stdx
 			{
 				std::unique_lock<lock_t> lock(m_ev_lock);
 				std::swap(tasks, m_tasks);
+				m_wokeup = false;
 			}
 			while (!tasks.empty())
 			{
@@ -857,6 +864,7 @@ namespace stdx
 		lock_t m_ev_lock;
 		std::list<task_t> m_tasks;
 		std::list<_IOContext*> m_completions;
+		bool m_wokeup;
 	};
 
 	template<typename _IOContext>
