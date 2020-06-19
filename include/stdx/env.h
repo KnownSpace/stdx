@@ -80,6 +80,16 @@ namespace stdx
 
 #define noused(var) (void)var
 
+
+namespace stdx
+{
+	template<typename _T,size_t _N>
+	inline size_t sizeof_array(_T(&)[_N])
+	{
+		return _N;
+	}
+}
+
 namespace stdx
 {
 	union int64_union

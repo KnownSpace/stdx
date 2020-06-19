@@ -462,7 +462,7 @@ namespace stdx
 			, m_wokeup(false)
 		{
 			epoll_event ev;
-			ev.events = stdx::epoll_events::in;
+			ev.events = stdx::epoll_events::in | stdx::epoll_events::et;
 			ev.data.fd = m_eventfd;
 			m_epoll.add_event(m_eventfd, &ev);
 		}
@@ -480,8 +480,8 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[128];
-			int r = m_epoll.wait(ev, 128, -1);
+			epoll_event ev[32];
+			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
 			if (r > 0)
 			{
 				for (int i = 0; i < r; i++)
@@ -500,8 +500,8 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[128];
-			int r = m_epoll.wait(ev,128, timeout_ms);
+			epoll_event ev[32];
+			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
 			if (r < 0)
 			{
 				return nullptr;
@@ -551,7 +551,7 @@ namespace stdx
 								ev.ready_in = false;
 							}
 							ev.in_contexts.push_back(p);
-							_ResetFd(ev);
+							_ResetFd(ev,stdx::epoll_events::in);
 							return;
 						}
 						ev.in_contexts.push_back(p);
@@ -572,7 +572,7 @@ namespace stdx
 								ev.ready_out = false;
 							}
 							ev.out_contexts.push_back(p);
-							_ResetFd(ev);
+							_ResetFd(ev,stdx::epoll_events::out);
 							return;
 						}
 						ev.out_contexts.push_back(p);
@@ -684,8 +684,9 @@ namespace stdx
 			return true;
 		}
 
-		void _ResetFd(stdx::epoll_context_list<_IOContext> &ev)
+		void _ResetFd(stdx::epoll_context_list<_IOContext> &ev,uint32_t ev_type)
 		{
+			ev.model.ev.events |= ev_type;
 			try
 			{
 				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
@@ -730,7 +731,15 @@ namespace stdx
 				}
 				else
 				{
-					ev_.ready_in = true;
+					if (ev_.ready_in)
+					{
+						ev_.model.ev.events ^= stdx::epoll_events::in;
+						m_epoll.update_event(fd,&(ev_.model.ev));
+					}
+					else
+					{
+						ev_.ready_in = true;
+					}
 				}
 			}
 			//handle out event
@@ -748,7 +757,15 @@ namespace stdx
 					}
 					else
 					{
-						ev_.ready_out = false;
+						if (ev_.ready_out)
+						{
+							ev_.model.ev.events ^= stdx::epoll_events::out;
+							m_epoll.update_event(fd, &(ev_.model.ev));
+						}
+						else
+						{
+							ev_.ready_out = false;
+						}
 					}
 				}
 				else
