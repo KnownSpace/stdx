@@ -571,7 +571,6 @@ namespace stdx
 								ev.ready_out = false;
 							}
 							ev.out_contexts.push_back(p);
-							_ResetFd(ev);
 							return;
 						}
 						ev.out_contexts.push_back(p);
@@ -713,8 +712,11 @@ namespace stdx
 						//I/O operation finish
 						ev_.in_contexts.pop_front();
 						m_completions.push_back(cont);
+						if (!ev_.in_contexts.empty())
+						{
+							_ResetFd(ev_);
+						}
 					}
-					ev_.ready_in = false;
 				}
 				else
 				{
@@ -733,10 +735,10 @@ namespace stdx
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
 						m_completions.push_back(cont);
-					}
-					else
-					{
-						ev_.ready_out = false;
+						if (!ev_.in_contexts.empty())
+						{
+							_ResetFd(ev_);
+						}
 					}
 				}
 				else
