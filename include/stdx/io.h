@@ -480,7 +480,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[32];
+			epoll_event ev[16];
 			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
 			if (r > 0)
 			{
@@ -500,7 +500,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[32];
+			epoll_event ev[16];
 			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
 			if (r < 0)
 			{
@@ -551,7 +551,7 @@ namespace stdx
 								ev.ready_in = false;
 							}
 							ev.in_contexts.push_back(p);
-							_ResetFd(ev,stdx::epoll_events::in);
+							_ResetFd(ev);
 							return;
 						}
 						ev.in_contexts.push_back(p);
@@ -566,13 +566,12 @@ namespace stdx
 								if (r)
 								{
 									m_completions.push_back(p);
-									ev.ready_out = false;
 									return;
 								}
 								ev.ready_out = false;
 							}
 							ev.out_contexts.push_back(p);
-							_ResetFd(ev,stdx::epoll_events::out);
+							_ResetFd(ev);
 							return;
 						}
 						ev.out_contexts.push_back(p);
@@ -586,7 +585,7 @@ namespace stdx
 				{
 					stdx::epoll_context_list<_IOContext> ev;
 					ev.ready_in = false;
-					ev.ready_out = true;
+					ev.ready_out = false;
 					_InitModel(ev.model, fd);
 					try
 					{
@@ -673,20 +672,8 @@ namespace stdx
 			::write(m_eventfd, &val, sizeof(eventfd_t));
 		}
 
-		bool _ReadEvFd()
+		void _ResetFd(stdx::epoll_context_list<_IOContext> &ev)
 		{
-			eventfd_t val = UINT64_MAX;
-			::read(m_eventfd, &val, sizeof(eventfd_t));
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
-				return false;
-			}
-			return true;
-		}
-
-		void _ResetFd(stdx::epoll_context_list<_IOContext> &ev,uint32_t ev_type)
-		{
-			ev.model.ev.events |= ev_type;
 			try
 			{
 				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
@@ -731,15 +718,7 @@ namespace stdx
 				}
 				else
 				{
-					if (ev_.ready_in)
-					{
-						ev_.model.ev.events ^= stdx::epoll_events::in;
-						m_epoll.update_event(fd,&(ev_.model.ev));
-					}
-					else
-					{
-						ev_.ready_in = true;
-					}
+					ev_.ready_in = true;
 				}
 			}
 			//handle out event
@@ -757,15 +736,7 @@ namespace stdx
 					}
 					else
 					{
-						if (ev_.ready_out)
-						{
-							ev_.model.ev.events ^= stdx::epoll_events::out;
-							m_epoll.update_event(fd, &(ev_.model.ev));
-						}
-						else
-						{
-							ev_.ready_out = false;
-						}
+						ev_.ready_out = false;
 					}
 				}
 				else
@@ -780,10 +751,7 @@ namespace stdx
 			if (ev.data.fd == m_eventfd)
 			{
 				//is event fd
-				if (_ReadEvFd())
-				{
-					_HandleTasks();
-				}
+				_HandleTasks();
 			}
 			else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
 			{

@@ -83,10 +83,23 @@ namespace stdx
 
 namespace stdx
 {
-	template<typename _T,size_t _N>
-	inline size_t sizeof_array(_T(&)[_N])
+	template<typename _T>
+	struct is_array
 	{
-		return _N;
+		static constexpr bool value = false;
+	};
+
+	template<typename _T,size_t _N>
+	struct is_array<_T[_N]>
+	{
+		static constexpr bool value = true;
+		static constexpr size_t size = _N;
+	};
+
+	template<typename _T,class = typename std::enable_if<stdx::is_array<_T>::value>::type>
+	inline constexpr size_t sizeof_array(_T&)
+	{
+		return stdx::is_array<_T>::size;
 	}
 }
 
