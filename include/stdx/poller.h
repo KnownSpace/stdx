@@ -186,9 +186,10 @@ namespace stdx
 		get_key_t m_key_getter;
 		std::vector<poller_t> m_pollers;
 
-		static size_t _GetIndex()
+		size_t _GetIndex()
 		{
-			return stdx::thread_id;
+			size_t index = stdx::thread_id;
+			return index;
 		}
 
 		poller_t& _GetPoller(size_t index)
@@ -198,7 +199,7 @@ namespace stdx
 
 		poller_t& _GetPoller()
 		{
-			size_t index = stdx::thread_id % m_pollers.size();
+			size_t index = _GetIndex() % m_pollers.size();
 			return m_pollers.at(index);
 		}
 

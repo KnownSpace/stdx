@@ -462,7 +462,7 @@ namespace stdx
 			, m_wokeup(false)
 		{
 			epoll_event ev;
-			ev.events = stdx::epoll_events::in;
+			ev.events = stdx::epoll_events::in | stdx::epoll_events::et;
 			ev.data.fd = m_eventfd;
 			m_epoll.add_event(m_eventfd, &ev);
 		}
@@ -480,8 +480,8 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[128];
-			int r = m_epoll.wait(ev, 128, -1);
+			epoll_event ev[16];
+			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
 			if (r > 0)
 			{
 				for (int i = 0; i < r; i++)
@@ -500,8 +500,8 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[128];
-			int r = m_epoll.wait(ev,128, timeout_ms);
+			epoll_event ev[16];
+			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
 			if (r < 0)
 			{
 				return nullptr;
@@ -566,13 +566,11 @@ namespace stdx
 								if (r)
 								{
 									m_completions.push_back(p);
-									ev.ready_out = false;
 									return;
 								}
 								ev.ready_out = false;
 							}
 							ev.out_contexts.push_back(p);
-							_ResetFd(ev);
 							return;
 						}
 						ev.out_contexts.push_back(p);
@@ -586,7 +584,7 @@ namespace stdx
 				{
 					stdx::epoll_context_list<_IOContext> ev;
 					ev.ready_in = false;
-					ev.ready_out = true;
+					ev.ready_out = false;
 					_InitModel(ev.model, fd);
 					try
 					{
@@ -673,17 +671,6 @@ namespace stdx
 			::write(m_eventfd, &val, sizeof(eventfd_t));
 		}
 
-		bool _ReadEvFd()
-		{
-			eventfd_t val = UINT64_MAX;
-			::read(m_eventfd, &val, sizeof(eventfd_t));
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
-				return false;
-			}
-			return true;
-		}
-
 		void _ResetFd(stdx::epoll_context_list<_IOContext> &ev)
 		{
 			try
@@ -725,8 +712,11 @@ namespace stdx
 						//I/O operation finish
 						ev_.in_contexts.pop_front();
 						m_completions.push_back(cont);
+						if (!ev_.in_contexts.empty())
+						{
+							_ResetFd(ev_);
+						}
 					}
-					ev_.ready_in = false;
 				}
 				else
 				{
@@ -745,10 +735,10 @@ namespace stdx
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
 						m_completions.push_back(cont);
-					}
-					else
-					{
-						ev_.ready_out = false;
+						if (!ev_.in_contexts.empty())
+						{
+							_ResetFd(ev_);
+						}
 					}
 				}
 				else
@@ -763,10 +753,7 @@ namespace stdx
 			if (ev.data.fd == m_eventfd)
 			{
 				//is event fd
-				if (_ReadEvFd())
-				{
-					_HandleTasks();
-				}
+				_HandleTasks();
 			}
 			else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
 			{
