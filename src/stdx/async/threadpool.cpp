@@ -2,16 +2,6 @@
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
 
-std::atomic_size_t stdx::_ThreadIdGenerater(0);
-
-size_t stdx::_GenerateThreadId()
-{
-	size_t index = stdx::_ThreadIdGenerater.fetch_add(1);
-	return index;
-}
-
-thread_local size_t stdx::thread_id = stdx::_GenerateThreadId();
-
 stdx::thread_pool stdx::threadpool = stdx::make_fixed_size_thread_pool(cpu_cores());
 
 //构造函数

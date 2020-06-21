@@ -15,12 +15,6 @@
 
 namespace stdx
 {
-	extern std::atomic_size_t _ThreadIdGenerater;
-
-	extern size_t _GenerateThreadId();
-
-	extern thread_local size_t thread_id;
-
 	interface_class basic_thread_pool
 	{
 		virtual ~basic_thread_pool() = default;

@@ -147,6 +147,26 @@ namespace stdx
 				{
 					throw std::bad_alloc();
 				}
+				*p = v;
+				_Set(p);
+			}
+		}
+
+		void set(_T&& v)
+		{
+			auto* p = _Get();
+			if (p)
+			{
+				*p = std::move(v);
+			}
+			else
+			{
+				p = reinterpret_cast<_T*>(_TLSMemories.alloc<_T>());
+				if (!p)
+				{
+					throw std::bad_alloc();
+				}
+				*p = std::move(v);
 				_Set(p);
 			}
 		}
@@ -158,7 +178,7 @@ namespace stdx
 
 		bool check() const
 		{
-			return _Get();
+			return _Get() != nullptr;
 		}
 
 		void init()
@@ -264,6 +284,11 @@ namespace stdx
 		void set(const _T& v)
 		{
 			return m_impl->set(v);
+		}
+
+		void set(_T&& v)
+		{
+			return m_impl->set(std::move(v));
 		}
 
 		void init()

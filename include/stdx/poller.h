@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 #include <atomic>
+#include <stdx/async/thread_local_storer.h>
 
 namespace stdx
 {
@@ -119,6 +120,29 @@ namespace stdx
 		return stdx::poller<_Context, _KeyType>(impl);
 	}
 
+	extern std::atomic_size_t _MultipollerIdGenerater;
+
+	extern inline size_t _GenerateMultipollerId()
+	{
+		size_t index = stdx::_MultipollerIdGenerater.fetch_add(1);
+		return index;
+	}
+
+	extern thread_local size_t _MultipollerId;
+
+	extern thread_local bool _HasMultipollerId;
+
+	extern inline size_t _GetMultipollerId()
+	{
+		if (stdx::_HasMultipollerId)
+		{
+			return stdx::_MultipollerId;
+		}
+		stdx::_HasMultipollerId = true;
+		stdx::_MultipollerId = _GenerateMultipollerId();
+		return stdx::_MultipollerId;
+	}
+
 	template<typename _Impl>
 	class basic_multipoller:public stdx::basic_poller<typename _Impl::context_t,typename _Impl::key_t>
 	{
@@ -136,7 +160,9 @@ namespace stdx
 			,m_dispath(dispath)
 			,m_key_getter(key_getter)
 			,m_pollers()
+			,m_pos(num_of_poller)
 		{
+			//m_pos.set(-1);
 			m_pollers.reserve(num_of_poller);
 			for (size_t i = 0; i < num_of_poller; ++i)
 			{
@@ -185,11 +211,11 @@ namespace stdx
 		dispath_t m_dispath;
 		get_key_t m_key_getter;
 		std::vector<poller_t> m_pollers;
+		std::atomic_size_t m_pos;
 
 		size_t _GetIndex()
 		{
-			size_t index = stdx::thread_id;
-			return index;
+			return stdx::_GetMultipollerId();
 		}
 
 		poller_t& _GetPoller(size_t index)

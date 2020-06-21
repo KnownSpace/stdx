@@ -9,7 +9,7 @@
 #include <stdx/poller.h>
 #include <stdx/async/callback_flag.h>
 
-#define STDX_IO_LOOP_NUM() cpu_cores()*2
+#define STDX_IO_LOOP_NUM() cpu_cores()
 
 namespace stdx
 {
@@ -574,6 +574,8 @@ namespace stdx
 							return;
 						}
 						ev.out_contexts.push_back(p);
+						_ResetFd(ev);
+						return;
 					}
 				}, p);
 		}
