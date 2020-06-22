@@ -679,10 +679,10 @@ namespace stdx
 			{
 				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
 			}
-			catch (const std::exception &ex)
+			catch (const std::exception &err)
 			{
 #ifdef DEBUG
-				::printf("[EpollProactor]Reset event fail: %s\n");
+				::printf("[EpollProactor]Reset event fail: %s\n",err.what());
 #endif
 			}
 		}
