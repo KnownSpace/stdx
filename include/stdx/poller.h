@@ -32,6 +32,18 @@ namespace stdx
 
 		virtual void unbind(const _KeyType& object, std::function<void(_KeyType)> deleter)
 		{}
+
+		virtual _Context* get_at(size_t index)
+		{
+			noused(index);
+			return get();
+		}
+
+		virtual _Context* get_at(size_t index, size_t timeout_ms)
+		{
+			noused(index);
+			return get(timeout_ms);
+		}
 	};
 
 	template<typename _Context,typename _KeyType>
@@ -109,6 +121,16 @@ namespace stdx
 		{
 			return m_impl->post(context);
 		}
+
+		_Context* get_at(size_t index)
+		{
+			return m_impl->get_at(index);
+		}
+
+		_Context* get_at(size_t index, size_t timeout_ms)
+		{
+			return m_impl->get_at(index, timeout_ms);
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -118,29 +140,6 @@ namespace stdx
 	{
 		std::shared_ptr<stdx::basic_poller<_Context, _KeyType>> impl = std::make_shared<_Impl>(args...);
 		return stdx::poller<_Context, _KeyType>(impl);
-	}
-
-	extern std::atomic_size_t _MultipollerIdGenerater;
-
-	extern inline size_t _GenerateMultipollerId()
-	{
-		size_t index = stdx::_MultipollerIdGenerater.fetch_add(1);
-		return index;
-	}
-
-	extern thread_local size_t _MultipollerId;
-
-	extern thread_local bool _HasMultipollerId;
-
-	extern inline size_t _GetMultipollerId()
-	{
-		if (stdx::_HasMultipollerId)
-		{
-			return stdx::_MultipollerId;
-		}
-		stdx::_HasMultipollerId = true;
-		stdx::_MultipollerId = _GenerateMultipollerId();
-		return stdx::_MultipollerId;
 	}
 
 	template<typename _Impl>
@@ -192,13 +191,13 @@ namespace stdx
 
 		virtual context_t* get() override
 		{
-			poller_t &poller = _GetPoller();
+			poller_t& poller = m_pollers.at(0);
 			return poller.get();
 		}
 
 		virtual context_t* get(uint32_t timeout_ms) override
 		{
-			poller_t& poller = _GetPoller();
+			poller_t& poller = m_pollers.at(0);
 			return poller.get(timeout_ms);
 		}
 
@@ -207,25 +206,24 @@ namespace stdx
 			poller_t& poller = _GetPoller(context);
 			poller.post(context);
 		}
+
+		virtual context_t* get_at(size_t index)
+		{
+			return _GetPoller(index).get();
+		}
+
+		virtual context_t* get_at(size_t index, size_t timeout_ms)
+		{
+			return _GetPoller(index).get(timeout_ms);
+		}
 	protected:
 		dispath_t m_dispath;
 		get_key_t m_key_getter;
 		std::vector<poller_t> m_pollers;
 		std::atomic_size_t m_pos;
 
-		size_t _GetIndex()
-		{
-			return stdx::_GetMultipollerId();
-		}
-
 		poller_t& _GetPoller(size_t index)
 		{
-			return m_pollers.at(index);
-		}
-
-		poller_t& _GetPoller()
-		{
-			size_t index = _GetIndex() % m_pollers.size();
 			return m_pollers.at(index);
 		}
 
