@@ -823,18 +823,16 @@ namespace stdx
 				std::swap(tasks, m_tasks);
 				m_wokeup = false;
 			}
-			while (!tasks.empty())
+			for (auto begin = tasks.begin(),end = tasks.end();begin != end;begin++)
 			{
-				task_t task = tasks.front();
-				tasks.pop_front();
 				try
 				{
-					if (task)
+					if (*begin)
 					{
-						task();
+						(*begin)();
 					}
 				}
-				catch (const std::exception& err)
+				catch (const std::exception &err)
 				{
 #ifdef DEBUG
 					::printf("[EpollProactor]Execute task error: %s\n", err.what());
