@@ -9,7 +9,7 @@
 #include <stdx/poller.h>
 #include <stdx/async/callback_flag.h>
 
-#define STDX_IO_LOOP_NUM() cpu_cores()
+#define STDX_IO_LOOP_NUM() cpu_cores()*2
 
 namespace stdx
 {
@@ -754,7 +754,6 @@ namespace stdx
 		{
 			if (ev.data.fd == m_eventfd)
 			{
-				//is event fd
 				_HandleTasks();
 			}
 			else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
@@ -822,6 +821,10 @@ namespace stdx
 				std::unique_lock<lock_t> lock(m_ev_lock);
 				std::swap(tasks, m_tasks);
 				m_wokeup = false;
+			}
+			if (tasks.empty())
+			{
+				return;
 			}
 			for (auto begin = tasks.begin(),end = tasks.end();begin != end;begin++)
 			{
