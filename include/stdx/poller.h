@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 #include <atomic>
+#include <stdx/async/thread_local_storer.h>
 
 namespace stdx
 {
@@ -31,6 +32,18 @@ namespace stdx
 
 		virtual void unbind(const _KeyType& object, std::function<void(_KeyType)> deleter)
 		{}
+
+		virtual _Context* get_at(size_t index)
+		{
+			noused(index);
+			return get();
+		}
+
+		virtual _Context* get_at(size_t index, size_t timeout_ms)
+		{
+			noused(index);
+			return get(timeout_ms);
+		}
 	};
 
 	template<typename _Context,typename _KeyType>
@@ -108,6 +121,16 @@ namespace stdx
 		{
 			return m_impl->post(context);
 		}
+
+		_Context* get_at(size_t index)
+		{
+			return m_impl->get_at(index);
+		}
+
+		_Context* get_at(size_t index, size_t timeout_ms)
+		{
+			return m_impl->get_at(index, timeout_ms);
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -136,7 +159,9 @@ namespace stdx
 			,m_dispath(dispath)
 			,m_key_getter(key_getter)
 			,m_pollers()
+			,m_pos(num_of_poller)
 		{
+			//m_pos.set(-1);
 			m_pollers.reserve(num_of_poller);
 			for (size_t i = 0; i < num_of_poller; ++i)
 			{
@@ -166,13 +191,13 @@ namespace stdx
 
 		virtual context_t* get() override
 		{
-			poller_t &poller = _GetPoller();
+			poller_t& poller = m_pollers.at(0);
 			return poller.get();
 		}
 
 		virtual context_t* get(uint32_t timeout_ms) override
 		{
-			poller_t& poller = _GetPoller();
+			poller_t& poller = m_pollers.at(0);
 			return poller.get(timeout_ms);
 		}
 
@@ -181,25 +206,24 @@ namespace stdx
 			poller_t& poller = _GetPoller(context);
 			poller.post(context);
 		}
+
+		virtual context_t* get_at(size_t index)
+		{
+			return _GetPoller(index).get();
+		}
+
+		virtual context_t* get_at(size_t index, size_t timeout_ms)
+		{
+			return _GetPoller(index).get(timeout_ms);
+		}
 	protected:
 		dispath_t m_dispath;
 		get_key_t m_key_getter;
 		std::vector<poller_t> m_pollers;
-
-		size_t _GetIndex()
-		{
-			size_t index = stdx::thread_id;
-			return index;
-		}
+		std::atomic_size_t m_pos;
 
 		poller_t& _GetPoller(size_t index)
 		{
-			return m_pollers.at(index);
-		}
-
-		poller_t& _GetPoller()
-		{
-			size_t index = _GetIndex() % m_pollers.size();
 			return m_pollers.at(index);
 		}
 

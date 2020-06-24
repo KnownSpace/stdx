@@ -574,6 +574,8 @@ namespace stdx
 							return;
 						}
 						ev.out_contexts.push_back(p);
+						_ResetFd(ev);
+						return;
 					}
 				}, p);
 		}
@@ -677,10 +679,10 @@ namespace stdx
 			{
 				m_epoll.update_event(ev.model.ev.data.fd, &(ev.model.ev));
 			}
-			catch (const std::exception &ex)
+			catch (const std::exception &err)
 			{
 #ifdef DEBUG
-				::printf("[EpollProactor]Reset event fail: %s\n");
+				::printf("[EpollProactor]Reset event fail: %s\n",err.what());
 #endif
 			}
 		}
@@ -752,7 +754,6 @@ namespace stdx
 		{
 			if (ev.data.fd == m_eventfd)
 			{
-				//is event fd
 				_HandleTasks();
 			}
 			else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
@@ -821,18 +822,20 @@ namespace stdx
 				std::swap(tasks, m_tasks);
 				m_wokeup = false;
 			}
-			while (!tasks.empty())
+			if (tasks.empty())
 			{
-				task_t task = tasks.front();
-				tasks.pop_front();
+				return;
+			}
+			for (auto begin = tasks.begin(),end = tasks.end();begin != end;begin++)
+			{
 				try
 				{
-					if (task)
+					if (*begin)
 					{
-						task();
+						(*begin)();
 					}
 				}
-				catch (const std::exception& err)
+				catch (const std::exception &err)
 				{
 #ifdef DEBUG
 					::printf("[EpollProactor]Execute task error: %s\n", err.what());

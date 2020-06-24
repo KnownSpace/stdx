@@ -2,17 +2,7 @@
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
 
-std::atomic_size_t stdx::_ThreadIdGenerater(0);
-
-size_t stdx::_GenerateThreadId()
-{
-	size_t index = stdx::_ThreadIdGenerater.fetch_add(1);
-	return index;
-}
-
-thread_local size_t stdx::thread_id = stdx::_GenerateThreadId();
-
-stdx::thread_pool stdx::threadpool = stdx::make_fixed_size_thread_pool(cpu_cores());
+stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(cpu_cores());
 
 //构造函数
 stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
@@ -136,6 +126,72 @@ void stdx::_FixedSizeThreadPool::init_threads(uint32_t num_threads) noexcept
 	}
 }
 
+stdx::_RoundRobinThreadPool::_RoundRobinThreadPool(uint32_t num_threads)
+	:m_lock()
+	,m_index(0)
+	,m_enable(std::make_shared<std::atomic_bool>(true))
+	,m_workers()
+	,m_joiners()
+	,m_size(num_threads)
+{
+	for (uint32_t i = 0; i < num_threads; i++)
+	{
+		m_workers.emplace_back(new stdx::worker_thread());
+	}
+}
+
+stdx::_RoundRobinThreadPool::~_RoundRobinThreadPool()
+{
+	*m_enable = false;
+	for (auto begin = m_workers.begin(),end = m_workers.end();begin != end;++begin)
+	{
+		delete (*begin);
+	}
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	for (auto begin = m_joiners.begin(),end = m_joiners.end();begin != end;++begin)
+	{
+		(*begin)->push([]() {});
+	}
+}
+
+size_t stdx::_RoundRobinThreadPool::_GetIndex()
+{
+	return m_index.fetch_add(1);
+}
+
+void stdx::_RoundRobinThreadPool::run(std::function<void()>&& task)
+{
+	size_t index = _GetIndex();
+	index %= m_size;
+	if (index >= m_workers.size())
+	{
+		std::unique_lock<stdx::spin_lock> lock(m_lock);
+		index %= m_joiners.size();
+		m_joiners[index]->push(std::move(task));
+		return;
+	}
+	m_workers[index]->push(std::move(task));
+	return;
+}
+
+void stdx::_RoundRobinThreadPool::join_as_worker()
+{
+	std::shared_ptr<stdx::worker_context> context = std::make_shared<stdx::worker_context>();
+	if (!context)
+	{
+		throw std::bad_alloc();
+	}
+	{
+		std::unique_lock<stdx::spin_lock> lock(m_lock);
+		m_joiners.push_back(context);
+	}
+	while (*m_enable)
+	{
+		std::function<void()> &&task = context->pop();
+		task();
+	}
+}
+
 void stdx::thread_pool::loop_do(stdx::cancel_token token, std::function<void()> call)
 {
 	run([this](stdx::cancel_token token, std::function<void()> call)
@@ -195,4 +251,9 @@ void stdx::thread_pool::lazy_loop_do(stdx::cancel_token token, uint64_t lazy_ms,
 stdx::thread_pool stdx::make_fixed_size_thread_pool(uint32_t size)
 {
 	return stdx::make_thread_pool<stdx::_FixedSizeThreadPool>(size);
+}
+
+stdx::thread_pool stdx::make_round_robin_thread_pool(uint32_t size)
+{
+	return stdx::make_thread_pool<stdx::_RoundRobinThreadPool>(size);
 }

@@ -6,6 +6,7 @@
 #include <stdx/async/semaphore.h>
 #include <stdx/function.h>
 #include <stdx/async/cancel_token.h>
+#include <stdx/async/worker.h>
 
 #define cpu_cores() std::thread::hardware_concurrency()
 
@@ -15,15 +16,9 @@
 
 namespace stdx
 {
-	extern std::atomic_size_t _ThreadIdGenerater;
-
-	extern size_t _GenerateThreadId();
-
-	extern thread_local size_t thread_id;
-
 	interface_class basic_thread_pool
 	{
-		virtual ~basic_thread_pool() = default;
+		interface_class_helper(basic_thread_pool);
 
 		virtual void run(std::function<void()> &&task) = 0;
 
@@ -64,6 +59,29 @@ namespace stdx
 		
 		//初始化线程池
 		void init_threads(uint32_t num_threads) noexcept;
+	};
+
+	class _RoundRobinThreadPool:public stdx::basic_thread_pool
+	{
+		using base_t = stdx::basic_thread_pool;
+	public:
+		_RoundRobinThreadPool(uint32_t num_threads);
+
+		~_RoundRobinThreadPool();
+
+		virtual void run(std::function<void()> &&task) override;
+
+		virtual void join_as_worker() override;
+
+	private:
+		stdx::spin_lock m_lock;
+		std::atomic_size_t m_index;
+		std::shared_ptr<std::atomic_bool> m_enable;
+		std::vector<stdx::worker_thread*> m_workers;
+		std::vector<std::shared_ptr<stdx::worker_context>> m_joiners;
+		size_t m_size;
+
+		size_t _GetIndex();
 	};
 
 	//线程池静态类
@@ -176,6 +194,8 @@ namespace stdx
 	}
 
 	extern stdx::thread_pool make_fixed_size_thread_pool(uint32_t size);
+
+	extern stdx::thread_pool make_round_robin_thread_pool(uint32_t size);
 
 	extern stdx::thread_pool threadpool;
 }
