@@ -147,10 +147,10 @@ namespace stdx
 	//}
 
 	template<typename _R = void>
-	interface_class basic_runable
+	INTERFACE_CLASS basic_runable
 	{
 	public:
-		interface_class_helper(basic_runable);
+		INTERFACE_CLASS_HELPER(basic_runable);
 		virtual _R run() = 0;
 	};
 
@@ -234,10 +234,10 @@ namespace stdx
 	}
 
 	template<typename _R,typename ..._Args>
-	class _BasicFunction
+	INTERFACE_CLASS _BasicFunction
 	{
 	public:
-		virtual ~_BasicFunction()=default;
+		INTERFACE_CLASS_HELPER(_BasicFunction);
 		virtual _R run(const _Args&...) = 0;
 	};
 	template<typename _R,typename _Fn,typename ..._Args>

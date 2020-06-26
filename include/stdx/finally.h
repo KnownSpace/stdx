@@ -37,7 +37,7 @@ namespace stdx
 			catch (const std::exception &err)
 			{
 #ifdef DEBUG
-				::printf("[Finally Helper]发生意外错误:%s",err.what());
+				::printf("[Finally]Error: %s",err.what());
 #endif
 			}
 		}

@@ -9,13 +9,13 @@
 namespace stdx
 {
 	template<typename _Context,typename _KeyType>
-	interface_class basic_poller
+	INTERFACE_CLASS basic_poller
 	{
 		using context_t = _Context;
 
 		using key_t = _KeyType;
 
-		interface_class_helper(basic_poller);
+		INTERFACE_CLASS_HELPER(basic_poller);
 
 		virtual _Context* get() = 0;
 
@@ -35,13 +35,13 @@ namespace stdx
 
 		virtual _Context* get_at(size_t index)
 		{
-			noused(index);
+			NO_USED(index);
 			return get();
 		}
 
 		virtual _Context* get_at(size_t index, size_t timeout_ms)
 		{
-			noused(index);
+			NO_USED(index);
 			return get(timeout_ms);
 		}
 	};

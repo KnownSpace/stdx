@@ -542,7 +542,7 @@ namespace stdx
 #endif
 		_NetworkIOService();
 
-		delete_copy(_NetworkIOService);
+		DELETE_COPY(_NetworkIOService);
 
 		~_NetworkIOService();
 
@@ -771,7 +771,7 @@ namespace stdx
 
 		explicit _Socket(const io_service_t& io_service);
 
-		delete_copy(_Socket);
+		DELETE_COPY(_Socket);
 
 		~_Socket();
 

@@ -258,7 +258,7 @@ namespace stdx
 #endif
 		_FileIOService();
 
-		delete_copy(_FileIOService);
+		DELETE_COPY(_FileIOService);
 
 		~_FileIOService();
 
@@ -543,7 +543,7 @@ namespace stdx
 		{
 			return m_file;
 		}
-		delete_copy(_FileHandle);
+		DELETE_COPY(_FileHandle);
 	private:
 		native_file_handle m_file;
 	};

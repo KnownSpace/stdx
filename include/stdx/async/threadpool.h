@@ -16,9 +16,9 @@
 
 namespace stdx
 {
-	interface_class basic_thread_pool
+	INTERFACE_CLASS basic_thread_pool
 	{
-		interface_class_helper(basic_thread_pool);
+		INTERFACE_CLASS_HELPER(basic_thread_pool);
 
 		virtual void run(std::function<void()> &&task) = 0;
 

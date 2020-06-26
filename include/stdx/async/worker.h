@@ -37,7 +37,7 @@ namespace stdx
 	public:
 		worker_thread();
 
-		delete_copy(worker_thread);
+		DELETE_COPY(worker_thread);
 
 		~worker_thread();
 

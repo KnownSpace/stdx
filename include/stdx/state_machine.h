@@ -8,7 +8,7 @@ namespace stdx
 	class state_machine;
 
 	template<typename _State>
-	interface_class basic_state_machine
+	INTERFACE_CLASS basic_state_machine
 	{
 		using state_t = _State;
 
@@ -18,7 +18,7 @@ namespace stdx
 
 		virtual const _State& state() const = 0;
 
-		interface_class_helper(basic_state_machine);
+		INTERFACE_CLASS_HELPER(basic_state_machine);
 
 		virtual bool is_end() const = 0;
 

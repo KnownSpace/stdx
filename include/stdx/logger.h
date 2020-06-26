@@ -15,11 +15,11 @@ namespace stdx
 		fault
 	};
 
-	interface_class basic_logger
+	INTERFACE_CLASS basic_logger
 	{
 		virtual void log(logger_level level,const stdx::string &msg) const = 0;
 
-		interface_class_helper(basic_logger);
+		INTERFACE_CLASS_HELPER(basic_logger);
 	};
 
 	class logger

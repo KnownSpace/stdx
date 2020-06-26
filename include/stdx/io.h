@@ -65,7 +65,7 @@ namespace stdx
 			}
 		}
 
-		delete_copy(_IOCP<_IOContext>);
+		DELETE_COPY(_IOCP<_IOContext>);
 
 		virtual void bind(const HANDLE& file_handle) override
 		{

@@ -84,7 +84,6 @@ namespace stdx
 		{
 			return (bool)m_impl;
 		}
-
 	private:
 		impl_t m_impl;
 	};
