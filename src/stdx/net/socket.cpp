@@ -95,7 +95,11 @@ void stdx::_NetworkIOService::_InitAcceptEx(SOCKET s)
 
 typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socket(const int& addr_family, const int& sock_type, const int& protocol)
 {
+#ifdef LINUX
+	socket_t sock = ::socket(addr_family, sock_type|SOCK_CLOEXEC, protocol);
+#else
 	socket_t sock = ::socket(addr_family, sock_type, protocol);
+#endif
 #ifdef WIN32
 	if (sock == INVALID_SOCKET)
 	{
@@ -1112,7 +1116,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	{
 		sockaddr_in addr;
 		socklen_t addr_size = sizeof(sockaddr_in);
-		context->target_socket = ::accept(context->this_socket, (sockaddr*)&addr, &addr_size);
+		context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size,SOCK_NONBLOCK|SOCK_CLOEXEC);
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
 			return false;
