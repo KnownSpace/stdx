@@ -604,7 +604,7 @@ namespace stdx
 			}
 		}
 
-		void init_accept_ex(SOCKET s);
+		void _InitAcceptEx(SOCKET s);
 #endif
 		void accept_ex(socket_t sock, std::function<void(network_accept_event, std::exception_ptr)> callback);
 #ifdef WIN32
@@ -613,8 +613,6 @@ namespace stdx
 		static LPFN_GETACCEPTEXSOCKADDRS m_get_addr_ex;
 		static std::once_flag m_once_flag;
 #endif
-
-		static std::shared_ptr<_NetworkIOService> get_instance();
 
 #ifdef LINUX
 	private:
@@ -641,10 +639,6 @@ namespace stdx
 
 		void init_threadpoll() noexcept;
 
-		static std::once_flag _once_flag;
-		
-		static std::shared_ptr<_NetworkIOService> _instance;
-
 		stdx::thread_pool m_thread_pool;
 	};
 
@@ -655,7 +649,7 @@ namespace stdx
 		using impl_t = std::shared_ptr<_NetworkIOService>;
 	public:
 		network_io_service()
-			:m_impl(stdx::_NetworkIOService::get_instance())
+			:m_impl(std::make_shared<stdx::_NetworkIOService>())
 		{}
 
 		network_io_service(const network_io_service& other)

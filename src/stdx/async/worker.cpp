@@ -8,22 +8,6 @@ stdx::worker_context::worker_context()
 	,m_sleep(true)
 {}
 
-//stdx::worker_context::worker_context(self_t &&other) noexcept
-//	:m_lock(std::move(other.m_lock))
-//	,m_tasks(std::move(other.m_tasks))
-//	,m_cond(std::move(other.m_cond))
-//	,m_sleep(std::move(other.m_sleep))
-//{}
-//
-//typename stdx::worker_context::self_t& stdx::worker_context::operator=(self_t && other) noexcept
-//{
-//	m_lock = std::move(other.m_lock);
-//	m_tasks = std::move(other.m_tasks);
-//	m_cond = std::move(other.m_cond);
-//	m_sleep = std::move(other.m_sleep);
-//	return *this;
-//}
-
 void stdx::worker_context::push(task_t&& task)
 {
 	bool sleep = false;

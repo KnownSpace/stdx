@@ -283,18 +283,12 @@ namespace stdx
 			::close(file);
 #endif
 		}
-
-		static std::shared_ptr<_FileIOService> get_instance();
 	private:
 		poller_t m_poller;
 
 		stdx::cancel_token m_token;
 
 		void init_threadpoll() noexcept;
-
-		static std::once_flag _once_flag;
-
-		static std::shared_ptr<_FileIOService> _instance;
 
 		stdx::thread_pool m_thread_pool;
 	};
@@ -305,7 +299,7 @@ namespace stdx
 		using impl_t = std::shared_ptr<_FileIOService>;
 	public:
 		file_io_service()
-			:m_impl(stdx::_FileIOService::get_instance())
+			:m_impl(std::make_shared<stdx::_FileIOService>())
 		{}
 		file_io_service(const impl_t& impl)
 			:m_impl(impl)

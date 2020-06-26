@@ -27,8 +27,6 @@ stdx::_FixedSizeThreadPool::~_FixedSizeThreadPool() noexcept
 
 void stdx::_FixedSizeThreadPool::join_as_worker()
 {
-	std::unique_lock<std::mutex> lock(*m_mutex);
-	lock.unlock();
 	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<bool> alive)
 	{
 		while (*alive)
@@ -57,7 +55,7 @@ void stdx::_FixedSizeThreadPool::join_as_worker()
 				{
 					//忽略出现的错误
 #ifdef DEBUG
-					::fprintf(stderr, "[Threadpool]执行任务的过程中出错,%s\n", err.what());
+					::fprintf(stderr, "[Threadpool]Run task fail: %s\n", err.what());
 #endif
 				}
 				catch (...)
@@ -184,6 +182,7 @@ void stdx::_RoundRobinThreadPool::join_as_worker()
 	{
 		std::unique_lock<stdx::spin_lock> lock(m_lock);
 		m_joiners.push_back(context);
+		m_size += 1;
 	}
 	while (*m_enable)
 	{
