@@ -12,6 +12,6 @@ namespace stdx
 	{
 		constexpr static bool value = true;
 	};
-#define is_same(t,u) stdx::_IsSame<t,u>::value
+#define IS_SAME(t,u) stdx::_IsSame<t,u>::value
 
 }

@@ -141,19 +141,19 @@ namespace stdx
 	template<typename _T,typename _First>
 	struct type_include<_T,stdx::type_list<_First>>
 	{
-		constexpr static bool value = is_same(_T, _First);
+		constexpr static bool value = IS_SAME(_T, _First);
 	};
 
 	template<typename _T, typename _First,typename _Second>
 	struct type_include<_T,stdx::type_list<_First, _Second>>
 	{
-		constexpr static bool value = is_same(_T, _First) || is_same(_T, _Second);
+		constexpr static bool value = IS_SAME(_T, _First) || IS_SAME(_T, _Second);
 	};
 
 	template<typename _T, typename _First, typename _Second,typename ..._More>
 	struct type_include<_T,stdx::type_list<_First, _Second, _More...>>
 	{
-		constexpr static bool value = is_same(_T, _First) || is_same(_T, _Second) || stdx::type_include<_T, stdx::type_list<_More...>>::value;
+		constexpr static bool value = IS_SAME(_T, _First) || IS_SAME(_T, _Second) || stdx::type_include<_T, stdx::type_list<_More...>>::value;
 	};
 
 	template<typename _First>
