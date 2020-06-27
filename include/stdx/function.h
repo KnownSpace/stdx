@@ -111,14 +111,14 @@ namespace stdx
 		using info = stdx::function_info<_Fn>;
 		using arguments = typename info::arguments;
 	public:
-		constexpr static bool value = is_same(arguments, stdx::type_list<_Args...>);
+		constexpr static bool value = IS_SAME(arguments, stdx::type_list<_Args...>);
 	};
 
 
 #ifdef WIN32
-#define is_arguments_type(_Fn,...) stdx::_IsArgs<_Fn,__VA_ARGS__>::value
+#define IS_ARGUMENTS_TYPE(_Fn,...) stdx::_IsArgs<_Fn,__VA_ARGS__>::value
 #else
-#define is_arguments_type(_Fn,args...) stdx::_IsArgs<_Fn,##args>::value
+#define IS_ARGUMENTS_TYPE(_Fn,args...) stdx::_IsArgs<_Fn,##args>::value
 #endif
 
 
@@ -130,21 +130,15 @@ namespace stdx
 		using info = stdx::function_info<_Fn>;
 		using result = typename info::result;
 	public:
-		constexpr static bool value = is_same(result, _Result);
+		constexpr static bool value = IS_SAME(result, _Result);
 	};
-#define is_result_type(_Fn,_Result) stdx::_IsResult<_Fn,_Result>::value
+#define IS_RESULT_TYPE(_Fn,_Result) stdx::_IsResult<_Fn,_Result>::value
 
 	template<typename _Fn,typename ..._Args,class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 	inline typename stdx::function_info<_Fn>::result invoke( _Fn &&callable,_Args ...args)
 	{
 		return callable(stdx::forward(args)...);
 	}
-
-	//template<typename _Fn, typename ..._Args>
-	//inline typename stdx::function_info<_Fn>::result invoke(_Fn &&callable, _Args &...args)
-	//{
-	//	return callable(stdx::forward(args)...);
-	//}
 
 	template<typename _R = void>
 	INTERFACE_CLASS basic_runable

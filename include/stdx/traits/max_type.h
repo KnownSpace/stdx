@@ -7,5 +7,5 @@ namespace stdx
 	extern auto _MaxTypeHelper() -> decltype(false?stdx::declval<_T1>():stdx::declval<_T2>());
 
 	template<typename _T1, typename _T2>
-	using max_type = typename decltype(stdx::_MaxTypeHelper<_T1,_T2>());
+	using max_type = decltype(stdx::_MaxTypeHelper<_T1,_T2>());
 }

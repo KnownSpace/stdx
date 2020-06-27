@@ -444,7 +444,7 @@ namespace stdx
 		static std::shared_ptr<_Task<Result>> build(Fn&& fn, std::shared_future<Input> future, state_ptr state, stdx::spin_lock lock, std::shared_ptr<std::shared_ptr<stdx::basic_task>> next)
 		{
 			using arg_t = typename stdx::function_info<Fn>::arguments;
-			static_assert(is_arguments_type(Fn, stdx::task_result<Result>) || is_arguments_type(Fn, Result) || is_arguments_type(Fn, void), "the input function not be allowed");
+			static_assert(IS_ARGUMENTS_TYPE(Fn, stdx::task_result<Result>) || IS_ARGUMENTS_TYPE(Fn, Result) || IS_ARGUMENTS_TYPE(Fn, void), "the input function not be allowed");
 			return nullptr;
 		}
 	};
