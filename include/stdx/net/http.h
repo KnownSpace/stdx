@@ -324,7 +324,7 @@ namespace stdx
 
 	using http_header_ptr = std::shared_ptr<stdx::http_header>;
 
-	interface_class http_body
+	INTERFACE_CLASS http_body
 	{
 	public:
 		using byte_t = unsigned char;
@@ -536,7 +536,7 @@ namespace stdx
 
 	extern stdx::http_form_type make_http_form_type_by_string(const stdx::string &type);
 
-	interface_class http_form:public http_body
+	INTERFACE_CLASS http_form:public http_body
 	{
 	public:
 

@@ -14,7 +14,7 @@
 
 ## 受支持的系统
 * Windows	7+
-* Linux		2.5+
+* Linux		2.6+
 
 ## 构建
 确保你正确已安装Jemalloc & CMake

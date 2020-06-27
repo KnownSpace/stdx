@@ -6,7 +6,7 @@ namespace stdx
 {
 	//connection interface
 	template<typename _Input,typename _Output = _Input>
-	interface_class basic_connection
+	INTERFACE_CLASS basic_connection
 	{
 		using input_t = _Input;
 
@@ -27,7 +27,7 @@ namespace stdx
 
 		virtual stdx::task<void> write_file(stdx::file_handle file) = 0;
 
-		interface_class_helper(basic_connection);
+		INTERFACE_CLASS_HELPER(basic_connection);
 	};
 
 	//connection
@@ -125,7 +125,7 @@ namespace stdx
 
 	//listener interface
 	template<typename _Input, typename _Output = _Input>
-	interface_class basic_listener
+	INTERFACE_CLASS basic_listener
 	{
 		using input_t = _Input;
 
@@ -145,7 +145,7 @@ namespace stdx
 
 		virtual bool is_running() const = 0;
 
-		interface_class_helper(basic_listener);
+		INTERFACE_CLASS_HELPER(basic_listener);
 	};
 
 	//listener
@@ -240,7 +240,7 @@ namespace stdx
 
 	//server interface
 	template<typename _Input, typename _Output = _Input>
-	interface_class basic_server
+	INTERFACE_CLASS basic_server
 	{
 		using input_t = _Input;
 
@@ -280,7 +280,7 @@ namespace stdx
 
 		virtual bool is_running() const = 0;
 
-		interface_class_helper(basic_server);
+		INTERFACE_CLASS_HELPER(basic_server);
 	};
 
 	//server

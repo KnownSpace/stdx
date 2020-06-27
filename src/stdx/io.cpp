@@ -112,7 +112,7 @@ int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int
 
 int stdx::make_eventfd(int flags)
 {
-	int fd = ::eventfd(0,flags);
+	int fd = ::eventfd(0,flags|EFD_CLOEXEC);
 	if (fd == -1)
 	{
 		_ThrowLinuxError

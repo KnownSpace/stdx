@@ -65,7 +65,11 @@ namespace stdx
 		{
 			return m_value == other.m_value;
 		}
-
+		
+		void swap(stdx::cancel_token& other)
+		{
+			std::swap(other.m_value, m_value);
+		}
 	private:
 		std::shared_ptr<value_t> m_value;
 	};

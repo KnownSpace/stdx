@@ -37,7 +37,7 @@ namespace stdx
 	public:
 		worker_thread();
 
-		delete_copy(worker_thread);
+		DELETE_COPY(worker_thread);
 
 		~worker_thread();
 
@@ -61,7 +61,16 @@ namespace stdx
 			while (m_enable)
 			{
 				task_t &&task =  m_context->pop();
-				task();
+				try
+				{
+					task();
+				}
+				catch (const std::exception &err)
+				{
+#ifdef DEBUG
+					::printf("[Worker Thread]Run task fail: %s",err.what());
+#endif
+				}
 			}
 		}
 	};

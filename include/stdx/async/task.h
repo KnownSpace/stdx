@@ -309,10 +309,10 @@ namespace stdx
 
 #pragma region InterfaceAndPtrDefined
 	//BasicTask
-	interface_class basic_task : public stdx::basic_runable<void>
+	INTERFACE_CLASS basic_task : public stdx::basic_runable<void>
 	{
 	public:
-		interface_class_helper(basic_task);
+		INTERFACE_CLASS_HELPER(basic_task);
 		virtual void run_on_this_thread() = 0;
 	};
 

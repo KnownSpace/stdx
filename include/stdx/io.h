@@ -65,7 +65,7 @@ namespace stdx
 			}
 		}
 
-		delete_copy(_IOCP<_IOContext>);
+		DELETE_COPY(_IOCP<_IOContext>);
 
 		virtual void bind(const HANDLE& file_handle) override
 		{
@@ -663,7 +663,7 @@ namespace stdx
 		template<typename _Fn, typename ..._Args, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 		void _RunInLoop(_Fn&& fn, _Args&&...args)
 		{
-			task_t task = std::bind(fn, args...);
+			task_t &&task = std::bind(fn, args...);
 			__RunInLoop(std::move(task));
 		}
 

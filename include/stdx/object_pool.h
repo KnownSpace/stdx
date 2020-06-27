@@ -7,7 +7,7 @@
 namespace stdx
 {
 	template<typename _T>
-	interface_class basic_object_pool
+	INTERFACE_CLASS basic_object_pool
 	{
 		basic_object_pool(std::function<_T()> &&maker)
 			:m_maker(maker)
@@ -15,7 +15,7 @@ namespace stdx
 		virtual _T get() = 0;
 		//move
 		virtual void store(_T&& obj) = 0;
-		interface_class_helper(basic_object_pool);
+		INTERFACE_CLASS_HELPER(basic_object_pool);
 		virtual void fill(size_t n) = 0;
 		virtual void init()
 		{

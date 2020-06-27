@@ -29,19 +29,6 @@ stdx::file_enum_value_t stdx::forward_file_open_type(const stdx::file_open_type 
 	return static_cast<stdx::file_enum_value_t>(open_type);
 }
 
-std::once_flag stdx::_FileIOService::_once_flag;
-
-std::shared_ptr<stdx::_FileIOService> stdx::_FileIOService::_instance(nullptr);
-
-std::shared_ptr<stdx::_FileIOService> stdx::_FileIOService::get_instance()
-{
-	std::call_once(stdx::_FileIOService::_once_flag, []() 
-	{
-		stdx::_FileIOService::_instance = std::make_shared<stdx::_FileIOService>();
-	});
-	return stdx::_FileIOService::_instance;
-}
-
 stdx::_FileIOService::_FileIOService()
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::file_io_context>())
@@ -510,9 +497,11 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				{
 					context_ptr = poller.get();
 				}
-				catch (const std::exception&)
+				catch (const std::exception &err)
 				{
-
+#ifdef DEBUG
+					::printf("[FileIOService]Error: %s\n",err.what());
+#endif
 				}
 				if (context_ptr == nullptr)
 				{
@@ -550,8 +539,11 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				{
 					(*call)(context_ptr, error);
 				}
-				catch (const std::exception&)
+				catch (const std::exception &ex)
 				{
+#ifdef DEBUG
+					::printf("[FileIOService]Callback error: %s\n", ex.what());
+#endif
 				}
 			}, m_poller);
 	}
@@ -588,14 +580,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 					error = std::current_exception();
 					(*call)(nullptr, error);
 					delete call;
-					try
-					{
-						delete context_ptr;
-					}
-					catch (const std::exception&)
-					{
-
-					}
+					delete context_ptr;
 				}
 			}, m_poller);
 	}

@@ -42,16 +42,15 @@ namespace stdx
 #include <stdint.h>
 #include <inttypes.h>
 
-#define interface_class struct
-#define get_byte(x,ptr) *((char*)ptr+(x))
-#define delete_copy(type) type(const type &)=delete
-#define delete_move(type) type(type&&)=delete
-#define interface_class_helper(type) virtual ~type() = default;\
+#define INTERFACE_CLASS struct
+#define DELETE_COPY(type) type(const type &)=delete
+#define DELETE_MOVE(type) type(type&&)=delete
+#define INTERFACE_CLASS_HELPER(type) virtual ~type() = default;\
 									type() = default;\
 									type(const type&) =default;\
 									type(type&&) noexcept = default; \
 									type &operator=(const type &) = default;\
-									type &operator=(type &&) = default
+									type &operator=(type &&) = default										
 
 #ifdef WIN32
 #define CRLF L"\r\n"
@@ -74,11 +73,11 @@ namespace stdx
 
 #endif // WIN32
 
-#define typename_of(_T) typeid(_T).name()
+#define TYPENAME(_T) typeid(_T).name()
 
-#define name_of(_Var) #_Var
+#define NAME_OF(_Var) #_Var
 
-#define noused(var) (void)var
+#define NO_USED(var) (void)var
 
 
 namespace stdx

@@ -43,20 +43,6 @@ LPFN_GETACCEPTEXSOCKADDRS stdx::_NetworkIOService::m_get_addr_ex = nullptr;
 std::once_flag stdx::_NetworkIOService::m_once_flag;
 #endif
 
-
-std::once_flag stdx::_NetworkIOService::_once_flag;
-
-std::shared_ptr<stdx::_NetworkIOService> stdx::_NetworkIOService::_instance(nullptr);
-
-std::shared_ptr<stdx::_NetworkIOService> stdx::_NetworkIOService::get_instance()
-{
-	std::call_once(stdx::_NetworkIOService::_once_flag, []() 
-	{
-		stdx::_NetworkIOService::_instance = std::make_shared<stdx::_NetworkIOService>();
-	});
-	return stdx::_NetworkIOService::_instance;
-}
-
 stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
@@ -93,12 +79,12 @@ stdx::_NetworkIOService::~_NetworkIOService()
 }
 
 #ifdef WIN32
-void stdx::_NetworkIOService::init_accept_ex(SOCKET s)
+void stdx::_NetworkIOService::_InitAcceptEx(SOCKET s)
 {
 	std::call_once(m_once_flag, [s]() mutable
 	{
 #ifdef DEBUG
-		::printf("[Network IO Service]初始化AcceptEx\n");
+		::printf("[Network IO Service]Initzate AcceptEx\n");
 #endif // DEBUG
 		_GetAcceptEx(s, &m_accept_ex);
 		_GetAcceptExSockaddr(s, &m_get_addr_ex);
@@ -109,7 +95,11 @@ void stdx::_NetworkIOService::init_accept_ex(SOCKET s)
 
 typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socket(const int& addr_family, const int& sock_type, const int& protocol)
 {
+#ifdef LINUX
+	socket_t sock = ::socket(addr_family, sock_type|SOCK_CLOEXEC, protocol);
+#else
 	socket_t sock = ::socket(addr_family, sock_type, protocol);
+#endif
 #ifdef WIN32
 	if (sock == INVALID_SOCKET)
 	{
@@ -827,10 +817,12 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 #ifdef WIN32
 	try
 	{
-		init_accept_ex(sock);
+		_InitAcceptEx(sock);
 	}
 	catch (const std::exception&)
 	{
+		callback(stdx::network_accept_event(),std::current_exception());
+		return;
 	}
 	stdx::network_io_context *context = new stdx::network_io_context;
 	if (context == nullptr)
@@ -1006,7 +998,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				catch (const std::exception &ex)
 				{
 #ifdef DEBUG
-					::printf("[NetworkIOServcie]出错 %s\n", ex.what());
+					::printf("[NetworkIOServcie]Error: %s\n", ex.what());
 #endif
 				}
 			}, m_poller);
@@ -1056,7 +1048,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				catch (const std::exception &ex)
 				{
 #ifdef DEBUG
-					::printf("[NetworkIOServcie]出错 %s\n", ex.what());
+					::printf("[NetworkIOServcie]Error: %s\n", ex.what());
 #endif
 				}
 			},m_poller);
@@ -1124,7 +1116,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 	{
 		sockaddr_in addr;
 		socklen_t addr_size = sizeof(sockaddr_in);
-		context->target_socket = ::accept(context->this_socket, (sockaddr*)&addr, &addr_size);
+		context->target_socket = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size,SOCK_NONBLOCK|SOCK_CLOEXEC);
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
 			return false;
