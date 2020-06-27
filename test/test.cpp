@@ -6,6 +6,7 @@
 #include <stdx/logger.h>
 #include <stdx/net/http_connection.h>
 #include <stdx/debug.h>
+#include <stdx/traits/max_type.h>
 
 void add_keepalive(stdx::http_response &res,bool keep)
 {
