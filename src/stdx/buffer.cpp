@@ -132,9 +132,14 @@ void stdx::_Buffer::free()
 
 void stdx::_Buffer::memalign(size_t align)
 {
-	char* buf = m_data;
+	char* buf = nullptr;
 	stdx::posix_memalign((void**)&buf, align, m_size);
-	m_data = buf;
+	{
+		char *tmp = m_data;
+		m_data = buf;
+		buf = tmp;
+	}
+	stdx::free(buf);
 }
 
 void stdx::_Buffer::memalign_and_move(size_t align)
