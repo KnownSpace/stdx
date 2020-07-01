@@ -121,8 +121,6 @@ namespace stdx
 #define IS_ARGUMENTS_TYPE(_Fn,args...) stdx::_IsArgs<_Fn,##args>::value
 #endif
 
-
-
 	template<typename _Fn, typename _Result>
 	struct _IsResult
 	{
@@ -151,11 +149,6 @@ namespace stdx
 	template<typename _t, typename _fn>
 	struct _ActionRunner
 	{
-		//static _t run(_fn &&fn)
-		//{
-		//	return fn();
-		//}
-
 		static _t run(_fn &fn)
 		{
 			return fn();
@@ -165,12 +158,6 @@ namespace stdx
 	template<typename _fn>
 	struct _ActionRunner<void, _fn>
 	{
-		//static void run(_fn &&fn)
-		//{
-		//	fn();
-		//	return;
-		//}
-
 		static void run(_fn &fn)
 		{
 			fn();

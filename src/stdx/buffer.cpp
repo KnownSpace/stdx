@@ -133,7 +133,15 @@ void stdx::_Buffer::free()
 void stdx::_Buffer::memalign(size_t align)
 {
 	char* buf = nullptr;
-	stdx::posix_memalign((void**)&buf, align, m_size);
+	int code = stdx::posix_memalign((void**)&buf, align, m_size);
+	if (code == ENOMEM)
+	{
+		throw std::bad_alloc();
+	}
+	else if (code == EINVAL)
+	{
+		throw std::invalid_argument("posix memalign invalid align size");
+	}
 	{
 		char *tmp = m_data;
 		m_data = buf;
@@ -144,19 +152,24 @@ void stdx::_Buffer::memalign(size_t align)
 
 void stdx::_Buffer::memalign_and_move(size_t align)
 {
-	char* temp = (char*)stdx::malloc(m_size);
-	if (!temp)
+	
+	char* buf = nullptr;
+	int code = stdx::posix_memalign((void**)&buf, align, m_size);
+	if (code == ENOMEM)
 	{
 		throw std::bad_alloc();
 	}
-	stdx::finally fin([temp]() 
+	else if (code == EINVAL)
 	{
-		stdx::free(temp);
-	});
-	memcpy(temp,m_data,m_size);
-	size_t size = m_size;
-	this->memalign(align);
-	memcpy(m_data, temp, size);
+		throw std::invalid_argument("posix memalign invalid align size");
+	}
+	memcpy(buf,m_data,m_size);
+	{
+		char* tmp = m_data;
+		m_data = buf;
+		buf = tmp;
+	}
+	stdx::free(buf);
 }
 
 stdx::buffer stdx::make_buffer(size_t size)
