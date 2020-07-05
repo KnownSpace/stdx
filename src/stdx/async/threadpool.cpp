@@ -53,6 +53,7 @@ void stdx::_FixedSizeThreadPool::join_as_worker()
 				}
 				catch (const std::exception& err)
 				{
+					DBG_VAR(err);
 					//忽略出现的错误
 #ifdef DEBUG
 					::fprintf(stderr, "[Threadpool]Run task fail: %s\n", err.what());
@@ -98,6 +99,7 @@ void stdx::_FixedSizeThreadPool::add_thread() noexcept
 				}
 				catch (const std::exception& err)
 				{
+					DBG_VAR(err);
 					//忽略出现的错误
 #ifdef DEBUG
 					::fprintf(stderr, "[Threadpool]执行任务的过程中出错,%s\n", err.what());

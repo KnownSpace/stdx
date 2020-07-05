@@ -322,7 +322,7 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 	context_ptr->this_socket = sock;
 	context_ptr->buf = buf;
 	context_ptr->buffer.buf = buf;
-	context_ptr->buffer.len = buf.size();
+	context_ptr->buffer.len = static_cast<ULONG>(buf.size());
 	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
@@ -628,7 +628,7 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 	context_ptr->this_socket = sock;
 	context_ptr->buf = buf;
 	context_ptr->buffer.buf = buf;
-	context_ptr->buffer.len = buf.size();
+	context_ptr->buffer.len = static_cast<ULONG>(buf.size());
 	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
 	SOCKADDR_IN* addr = (SOCKADDR_IN*)stdx::malloc(sizeof(SOCKADDR_IN));
 	if (addr == nullptr)
@@ -990,6 +990,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					}
 					catch (const std::exception &ex)
 					{
+						DBG_VAR(ex);
 #ifdef DEBUG
 						::printf("[NetworkIOService]Callback error: %s\n", ex.what());
 #endif
@@ -997,6 +998,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception &ex)
 				{
+					DBG_VAR(ex);
 #ifdef DEBUG
 					::printf("[NetworkIOServcie]Error: %s\n", ex.what());
 #endif

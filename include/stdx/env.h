@@ -58,8 +58,6 @@ namespace stdx
 #define CRLF "\r\n"
 #endif
 
-
-
 #ifdef WIN32
 #define NEWLINE CRLF
 #else
@@ -78,6 +76,12 @@ namespace stdx
 #define NAME_OF(_Var) #_Var
 
 #define NO_USED(var) (void)var
+
+#ifdef DEBUG
+#define DBG_VAR(var)
+#else
+#define  DBG_VAR(var) NO_USED(var)
+#endif
 
 
 namespace stdx
@@ -172,19 +176,13 @@ namespace stdx
 	template<uint64_t i>
 	struct bin
 	{
-		enum
-		{
-			value = ((bin<i / 10>::value) * 2) + (i % 10)
-		};
+		constexpr static uint64_t value = ((bin<i / 10>::value) * 2) + (i % 10);
 	};
 
 	template<>
 	struct bin<0>
 	{
-		enum
-		{
-			value = 0
-		};
+		constexpr static uint64_t value = 0;
 	};
 }
 
@@ -231,7 +229,13 @@ namespace stdx
 namespace stdx
 {
 	template<uint32_t bytes_count>
-	struct sys_bit;
+	struct sys_bit
+	{
+		enum
+		{
+			bit = byte_count * 8;
+		};
+	};
 
 	template<>
 	struct sys_bit<4>
@@ -285,7 +289,7 @@ namespace stdx
 namespace stdx
 {
 	template<typename _T,typename = typename std::enable_if<std::is_nothrow_move_assignable<_T>::value>::type>
-	void atomic_copy(_T &left,_T &&right) noexcept
+	void copy_by_move(_T &left,_T &&right) noexcept
 	{
 		left = std::move(right);
 	}

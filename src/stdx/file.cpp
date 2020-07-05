@@ -117,7 +117,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 	context->file = file;
 	context->offset = offset;
 	context->buf = buf;
-	context->size = buf.size();
+	context->size = static_cast<DWORD>(buf.size());
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
@@ -145,7 +145,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 		callback(context, nullptr);
 	};
 	context->callback = call;
-	if (!ReadFile(file,(char *)context->buf, context->buf.size(), &(context->size), &(context->m_ol)))
+	if (!ReadFile(file,(char *)context->buf, static_cast<DWORD>(context->buf.size()), &(context->size), &(context->m_ol)))
 	{
 		try
 		{
@@ -499,6 +499,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception &err)
 				{
+					DBG_VAR(err);
 #ifdef DEBUG
 					::printf("[FileIOService]Error: %s\n",err.what());
 #endif
@@ -541,6 +542,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception &ex)
 				{
+					DBG_VAR(ex);
 #ifdef DEBUG
 					::printf("[FileIOService]Callback error: %s\n", ex.what());
 #endif
@@ -904,7 +906,7 @@ stdx::file& stdx::file::operator=(file&& other) noexcept
 stdx::file& stdx::file::operator=(const file & other)
 {
 	stdx::file tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 

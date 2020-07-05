@@ -39,7 +39,7 @@ namespace stdx
 			return get();
 		}
 
-		virtual _Context* get_at(size_t index, size_t timeout_ms)
+		virtual _Context* get_at(size_t index, uint32_t timeout_ms)
 		{
 			NO_USED(index);
 			return get(timeout_ms);
@@ -127,7 +127,7 @@ namespace stdx
 			return m_impl->get_at(index);
 		}
 
-		_Context* get_at(size_t index, size_t timeout_ms)
+		_Context* get_at(size_t index, uint32_t timeout_ms)
 		{
 			return m_impl->get_at(index, timeout_ms);
 		}
@@ -212,7 +212,7 @@ namespace stdx
 			return _GetPoller(index).get();
 		}
 
-		virtual context_t* get_at(size_t index, size_t timeout_ms)
+		virtual context_t* get_at(size_t index, uint32_t timeout_ms)
 		{
 			return _GetPoller(index).get(timeout_ms);
 		}

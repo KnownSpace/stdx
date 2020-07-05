@@ -31,11 +31,6 @@ namespace stdx
 						{ \
 							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
-#define _ThrowWSAError 	auto _ERROR_CODE = WSAGetLastError(); \
-						if(_ERROR_CODE != WSA_IO_PENDING)\
-						{\
-							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()));\
-						}
 #endif
 
 #ifdef LINUX

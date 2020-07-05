@@ -420,7 +420,7 @@ namespace stdx
 		network_send_event& operator=(const network_send_event& other)
 		{
 			stdx::network_send_event tmp(other);
-			stdx::atomic_copy(*this, std::move(tmp));
+			stdx::copy_by_move(*this, std::move(tmp));
 			return *this;
 		}
 
@@ -466,7 +466,7 @@ namespace stdx
 		network_recv_event& operator=(const network_recv_event& other)
 		{
 			stdx::network_recv_event tmp(other);
-			stdx::atomic_copy(*this, std::move(tmp));
+			stdx::copy_by_move(*this, std::move(tmp));
 			return *this;
 		}
 

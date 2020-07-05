@@ -108,7 +108,10 @@ int web_test(int argc, char** argv)
 		stdx::ipv4_addr addr(U("0.0.0.0"), 8080);
 		if (argc != 1)
 		{
-			addr.port(std::stoul(argv[1]));
+			stdx::string port_str = stdx::string::from_native_string(argv[1]);
+			stdx::uint32_union port_union;
+			port_union.value = port_str.to_uint32();
+			addr.port(port_union.low);
 		}
 		s.bind(addr);
 		s.listen(65535);
@@ -145,6 +148,7 @@ int web_test(int argc, char** argv)
 					}
 					catch (const std::exception& e)
 					{
+						NO_USED(e);
 						token.cancel();
 					}
 				});

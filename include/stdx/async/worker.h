@@ -67,6 +67,7 @@ namespace stdx
 				}
 				catch (const std::exception &err)
 				{
+					DBG_VAR(err);
 #ifdef DEBUG
 					::printf("[Worker Thread]Run task fail: %s",err.what());
 #endif

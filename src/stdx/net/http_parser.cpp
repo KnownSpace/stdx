@@ -304,7 +304,7 @@ stdx::http_request_parser::http_request_parser(self_t&& other) noexcept
 typename stdx::http_request_parser::self_t& stdx::http_request_parser::operator=(const self_t& other)
 {
 	stdx::http_request_parser tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 

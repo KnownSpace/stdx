@@ -36,6 +36,7 @@ namespace stdx
 			}
 			catch (const std::exception &err)
 			{
+				DBG_VAR(err);
 #ifdef DEBUG
 				::printf("[Finally]Error: %s",err.what());
 #endif
