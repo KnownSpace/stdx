@@ -233,7 +233,7 @@ namespace stdx
 	{
 		enum
 		{
-			bit = byte_count * 8;
+			bit = bytes_count * 8
 		};
 	};
 
