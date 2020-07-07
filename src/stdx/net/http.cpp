@@ -64,7 +64,7 @@ stdx::http_cookie::http_cookie(stdx::http_cookie&& other) noexcept
 stdx::http_cookie& stdx::http_cookie::operator=(const stdx::http_cookie& other)
 {
 	stdx::http_cookie tmp(other);
-	stdx::atomic_copy(*this,std::move(tmp));
+	stdx::copy_by_move(*this,std::move(tmp));
 	return *this;
 }
 
@@ -577,7 +577,7 @@ stdx::http_header::http_header(stdx::http_header&& other) noexcept
 stdx::http_header& stdx::http_header::operator=(const stdx::http_header &other)
 {
 	stdx::http_header tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -1221,7 +1221,7 @@ stdx::http_request_header::http_request_header(stdx::http_request_header&& other
 stdx::http_request_header& stdx::http_request_header::operator=(const stdx::http_request_header &other)
 {
 	stdx::http_request_header tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -1380,7 +1380,7 @@ stdx::http_response_header::http_response_header(stdx::http_response_header&& ot
 stdx::http_response_header& stdx::http_response_header::operator=(const stdx::http_response_header& other)
 {
 	stdx::http_response_header tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -1505,7 +1505,7 @@ stdx::http_parameter::http_parameter(stdx::http_parameter&& other) noexcept
 stdx::http_parameter& stdx::http_parameter::operator=(const stdx::http_parameter& other)
 {
 	stdx::http_parameter tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -1815,7 +1815,7 @@ stdx::http_multipart_form::http_multipart_form(self_t&& other) noexcept
 stdx::http_multipart_form::self_t& stdx::http_multipart_form::operator=(const self_t& other)
 {
 	self_t tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -2169,7 +2169,7 @@ stdx::http_request::http_request(stdx::http_method method, stdx::string url)
 stdx::http_request& stdx::http_request::operator=(const stdx::http_request & other)
 {
 	stdx::http_request tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -3050,7 +3050,7 @@ stdx::http_response::http_response(stdx::http_status_code_t status_code)
 stdx::http_response& stdx::http_response::operator=(const stdx::http_response& other)
 {
 	stdx::http_response tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 

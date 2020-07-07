@@ -117,7 +117,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 	context->file = file;
 	context->offset = offset;
 	context->buf = buf;
-	context->size = buf.size();
+	context->size = static_cast<DWORD>(buf.size());
 	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
 	if (call == nullptr)
 	{
@@ -145,7 +145,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 		callback(context, nullptr);
 	};
 	context->callback = call;
-	if (!ReadFile(file,(char *)context->buf, context->buf.size(), &(context->size), &(context->m_ol)))
+	if (!ReadFile(file,(char *)context->buf, static_cast<DWORD>(context->buf.size()), &(context->size), &(context->m_ol)))
 	{
 		try
 		{
@@ -488,7 +488,7 @@ uint64_t stdx::_FileIOService::get_file_size(stdx::native_file_handle file) cons
 void stdx::_FileIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
+	for (uint32_t i = 0, cores = GET_CPU_CORES(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[](poller_t poller)
 			{
@@ -499,6 +499,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception &err)
 				{
+					DBG_VAR(err);
 #ifdef DEBUG
 					::printf("[FileIOService]Error: %s\n",err.what());
 #endif
@@ -541,6 +542,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception &ex)
 				{
+					DBG_VAR(ex);
 #ifdef DEBUG
 					::printf("[FileIOService]Callback error: %s\n", ex.what());
 #endif
@@ -550,7 +552,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 #else
 #ifdef STDX_USE_NATIVE_AIO
 	//Native AIO
-	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
+	for (uint32_t i = 0, cores = GET_CPU_CORES(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token, [](poller_t poller)
 			{
@@ -586,7 +588,7 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 	}
 #else
 	//Buffered IO
-	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
+	for (uint32_t i = 0, cores = GET_CPU_CORES(); i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token, [](poller_t poller)
 		{
@@ -598,12 +600,10 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			ssize_t r = 0;
 			if (context->op_code == stdx::file_bio_op_code::write)
 			{
-				//pwrite
 				r = ::pwrite(context->file, (char*)context->buf, context->size, context->offset);
 			}
 			else if (context->op_code == stdx::file_bio_op_code::read)
 			{
-				//pread
 				r = ::pread(context->file, (char*)context->buf, context->buf.size(), context->offset);
 				if (r == 0)
 				{
@@ -904,7 +904,7 @@ stdx::file& stdx::file::operator=(file&& other) noexcept
 stdx::file& stdx::file::operator=(const file & other)
 {
 	stdx::file tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 

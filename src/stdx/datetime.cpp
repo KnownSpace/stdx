@@ -9,11 +9,6 @@
 						{ \
 							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); \
 						}
-#define _ThrowWSAError 	auto _ERROR_CODE = WSAGetLastError(); \
-						if(_ERROR_CODE != WSA_IO_PENDING)\
-						{\
-							throw std::system_error(std::error_code(_ERROR_CODE,std::system_category()));\
-						}
 #else
 #define _ThrowLinuxError auto _ERROR_CODE = errno;\
 						 throw std::system_error(std::error_code(_ERROR_CODE,std::system_category())); 
@@ -62,7 +57,7 @@ stdx::datetime::datetime(const tm& t)
 stdx::datetime& stdx::datetime::operator=(const stdx::datetime& other)
 {
 	stdx::datetime tmp(other);
-	stdx::atomic_copy(*this, std::move(tmp));
+	stdx::copy_by_move(*this, std::move(tmp));
 	return *this;
 }
 
@@ -931,3 +926,9 @@ uint64_t stdx::get_tick_count()
 	return (ts.tv_sec * 1000 + ts.tv_nsec/1000000);
 #endif
 }
+
+#ifdef WIN32
+#undef _ThrowWinError
+#else
+#undef _ThrowLinuxError
+#endif

@@ -824,6 +824,7 @@ namespace stdx
 			}
 			catch (const std::exception& err)
 			{
+				DBG_VAR(err);
 #ifdef DEBUG
 				::printf("[Task Model]发生未处理的异常:%s", err.what());
 #endif // DEBUG

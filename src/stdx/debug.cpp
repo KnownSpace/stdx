@@ -18,7 +18,7 @@ stdx::debug_tracker::debug_tracker(self_t&& other) noexcept
 typename stdx::debug_tracker::self_t& stdx::debug_tracker::operator=(const self_t & other)
 {
 	stdx::debug_tracker tmp(other);
-	stdx::atomic_copy(*this,std::move(tmp));
+	stdx::copy_by_move(*this,std::move(tmp));
 	return *this;
 }
 

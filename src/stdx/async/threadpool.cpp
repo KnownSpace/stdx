@@ -2,7 +2,7 @@
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
 
-stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(cpu_cores());
+stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(GET_CPU_CORES());
 
 //构造函数
 stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
@@ -53,6 +53,7 @@ void stdx::_FixedSizeThreadPool::join_as_worker()
 				}
 				catch (const std::exception& err)
 				{
+					DBG_VAR(err);
 					//忽略出现的错误
 #ifdef DEBUG
 					::fprintf(stderr, "[Threadpool]Run task fail: %s\n", err.what());
@@ -98,6 +99,7 @@ void stdx::_FixedSizeThreadPool::add_thread() noexcept
 				}
 				catch (const std::exception& err)
 				{
+					DBG_VAR(err);
 					//忽略出现的错误
 #ifdef DEBUG
 					::fprintf(stderr, "[Threadpool]执行任务的过程中出错,%s\n", err.what());

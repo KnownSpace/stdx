@@ -326,4 +326,9 @@ namespace stdx
 		tls.init();
 		return tls;
 	}
+#ifdef WIN32
+#undef _ThrowWinError
+#else
+#undef  _ThrowLinuxError
+#endif
 }
