@@ -123,7 +123,9 @@ bool handle_request_counter(stdx::http_connection conn, stdx::http_request req,s
 int web_test(int argc, char** argv)
 {
 	stdx::file_io_service file_io_service;
+	//build io service
 	stdx::network_io_service service;
+	//open socket
 	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
 	try
 	{
@@ -135,7 +137,9 @@ int web_test(int argc, char** argv)
 			port_union.value = port_str.to_uint32();
 			addr.port(port_union.low);
 		}
+		//bind address
 		s.bind(addr);
+		//listen
 		s.listen(65535);
 		stdx::printf(U("Listen: {0}:{1}\n"), addr.ip(), addr.port());
 	}
@@ -149,18 +153,23 @@ int web_test(int argc, char** argv)
 	stdx::logger logger = stdx::make_default_logger();
 	stdx::cancel_token accept_token;
 	std::shared_ptr<std::atomic_size_t> counter = std::make_shared<std::atomic_size_t>(0);
+	//持续accept
 	s.accept_until(accept_token, [file_io_service, logger,counter](stdx::network_connected_event ev)  mutable
 		{
+			//获取于客户端的连接
 			stdx::http_connection conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
 			stdx::cancel_token token;
+			//持续read
 			conn.read_until(token, [token, conn, file_io_service,counter](stdx::http_request req) mutable
 				{
-					
+					//处理请求
 					if (!handle_request_hello(conn, req))
 					{
 						token.cancel();
 					}
-				}, [token, logger, conn](std::exception_ptr err) mutable
+				}, 
+				//错误处理相关
+				[token, logger, conn](std::exception_ptr err) mutable
 				{
 					conn.close();
 					try
@@ -177,6 +186,7 @@ int web_test(int argc, char** argv)
 					}
 				});
 		},
+		//错误处理相关
 		[accept_token](std::exception_ptr error) mutable
 		{
 			stdx::printf(U("监听关闭\n"));

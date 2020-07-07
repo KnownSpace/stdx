@@ -600,12 +600,10 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 			ssize_t r = 0;
 			if (context->op_code == stdx::file_bio_op_code::write)
 			{
-				//pwrite
 				r = ::pwrite(context->file, (char*)context->buf, context->size, context->offset);
 			}
 			else if (context->op_code == stdx::file_bio_op_code::read)
 			{
-				//pread
 				r = ::pread(context->file, (char*)context->buf, context->buf.size(), context->offset);
 				if (r == 0)
 				{
