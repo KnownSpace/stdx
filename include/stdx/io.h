@@ -9,7 +9,7 @@
 #include <stdx/poller.h>
 #include <stdx/async/callback_flag.h>
 
-#define STDX_IO_LOOP_NUM() cpu_cores()*2
+#define STDX_IO_LOOP_NUM() GET_CPU_CORES()*2
 
 namespace stdx
 {
@@ -64,7 +64,7 @@ namespace stdx
 
 		virtual void bind(const HANDLE& file_handle) override
 		{
-			if (CreateIoCompletionPort(file_handle, m_iocp, (ULONG_PTR)file_handle, cpu_cores() * 2 + 2) == NULL)
+			if (CreateIoCompletionPort(file_handle, m_iocp, (ULONG_PTR)file_handle, GET_CPU_CORES() * 2 + 2) == NULL)
 			{
 				_ThrowWinError
 			}
@@ -455,6 +455,7 @@ namespace stdx
 			, m_tasks()
 			, m_completions()
 			, m_wokeup(false)
+			, m_events_buf(16)
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in | stdx::epoll_events::et;
@@ -475,13 +476,16 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[16];
-			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
+			int r = m_epoll.wait(m_events_buf.data(),m_events_buf.size(), -1);
 			if (r > 0)
 			{
 				for (int i = 0; i < r; i++)
 				{
-					_HandleEv(ev[i]);
+					_HandleEv(m_events_buf[i]);
+				}
+				if (r == m_events_buf.size())
+				{
+					m_events_buf.reserve(m_events_buf.size() * 2);
 				}
 				cont = _CheckCompletions();
 			}
@@ -495,15 +499,18 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[16];
-			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
+			int r = m_epoll.wait(m_events_buf.data(),m_events_buf.size(), timeout_ms);
 			if (r < 0)
 			{
 				return nullptr;
 			}
 			for (int i = 0; i < r; i++)
 			{
-				_HandleEv(ev[i]);
+				_HandleEv(m_events_buf[i]);
+			}
+			if (r == m_events_buf.size())
+			{
+				m_events_buf.reserve(m_events_buf.size() * 2);
 			}
 			cont = _CheckCompletions();
 			return cont;
@@ -546,6 +553,7 @@ namespace stdx
 								ev.ready_in = false;
 							}
 							ev.in_contexts.push_back(p);
+							ev.model.ev.events |= stdx::epoll_events::in;
 							_ResetFd(ev);
 							return;
 						}
@@ -569,6 +577,7 @@ namespace stdx
 							return;
 						}
 						ev.out_contexts.push_back(p);
+						ev.model.ev.events |= stdx::epoll_events::out;
 						_ResetFd(ev);
 						return;
 					}
@@ -697,7 +706,6 @@ namespace stdx
 		{
 			int fd = ev.data.fd;
 			stdx::epoll_context_list<_IOContext>& ev_ = m_map[fd];
-			//handle in event
 			if (ev.events & stdx::epoll_events::in)
 			{
 				if (!ev_.in_contexts.empty())
@@ -850,6 +858,7 @@ namespace stdx
 		std::list<task_t> m_tasks;
 		std::list<_IOContext*> m_completions;
 		bool m_wokeup;
+		std::vector<epoll_event> m_events_buf;
 	};
 
 	template<typename _IOContext>

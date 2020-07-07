@@ -98,6 +98,28 @@ bool handle_request_hello(stdx::http_connection conn, stdx::http_request req)
 	return keep;
 }
 
+
+
+bool handle_request_counter(stdx::http_connection conn, stdx::http_request req,std::shared_ptr<std::atomic_size_t> counter)
+{
+
+	bool keep = req.request_header().is_keepalive();
+	stdx::http_response response(200);
+	add_keepalive(response, keep);
+	response.response_body().push(U("Hello World"));
+	auto t = conn.write(response)
+		.then([conn, keep,counter](stdx::task_result<size_t> r)mutable
+			{
+				if (!keep)
+				{
+					conn.close();
+				}
+				size_t num =  counter->fetch_add(1);
+				::printf("%zu\n",num);
+			});
+	return keep;
+}
+
 int web_test(int argc, char** argv)
 {
 	stdx::file_io_service file_io_service;
@@ -126,12 +148,14 @@ int web_test(int argc, char** argv)
 	uint32_t num = 0;
 	stdx::logger logger = stdx::make_default_logger();
 	stdx::cancel_token accept_token;
-	s.accept_until(accept_token, [file_io_service, logger](stdx::network_connected_event ev)  mutable
+	std::shared_ptr<std::atomic_size_t> counter = std::make_shared<std::atomic_size_t>(0);
+	s.accept_until(accept_token, [file_io_service, logger,counter](stdx::network_connected_event ev)  mutable
 		{
 			stdx::http_connection conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
 			stdx::cancel_token token;
-			conn.read_until(token, [token, conn, file_io_service](stdx::http_request req) mutable
+			conn.read_until(token, [token, conn, file_io_service,counter](stdx::http_request req) mutable
 				{
+					
 					if (!handle_request_hello(conn, req))
 					{
 						token.cancel();

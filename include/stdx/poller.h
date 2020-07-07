@@ -161,7 +161,6 @@ namespace stdx
 			,m_pollers()
 			,m_pos(num_of_poller)
 		{
-			//m_pos.set(-1);
 			m_pollers.reserve(num_of_poller);
 			for (size_t i = 0; i < num_of_poller; ++i)
 			{

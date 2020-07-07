@@ -1008,7 +1008,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 #else
 	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
 	{
-		m_thread_pool.long_loop(m_token,[i](stdx::io_poller<stdx::network_io_context> poller)
+		m_thread_pool.long_loop(m_token,[i](stdx::io_poller<stdx::network_io_context> poller) mutable
 			{
 				try
 				{

@@ -8,7 +8,7 @@
 #include <stdx/async/cancel_token.h>
 #include <stdx/async/worker.h>
 
-#define cpu_cores() std::thread::hardware_concurrency()
+#define GET_CPU_CORES() std::thread::hardware_concurrency()
 
 #ifndef STDX_LAZY_MAX_TIME
 #define STDX_LAZY_MAX_TIME 56

@@ -2,7 +2,7 @@
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
 
-stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(cpu_cores());
+stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(GET_CPU_CORES());
 
 //构造函数
 stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
