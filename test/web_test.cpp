@@ -1,4 +1,4 @@
-#include "web_test.h"
+ï»¿#include "web_test.h"
 
 void add_keepalive(stdx::http_response& res, bool keep)
 {
@@ -43,7 +43,7 @@ bool handle_request(stdx::http_connection conn, stdx::http_request req, stdx::fi
 					}
 					catch (const std::exception& err)
 					{
-						stdx::perrorf(U("ÇëÇó´¦Àí³ö´í:{0}\n"), err.what());
+						stdx::perrorf(U("è¯·æ±‚å¤„ç†å‡ºé”™:{0}\n"), err.what());
 						stdx::http_response response(502);
 						response.response_header().add_header(U("Content-Type"), U("text/html"));
 						stdx::string body = U("<html><body><h1>Server Unavailable</h1></body></html>");
@@ -153,22 +153,22 @@ int web_test(int argc, char** argv)
 	stdx::logger logger = stdx::make_default_logger();
 	stdx::cancel_token accept_token;
 	std::shared_ptr<std::atomic_size_t> counter = std::make_shared<std::atomic_size_t>(0);
-	//³ÖĞøaccept
+	//æŒç»­accept
 	s.accept_until(accept_token, [file_io_service, logger,counter](stdx::network_connected_event ev)  mutable
 		{
-			//»ñÈ¡ÓÚ¿Í»§¶ËµÄÁ¬½Ó
+			//è·å–äºå®¢æˆ·ç«¯çš„è¿æ¥
 			stdx::http_connection conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
 			stdx::cancel_token token;
-			//³ÖĞøread
+			//æŒç»­read
 			conn.read_until(token, [token, conn, file_io_service,counter](stdx::http_request req) mutable
 				{
-					//´¦ÀíÇëÇó
+					//å¤„ç†è¯·æ±‚
 					if (!handle_request_hello(conn, req))
 					{
 						token.cancel();
 					}
 				}, 
-				//´íÎó´¦ÀíÏà¹Ø
+				//é”™è¯¯å¤„ç†ç›¸å…³
 				[token, logger, conn](std::exception_ptr err) mutable
 				{
 					conn.close();
@@ -186,11 +186,11 @@ int web_test(int argc, char** argv)
 					}
 				});
 		},
-		//´íÎó´¦ÀíÏà¹Ø
+		//é”™è¯¯å¤„ç†ç›¸å…³
 		[accept_token](std::exception_ptr error) mutable
 		{
-			stdx::printf(U("¼àÌı¹Ø±Õ\n"));
-			accept_token.cancel();
+			//stdx::printf(U("Stop Accepting\n"));
+			//accept_token.cancel();
 			try
 			{
 				if (error)
@@ -200,7 +200,7 @@ int web_test(int argc, char** argv)
 			}
 			catch (const std::exception& err)
 			{
-				stdx::perrorf(U("Accept Error:{0}"), err.what());
+				stdx::perrorf(U("Accept Error:{0}\n"), err.what());
 			}
 		});
 	stdx::threadpool.join_as_worker();

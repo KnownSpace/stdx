@@ -40,7 +40,7 @@ stdx::_FileIOService::_FileIOService()
 #endif
 #endif
 	,m_token()
-	,m_thread_pool(stdx::make_fixed_size_thread_pool(STDX_IO_LOOP_NUM()))
+	,m_thread_pool(stdx::make_fixed_size_thread_pool(GET_CPU_CORES()))
 {
 	init_threadpoll();
 }
@@ -49,12 +49,10 @@ stdx::_FileIOService::_FileIOService()
 stdx::_FileIOService::~_FileIOService()
 {
 	m_token.cancel();
-#ifdef WIN32
-	for (uint32_t i = 0, size = STDX_IO_LOOP_NUM(); i < size; i++)
+	for (uint32_t i = 0, size = GET_CPU_CORES(); i < size; i++)
 	{
 		m_poller.post(nullptr);
 	}
-#endif
 }
 
 #ifdef WIN32

@@ -43,11 +43,33 @@ LPFN_GETACCEPTEXSOCKADDRS stdx::_NetworkIOService::m_get_addr_ex = nullptr;
 std::once_flag stdx::_NetworkIOService::m_once_flag;
 #endif
 
+#ifdef LINUX
+thread_local int stdx::_NetworkIOService::m_null_fd = -1;
+
+thread_local bool stdx::_NetworkIOService::m_init_null_fd = false;
+
+int stdx::_NetworkIOService::open_null_fd()
+{
+	return ::open("/dev/null", O_RDONLY | O_CLOEXEC);
+}
+
+void stdx::_NetworkIOService::init_null_fd()
+{
+	if (!stdx::_NetworkIOService::m_init_null_fd)
+	{
+		stdx::_NetworkIOService::m_init_null_fd = true;
+		stdx::_NetworkIOService::m_null_fd = stdx::_NetworkIOService::open_null_fd();
+	}
+}
+
+#endif
+
+
 stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
 #else
-	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(STDX_IO_LOOP_NUM(),[](stdx::network_io_context* context)
+	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(GET_CPU_CORES()*2,[](stdx::network_io_context* context)
 		{
 			_Clean(context);
 		}, [](stdx::network_io_context* context)
@@ -62,7 +84,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 		}))
 #endif
 	, m_token()
-	, m_thread_pool(stdx::make_fixed_size_thread_pool(STDX_IO_LOOP_NUM()))
+	, m_thread_pool(stdx::make_fixed_size_thread_pool(GET_CPU_CORES()*2))
 {
 	init_threadpoll();
 }
@@ -70,12 +92,10 @@ stdx::_NetworkIOService::_NetworkIOService()
 stdx::_NetworkIOService::~_NetworkIOService()
 {
 	m_token.cancel();
-#ifdef WIN32
-	for (uint32_t i = 0, size = STDX_IO_LOOP_NUM(); i < size; i++)
+	for (uint32_t i = 0, size = GET_CPU_CORES()*2; i < size; i++)
 	{
 		m_poller.post(nullptr);
 	}
-#endif
 }
 
 #ifdef WIN32
@@ -940,7 +960,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
+	for (uint32_t i = 0, cores = GET_CPU_CORES()*2; i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
@@ -1006,7 +1026,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 			}, m_poller);
 	}
 #else
-	for (uint32_t i = 0, cores = STDX_IO_LOOP_NUM(); i < cores; i++)
+	for (uint32_t i = 0, cores = GET_CPU_CORES()*2; i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[i](stdx::io_poller<stdx::network_io_context> poller) mutable
 			{
@@ -1122,6 +1142,17 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
 			return false;
+		}
+		else if(errno == EMFILE)
+		{
+			//Too may files open
+			stdx::_NetworkIOService::init_null_fd();
+			::close(stdx::_NetworkIOService::m_null_fd);
+			stdx::_NetworkIOService::m_null_fd = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK | SOCK_CLOEXEC);
+			::close(stdx::_NetworkIOService::m_null_fd);
+			stdx::_NetworkIOService::m_null_fd = stdx::_NetworkIOService::open_null_fd();
+			context->target_socket = -1;
+			r = -1;
 		}
 		else
 		{

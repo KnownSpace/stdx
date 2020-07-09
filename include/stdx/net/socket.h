@@ -640,6 +640,16 @@ namespace stdx
 		void init_threadpoll() noexcept;
 
 		stdx::thread_pool m_thread_pool;
+
+#ifdef LINUX
+		static thread_local int m_null_fd;
+
+		static thread_local bool m_init_null_fd;
+
+		static int open_null_fd();
+
+		static void init_null_fd();
+#endif
 	};
 
 	class network_io_service
