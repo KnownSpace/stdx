@@ -49,10 +49,14 @@ stdx::_FileIOService::_FileIOService()
 stdx::_FileIOService::~_FileIOService()
 {
 	m_token.cancel();
+#ifdef WIN32
 	for (uint32_t i = 0, size = GET_CPU_CORES(); i < size; i++)
 	{
-		m_poller.post(nullptr);
+		m_poller.notice();
 	}
+#else
+	m_poller.notice();
+#endif
 }
 
 #ifdef WIN32

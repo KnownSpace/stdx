@@ -1,6 +1,8 @@
 ﻿#include <stdx/net/socket.h>
 #include <stdx/finally.h>
+
 #ifdef WIN32
+#include <Mstcpip.h>
 #define _ThrowWinError auto _ERROR_CODE = GetLastError(); \
 						if(_ERROR_CODE != ERROR_IO_PENDING) \
 						{ \
@@ -41,6 +43,7 @@ stdx::_WSAStarter stdx::_wsastarter;
 LPFN_ACCEPTEX stdx::_NetworkIOService::m_accept_ex = nullptr;
 LPFN_GETACCEPTEXSOCKADDRS stdx::_NetworkIOService::m_get_addr_ex = nullptr;
 std::once_flag stdx::_NetworkIOService::m_once_flag;
+LPFN_CONNECTEX stdx::_NetworkIOService::m_connect_ex = nullptr;
 #endif
 
 #ifdef LINUX
@@ -92,25 +95,70 @@ stdx::_NetworkIOService::_NetworkIOService()
 stdx::_NetworkIOService::~_NetworkIOService()
 {
 	m_token.cancel();
-	for (uint32_t i = 0, size = GET_CPU_CORES()*2; i < size; i++)
+#ifdef WIN32
+	for (uint32_t i = 0, size = GET_CPU_CORES() * 2; i < size; i++)
 	{
-		m_poller.post(nullptr);
+		m_poller.notice();
 	}
+#else
+	m_poller.notice();
+#endif
 }
 
 #ifdef WIN32
-void stdx::_NetworkIOService::_InitAcceptEx(SOCKET s)
+
+void stdx::_NetworkIOService::_GetAcceptEx(SOCKET s, LPFN_ACCEPTEX* ptr)
+{
+	GUID id = WSAID_ACCEPTEX;
+	DWORD buf;
+	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_ACCEPTEX), &buf, NULL, NULL) == SOCKET_ERROR)
+	{
+		_ThrowWSAError
+	}
+}
+
+void stdx::_NetworkIOService::_GetAcceptExSockaddr(SOCKET s, LPFN_GETACCEPTEXSOCKADDRS* ptr)
+{
+	GUID id = WSAID_GETACCEPTEXSOCKADDRS;
+	DWORD buf;
+	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_GETACCEPTEXSOCKADDRS), &buf, NULL, NULL) == SOCKET_ERROR)
+	{
+		_ThrowWSAError
+	}
+}
+
+void stdx::_NetworkIOService::_GetConnectEx(socket_t s, LPFN_CONNECTEX* ptr)
+{
+	GUID id = WSAID_CONNECTEX;
+	DWORD buf;
+	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_CONNECTEX), &buf, NULL, NULL) == SOCKET_ERROR)
+	{
+		_ThrowWSAError
+	}
+}
+
+void stdx::_NetworkIOService::_InitExFn(SOCKET s)
 {
 	std::call_once(m_once_flag, [s]() mutable
 	{
 #ifdef DEBUG
-		::printf("[Network IO Service]Initzate AcceptEx\n");
-#endif // DEBUG
+		::printf("[Network IO Service]Initzating Ex Function\n");
+#endif
 		_GetAcceptEx(s, &m_accept_ex);
 		_GetAcceptExSockaddr(s, &m_get_addr_ex);
-
+		_GetConnectEx(s, &m_connect_ex);
 	});
 }
+
+void stdx::_NetworkIOService::_SetLoopBackFastPath(socket_t s)
+{
+	BOOL value = TRUE;
+	DWORD ret = 1;
+	int r = ::WSAIoctl(s, SIO_LOOPBACK_FAST_PATH, &value, sizeof(BOOL),NULL, 0,&ret, NULL, NULL);
+	DBG_VAR(r);
+	return;
+}
+
 #endif // WIN32
 
 typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socket(const int& addr_family, const int& sock_type, const int& protocol)
@@ -125,6 +173,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 	{
 		_ThrowWSAError
 	}
+	_SetLoopBackFastPath(sock);
 	m_poller.bind((HANDLE)sock);
 #else
 	if (sock == -1)
@@ -132,6 +181,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 		_ThrowLinuxError
 	}
 	_SetReuseAddr(sock);
+	_SetNonBlocking(sock);
 	m_poller.bind(sock);
 #endif
 	return sock;
@@ -145,6 +195,7 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int& addr_family, const i
 	{
 		_ThrowWSAError
 	}
+	_SetLoopBackFastPath(sock);
 	m_poller.bind((HANDLE)sock);
 	return sock;
 }
@@ -439,69 +490,6 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 #endif
 }
 
-void stdx::_NetworkIOService::connect(socket_t sock,  stdx::ipv4_addr& addr)
-{
-#ifdef WIN32
-	if (WSAConnect(sock, addr, ipv4_addr::addr_len, NULL, NULL, NULL, NULL) == SOCKET_ERROR)
-	{
-		_ThrowWSAError
-	}
-#else
-	if (::connect(sock, addr, ipv4_addr::addr_len) == -1)
-	{
-		_ThrowLinuxError
-	}
-#endif 
-}
-
-#ifdef WIN32
-typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::accept(socket_t sock)
-{
-#ifdef WIN32
-	SOCKET s = WSAAccept(sock, NULL, 0, NULL, NULL);
-	if (s == INVALID_SOCKET)
-	{
-		_ThrowWSAError
-	}
-	m_poller.bind((HANDLE)s);
-	return s;
-#else
-	socklen_t len = ipv4_addr::addr_len;
-	ipv4_addr addr;
-	int new_sock = ::accept(sock, (sockaddr*)addr, &len);
-	if (new_sock == -1)
-	{
-		_ThrowLinuxError
-	}
-	m_poller.bind(new_sock);
-	return new_sock;
-#endif
-}
-
-typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::accept(socket_t sock, ipv4_addr& addr)
-{
-#ifdef WIN32
-	int size = ipv4_addr::addr_len;
-	SOCKET s = WSAAccept(sock, addr, &size, NULL, NULL);
-	if (s == INVALID_SOCKET)
-	{
-		_ThrowWSAError
-	}
-	m_poller.bind((HANDLE)s);
-	return s;
-#else
-	socklen_t len = ipv4_addr::addr_len;
-	int new_sock = ::accept(sock, (sockaddr*)addr, &len);
-	if (new_sock == -1)
-	{
-		_ThrowLinuxError
-	}
-	m_poller.bind(new_sock);
-	return new_sock;
-#endif
-}
-#endif
-
 void stdx::_NetworkIOService::listen(socket_t sock, int backlog)
 {
 #ifdef WIN32
@@ -514,7 +502,6 @@ void stdx::_NetworkIOService::listen(socket_t sock, int backlog)
 	{
 		_ThrowLinuxError
 	}
-	_SetNonBlocking(sock);
 #endif
 }
 
@@ -837,7 +824,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 #ifdef WIN32
 	try
 	{
-		_InitAcceptEx(sock);
+		_InitExFn(sock);
 	}
 	catch (const std::exception&)
 	{
@@ -953,6 +940,109 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		delete call;
 		delete context;
 		callback(stdx::network_accept_event(), std::current_exception());
+	}
+#endif
+}
+
+void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std::function<void(std::exception_ptr)> callback)
+{
+#ifdef WIN32
+	try
+	{
+		_InitExFn(sock);
+	}
+	catch (const std::exception&)
+	{
+		callback(std::current_exception());
+		return;
+	}
+	network_io_context *context_ptr = new network_io_context;
+	if (context_ptr == nullptr)
+	{
+		callback(std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
+	context_ptr->callback = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
+	if (context_ptr->callback == nullptr)
+	{
+		delete context_ptr;
+		callback(std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
+	*(context_ptr->callback) = [callback](stdx::network_io_context* context, std::exception_ptr err)
+	{
+		stdx::finally fin([context]()
+			{
+				delete context;
+			});
+		callback(err);
+	};
+	try
+	{
+		BOOL r =  m_connect_ex(sock, addr, addr.addr_len, NULL, 0, NULL,&(context_ptr->m_ol));
+		if (r == FALSE)
+		{
+			_ThrowWSAError
+		}
+	}
+	catch (const std::exception &)
+	{
+		delete context_ptr->callback;
+		delete context_ptr;
+		callback(std::current_exception());
+	}
+#else
+	
+	int r = ::connect(sock, addr, addr.addr_len);
+	if (r == 0)
+	{
+		callback(nullptr);
+		return;
+	}
+	if (errno != EINPROGRESS)
+	{
+		try
+		{
+			_ThrowLinuxError
+		}
+		catch (const std::exception&)
+		{
+			callback(std::current_exception());
+		}
+		return;
+	}
+	network_io_context* context_ptr = new network_io_context;
+	context_ptr->code = stdx::network_io_context_code::connect;
+	context_ptr->this_socket = sock;
+	if (context_ptr == nullptr)
+	{
+		callback(std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
+	context_ptr->callback = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
+	if (context_ptr->callback == nullptr)
+	{
+		delete context_ptr;
+		callback(std::make_exception_ptr(std::bad_alloc()));
+		return;
+	}
+	*(context_ptr->callback) = [callback](stdx::network_io_context* context, std::exception_ptr err)
+	{
+		stdx::finally fin([context]()
+			{
+				delete context;
+			});
+		callback(err);
+	};
+	try
+	{
+		m_poller.post(context_ptr);
+	}
+	catch (const std::exception&)
+	{
+		delete context_ptr->callback;
+		delete context_ptr;
+		callback(std::current_exception());
 	}
 #endif
 }
@@ -1212,6 +1302,10 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 		r = ::sendfile(context->this_socket, context->target_socket, &off, context->send_size);
 		context->send_offset = off;
 	}
+	else if (context->code == stdx::network_io_context_code::connect)
+	{
+		r = 1;
+	}
 	if (r < 0)
 	{
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
@@ -1466,6 +1560,25 @@ void stdx::_Socket::close()
 #endif
 }
 
+stdx::task<void> stdx::_Socket::connect(ipv4_addr& addr)
+{
+	stdx::task_completion_event<void> ce;
+	m_io_service.connect_ex(m_handle, addr, [ce](std::exception_ptr err) mutable
+	{
+		if (err)
+		{
+			ce.set_exception(err);
+		}
+		else
+		{
+			ce.set_value();
+		}
+		ce.run_on_this_thread();
+	});
+	auto task = ce.get_task();
+	return task;
+}
+
 typename stdx::_Socket::io_service_t stdx::_Socket::get_io_service() const
 {
 	return m_io_service;
@@ -1551,36 +1664,6 @@ stdx::socket stdx::open_tcpsocket(const stdx::network_io_service& io_service)
 stdx::socket stdx::open_udpsocket(const stdx::network_io_service& io_service)
 {
 	return stdx::open_socket(io_service, stdx::addr_family::ip, stdx::socket_type::dgram, stdx::protocol::udp);
-}
-
-stdx::socket stdx::connect_to(const stdx::network_io_service& io_service,stdx::ipv4_addr& addr)
-{
-	stdx::socket sock = stdx::open_tcpsocket(io_service);
-	sock.connect(addr);
-	return sock;
-}
-
-stdx::socket stdx::connect_to(const stdx::network_io_service& io_service, stdx::ipv4_addr&& addr)
-{
-	stdx::socket sock = stdx::open_tcpsocket(io_service);
-	sock.connect(addr);
-	return sock;
-}
-
-stdx::socket stdx::listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr& addr)
-{
-	stdx::socket sock = stdx::open_tcpsocket(io_service);
-	sock.bind(addr);
-	sock.listen(65535);
-	return sock;
-}
-
-stdx::socket stdx::listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr&& addr)
-{
-	stdx::socket sock = stdx::open_tcpsocket(io_service);
-	sock.bind(addr);
-	sock.listen(65535);
-	return sock;
 }
 #endif
 

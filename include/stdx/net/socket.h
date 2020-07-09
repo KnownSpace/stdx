@@ -561,14 +561,6 @@ namespace stdx
 		//接收数据
 		void recv(socket_t sock, stdx::buffer buf, std::function<void(network_recv_event, std::exception_ptr)> callback);
 
-		void connect(socket_t sock, stdx::ipv4_addr& addr);
-
-#ifdef WIN32
-		socket_t accept(socket_t sock, ipv4_addr& addr);
-
-		socket_t accept(socket_t sock);
-#endif // WIN32
-
 		void listen(socket_t sock, int backlog);
 
 		void bind(socket_t sock, ipv4_addr& addr);
@@ -584,33 +576,24 @@ namespace stdx
 		ipv4_addr get_remote_addr(socket_t sock) const;
 #ifdef WIN32
 
-		static void _GetAcceptEx(SOCKET s, LPFN_ACCEPTEX *ptr)
-		{
-			GUID id = WSAID_ACCEPTEX;
-			DWORD buf;
-			if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_ACCEPTEX), &buf, NULL, NULL)==SOCKET_ERROR)
-			{
-				_ThrowWSAError
-			}
-		}
+		static void _GetAcceptEx(SOCKET s, LPFN_ACCEPTEX *ptr);
 
-		static void _GetAcceptExSockaddr(SOCKET s, LPFN_GETACCEPTEXSOCKADDRS *ptr)
-		{
-			GUID id = WSAID_GETACCEPTEXSOCKADDRS;
-			DWORD buf;
-			if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &id, sizeof(id), ptr, sizeof(LPFN_GETACCEPTEXSOCKADDRS), &buf, NULL, NULL)==SOCKET_ERROR)
-			{
-				_ThrowWSAError
-			}
-		}
+		static void _GetAcceptExSockaddr(SOCKET s, LPFN_GETACCEPTEXSOCKADDRS *ptr);
 
-		void _InitAcceptEx(SOCKET s);
+		static void _GetConnectEx(socket_t s,LPFN_CONNECTEX *ptr);
+
+		void _InitExFn(SOCKET s);
+
+		void _SetLoopBackFastPath(socket_t s);
 #endif
 		void accept_ex(socket_t sock, std::function<void(network_accept_event, std::exception_ptr)> callback);
+
+		void connect_ex(socket_t sock,stdx::ipv4_addr addr,std::function<void(std::exception_ptr)> callback);
 #ifdef WIN32
 	public:
 		static LPFN_ACCEPTEX m_accept_ex;
 		static LPFN_GETACCEPTEXSOCKADDRS m_get_addr_ex;
+		static LPFN_CONNECTEX m_connect_ex;
 		static std::once_flag m_once_flag;
 #endif
 
@@ -702,27 +685,15 @@ namespace stdx
 			m_impl->recv(sock,buf, callback);
 		}
 
-		void connect(socket_t sock, stdx::ipv4_addr& addr)
-		{
-			m_impl->connect(sock, addr);
-		}
-
 		void accept_ex(socket_t sock, std::function<void(network_accept_event, std::exception_ptr)> &&callback)
 		{
 			return m_impl->accept_ex(sock,callback);
 		}
 
-#ifdef WIN32
-		socket_t accept(socket_t sock, ipv4_addr& addr)
+		void connect_ex(socket_t sock,stdx::ipv4_addr &addr, std::function<void(std::exception_ptr)> &&callback)
 		{
-			return m_impl->accept(sock, addr);
+			return m_impl->connect_ex(sock,addr,callback);
 		}
-
-		socket_t accept(socket_t sock)
-		{
-			return m_impl->accept(sock);
-		}
-#endif // WIN32
 
 		void listen(socket_t sock, int backlog)
 		{
@@ -818,10 +789,7 @@ namespace stdx
 
 		void close();
 
-		void connect(ipv4_addr& addr)
-		{
-			m_io_service.connect(m_handle, addr);
-		}
+		stdx::task<void> connect(ipv4_addr& addr);
 
 		io_service_t io_service() const
 		{
@@ -903,11 +871,6 @@ namespace stdx
 			m_impl->close();
 		}
 
-		void connect(ipv4_addr& addr)
-		{
-			m_impl->connect(addr);
-		}
-
 		ipv4_addr local_addr() const
 		{
 			return m_impl->local_addr();
@@ -958,6 +921,11 @@ namespace stdx
 		operator bool() const
 		{
 			return (bool)m_impl;
+		}
+
+		stdx::task<void> connect(stdx::ipv4_addr& addr)
+		{
+			return m_impl->connect(addr);
 		}
 
 	private:
@@ -1012,10 +980,6 @@ namespace stdx
 	extern stdx::socket open_socket(const stdx::network_io_service& io_service, const stdx::addr_family& addr_family, const stdx::socket_type& sock_type, const stdx::protocol& protocol);
 	extern stdx::socket open_tcpsocket(const stdx::network_io_service& io_service);
 	extern stdx::socket open_udpsocket(const stdx::network_io_service& io_service);
-	extern stdx::socket connect_to(const stdx::network_io_service &io_service,stdx::ipv4_addr &addr);
-	extern stdx::socket connect_to(const stdx::network_io_service& io_service, stdx::ipv4_addr &&addr);
-	extern stdx::socket listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr &addr);
-	extern stdx::socket listen_for(const stdx::network_io_service& io_service, stdx::ipv4_addr &&addr);
 #endif // _STDX_HAS_SOCKET
 }
 

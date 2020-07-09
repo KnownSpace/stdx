@@ -44,6 +44,8 @@ namespace stdx
 			NO_USED(index);
 			return get(timeout_ms);
 		}
+
+		virtual void notice() = 0;
 	};
 
 	template<typename _Context,typename _KeyType>
@@ -131,6 +133,11 @@ namespace stdx
 		{
 			return m_impl->get_at(index, timeout_ms);
 		}
+
+		void notice()
+		{
+			return m_impl->notice();
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -214,6 +221,14 @@ namespace stdx
 		virtual context_t* get_at(size_t index, uint32_t timeout_ms)
 		{
 			return _GetPoller(index).get(timeout_ms);
+		}
+
+		virtual void notice()
+		{
+			for (auto begin = m_pollers.begin(), end = m_pollers.end(); begin != end; begin++)
+			{
+				begin->notice();
+			}
 		}
 	protected:
 		dispath_t m_dispath;
