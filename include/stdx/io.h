@@ -137,13 +137,14 @@ namespace stdx
 					_ThrowWinError
 				}
 			}
-			else
+		}
+
+		virtual void notice() override
+		{
+			if (!PostQueuedCompletionStatus(m_iocp, 0, (ULONG_PTR)nullptr, nullptr))
 			{
-				if (!PostQueuedCompletionStatus(m_iocp, 0, (ULONG_PTR)p, nullptr))
-				{
-					//处理错误
-					_ThrowWinError
-				}
+				//处理错误
+				_ThrowWinError
 			}
 		}
 
@@ -514,13 +515,13 @@ namespace stdx
 			return cont;
 		}
 
+		virtual void notice() override
+		{
+			_WokenUpFd();
+		}
+
 		virtual void post(_IOContext* p) override
 		{
-			if (p == nullptr)
-			{
-				_WokenUpFd();
-				return;
-			}
 			_RunInLoop([this](_IOContext* p)
 				{
 					//get fd
@@ -898,10 +899,7 @@ namespace stdx
 
 		virtual _IOContext* get() override
 		{
-			if (m_quit)
-			{
-				return nullptr;
-			}
+			m_quit = false;
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
 			{
@@ -918,10 +916,7 @@ namespace stdx
 
 		virtual _IOContext* get(uint32_t ms) override
 		{
-			if (m_quit)
-			{
-				return nullptr;
-			}
+			m_quit = false;
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
 			{
@@ -943,16 +938,14 @@ namespace stdx
 		virtual void post(_IOContext* p) override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
-			if (p == nullptr)
-			{
-				m_quit = true;
-				m_cv.notify_all();
-			}
-			else
-			{
-				m_list.push_back(p);
-				m_cv.notify_one();
-			}
+			m_list.push_back(p);
+			m_cv.notify_one();
+		}
+
+		void notice()
+		{
+			m_quit = true;
+			m_cv.notify_all();
 		}
 
 	private:
