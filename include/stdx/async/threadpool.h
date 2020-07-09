@@ -11,7 +11,7 @@
 #define GET_CPU_CORES() std::thread::hardware_concurrency()
 
 #ifndef STDX_LAZY_MAX_TIME
-#define STDX_LAZY_MAX_TIME 56
+#define STDX_LAZY_MAX_TIME 16
 #endif
 
 namespace stdx
@@ -26,19 +26,19 @@ namespace stdx
 	};
 
 	//线程池
-	class _FixedSizeThreadPool:public stdx::basic_thread_pool
+	class _McmpThreadPool:public stdx::basic_thread_pool
 	{
 		using runable = std::function<void()>;
 		using base_t = stdx::basic_thread_pool;
 	public:
 		//构造函数
-		_FixedSizeThreadPool(uint32_t num_threads) noexcept;
+		_McmpThreadPool(uint32_t num_threads) noexcept;
 
 		//析构函数
-		~_FixedSizeThreadPool() noexcept;
+		~_McmpThreadPool() noexcept;
 
 		//删除复制构造函数
-		_FixedSizeThreadPool(const _FixedSizeThreadPool&) = delete;
+		_McmpThreadPool(const _McmpThreadPool&) = delete;
 
 		void run(std::function<void()> &&task)
 		{
@@ -193,7 +193,7 @@ namespace stdx
 		return stdx::thread_pool(impl);
 	}
 
-	extern stdx::thread_pool make_fixed_size_thread_pool(uint32_t size);
+	extern stdx::thread_pool make_mcmp_thread_pool(uint32_t size);
 
 	extern stdx::thread_pool make_round_robin_thread_pool(uint32_t size);
 

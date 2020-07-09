@@ -40,7 +40,7 @@ stdx::_FileIOService::_FileIOService()
 #endif
 #endif
 	,m_token()
-	,m_thread_pool(stdx::make_fixed_size_thread_pool(GET_CPU_CORES()))
+	,m_thread_pool(stdx::make_round_robin_thread_pool(GET_CPU_CORES()))
 {
 	init_threadpoll();
 }

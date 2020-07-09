@@ -84,7 +84,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 		}))
 #endif
 	, m_token()
-	, m_thread_pool(stdx::make_fixed_size_thread_pool(GET_CPU_CORES()*2))
+	, m_thread_pool(stdx::make_round_robin_thread_pool(GET_CPU_CORES()*2))
 {
 	init_threadpoll();
 }
@@ -1026,6 +1026,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 			}, m_poller);
 	}
 #else
+	for (uint32_t i = 0, cores = GET_CPU_CORES() * 2; i < cores; i++)
+	{
+		m_thread_pool.run(([]()
+		{
+			stdx::_NetworkIOService::init_null_fd();
+		}));
+	}
 	for (uint32_t i = 0, cores = GET_CPU_CORES()*2; i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[i](stdx::io_poller<stdx::network_io_context> poller) mutable
@@ -1146,7 +1153,6 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 		else if(errno == EMFILE)
 		{
 			//Too may files open
-			stdx::_NetworkIOService::init_null_fd();
 			::close(stdx::_NetworkIOService::m_null_fd);
 			stdx::_NetworkIOService::m_null_fd = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK | SOCK_CLOEXEC);
 			::close(stdx::_NetworkIOService::m_null_fd);
