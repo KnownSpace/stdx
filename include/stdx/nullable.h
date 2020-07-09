@@ -6,7 +6,7 @@
 namespace stdx
 {
 	template<typename _T>
-	class nullable
+	struct nullable
 	{
 		using ptr_t = std::unique_ptr<_T>;
 		using self_t = stdx::nullable<_T>;

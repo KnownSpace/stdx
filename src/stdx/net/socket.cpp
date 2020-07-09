@@ -1012,13 +1012,13 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 		return;
 	}
 	network_io_context* context_ptr = new network_io_context;
-	context_ptr->code = stdx::network_io_context_code::connect;
-	context_ptr->this_socket = sock;
 	if (context_ptr == nullptr)
 	{
 		callback(std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
+	context_ptr->code = stdx::network_io_context_code::connect;
+	context_ptr->this_socket = sock;
 	context_ptr->callback = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
 	if (context_ptr->callback == nullptr)
 	{
