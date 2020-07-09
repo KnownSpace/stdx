@@ -9,8 +9,6 @@
 #include <stdx/poller.h>
 #include <stdx/async/callback_flag.h>
 
-#define STDX_IO_LOOP_NUM() GET_CPU_CORES()*2
-
 namespace stdx
 {
 #ifdef WIN32
@@ -520,6 +518,7 @@ namespace stdx
 		{
 			if (p == nullptr)
 			{
+				_WokenUpFd();
 				return;
 			}
 			_RunInLoop([this](_IOContext* p)
@@ -892,15 +891,24 @@ namespace stdx
 			:m_lock()
 			, m_cv()
 			, m_list()
+			, m_quit(false)
 		{}
 
 		~_BIOPoller() = default;
 
 		virtual _IOContext* get() override
 		{
+			if (m_quit)
+			{
+				return nullptr;
+			}
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
 			{
+				if (m_quit)
+				{
+					return nullptr;
+				}
 				m_cv.wait(lock);
 			}
 			_IOContext* p = m_list.front();
@@ -910,9 +918,17 @@ namespace stdx
 
 		virtual _IOContext* get(uint32_t ms) override
 		{
+			if (m_quit)
+			{
+				return nullptr;
+			}
 			std::unique_lock<std::mutex> lock(m_lock);
 			while (m_list.empty())
 			{
+				if (m_quit)
+				{
+					return nullptr;
+				}
 				auto status = m_cv.wait_for(lock, std::chrono::milliseconds(ms));
 				if (status == std::cv_status::timeout)
 				{
@@ -927,14 +943,23 @@ namespace stdx
 		virtual void post(_IOContext* p) override
 		{
 			std::unique_lock<std::mutex> lock(m_lock);
-			m_list.push_back(p);
-			m_cv.notify_one();
+			if (p == nullptr)
+			{
+				m_quit = true;
+				m_cv.notify_all();
+			}
+			else
+			{
+				m_list.push_back(p);
+				m_cv.notify_one();
+			}
 		}
 
 	private:
 		std::mutex m_lock;
 		std::condition_variable m_cv;
 		std::list<_IOContext*> m_list;
+		std::atomic_bool m_quit;
 	};
 
 	template<typename _IOContext>

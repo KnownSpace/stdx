@@ -5,7 +5,7 @@
 stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(GET_CPU_CORES());
 
 //构造函数
-stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
+stdx::_McmpThreadPool::_McmpThreadPool(uint32_t num_threads) noexcept
 	: m_alive(std::make_shared<bool>(true))
 	, m_task_queue(std::make_shared<std::queue<runable>>())
 	, m_cv(std::make_shared<std::condition_variable>())
@@ -17,7 +17,7 @@ stdx::_FixedSizeThreadPool::_FixedSizeThreadPool(uint32_t num_threads) noexcept
 
 //析构函数
 
-stdx::_FixedSizeThreadPool::~_FixedSizeThreadPool() noexcept
+stdx::_McmpThreadPool::~_McmpThreadPool() noexcept
 {
 	//终止时设置状态
 	*m_alive = false;
@@ -25,7 +25,7 @@ stdx::_FixedSizeThreadPool::~_FixedSizeThreadPool() noexcept
 	m_cv->notify_all();
 }
 
-void stdx::_FixedSizeThreadPool::join_as_worker()
+void stdx::_McmpThreadPool::join_as_worker()
 {
 	auto handle = [](std::shared_ptr<std::queue<runable>> tasks,std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex, std::shared_ptr<bool> alive)
 	{
@@ -69,7 +69,7 @@ void stdx::_FixedSizeThreadPool::join_as_worker()
 }
 
 //添加线程
-void stdx::_FixedSizeThreadPool::add_thread() noexcept
+void stdx::_McmpThreadPool::add_thread() noexcept
 {
 	auto handle = [](std::shared_ptr<std::queue<runable>> tasks, std::shared_ptr<std::condition_variable> cond, std::shared_ptr<std::mutex> mutex,std::shared_ptr<bool> alive)
 	{
@@ -118,7 +118,7 @@ void stdx::_FixedSizeThreadPool::add_thread() noexcept
 }
 
 //初始化线程池
-void stdx::_FixedSizeThreadPool::init_threads(uint32_t num_threads) noexcept
+void stdx::_McmpThreadPool::init_threads(uint32_t num_threads) noexcept
 {
 	for (size_t i = 0; i < num_threads; i++)
 	{
@@ -249,9 +249,9 @@ void stdx::thread_pool::lazy_loop_do(stdx::cancel_token token, uint64_t lazy_ms,
 	}, 0);
 }
 
-stdx::thread_pool stdx::make_fixed_size_thread_pool(uint32_t size)
+stdx::thread_pool stdx::make_mcmp_thread_pool(uint32_t size)
 {
-	return stdx::make_thread_pool<stdx::_FixedSizeThreadPool>(size);
+	return stdx::make_thread_pool<stdx::_McmpThreadPool>(size);
 }
 
 stdx::thread_pool stdx::make_round_robin_thread_pool(uint32_t size)
