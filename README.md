@@ -27,4 +27,12 @@ make
 make install
 ```
 
-[中文文档(编写中)](https://github.com/NaturalSelect/stdx/wiki)
+## 如何CONTRIBUTING?
+1. Clone本储存库
+1. 安装[Jemalloc](https://github.com/jemalloc/jemalloc) (PS:存储库里有适用于Linux的自动脚本)
+1. 阅读[约定](https://github.com/KnownSpace/stdx/wiki)
+1. 修改代码
+1. 测试你的代码
+1. commit到dev分支 或 打开pull request
+
+[中文文档(编写中)](https://github.com/KnownSpace/stdx/wiki)
