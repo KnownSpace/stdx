@@ -138,8 +138,7 @@ namespace stdx
 
 		http_request_parser(self_t&& other) noexcept;
 
-		~http_request_parser()
-		{}
+		~http_request_parser() = default;
 
 		self_t& operator=(const self_t& other);
 

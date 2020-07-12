@@ -17,8 +17,10 @@
 * Linux		2.6+
 
 ## 构建
-确保你正确已安装Jemalloc & CMake
-且系统中安装有GCC或MSVC
+要求:
+1. 已安装Jemalloc
+1. 已安装CMake
+1. 已安装GCC或MSVC
 ```
 mkdir build
 cd build
@@ -26,13 +28,19 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DJEMALLOC_PATH={你的jemalloc安装目录,
 make
 make install
 ```
+### Linux下的自动构建脚本
+```c++
+build.sh			// 构建
+build-jemalloc.sh	// 编译安装Jemalloc
+build-cmake3.sh		// 使用 cmake3 命令行构建
+```
 
-## 如何CONTRIBUTING?
-1. Clone本储存库
-1. 安装[Jemalloc](https://github.com/jemalloc/jemalloc) (PS:存储库里有适用于Linux的自动脚本)
+## 贡献代码
+1. Clone储存库
+1. 安装[Jemalloc](https://github.com/jemalloc/jemalloc)
 1. 阅读[约定](https://github.com/KnownSpace/stdx/wiki)
 1. 修改代码
 1. 测试你的代码
-1. commit到dev分支 或 打开pull request
+1. commit到dev分支(OR 打开pull request)
 
 [中文文档(编写中)](https://github.com/KnownSpace/stdx/wiki)
