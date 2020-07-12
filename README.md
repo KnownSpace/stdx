@@ -35,7 +35,7 @@ build-jemalloc.sh	// 编译安装Jemalloc
 build-cmake3.sh		// 使用 cmake3 命令行构建
 ```
 
-## 共享代码
+## 贡献代码
 1. Clone储存库
 1. 安装[Jemalloc](https://github.com/jemalloc/jemalloc)
 1. 阅读[约定](https://github.com/KnownSpace/stdx/wiki)
