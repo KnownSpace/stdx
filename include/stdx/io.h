@@ -85,6 +85,10 @@ namespace stdx
 			bool r = GetQueuedCompletionStatus(m_iocp, &size, &key, &ol, INFINITE);
 			if (!r)
 			{
+				if (ol)
+				{
+					return CONTAINING_RECORD(ol, _IOContext, m_ol);
+				}
 				//处理错误
 				_ThrowWinError
 			}
@@ -103,6 +107,10 @@ namespace stdx
 			bool r = GetQueuedCompletionStatus(m_iocp, &size, &key, &ol, ms);
 			if (!r)
 			{
+				if (ol)
+				{
+					return CONTAINING_RECORD(ol, _IOContext, m_ol);
+				}
 				if (GetLastError() == 258)
 				{
 					return nullptr;
