@@ -47,22 +47,9 @@ LPFN_CONNECTEX stdx::_NetworkIOService::m_connect_ex = nullptr;
 #endif
 
 #ifdef LINUX
-thread_local int stdx::_NetworkIOService::m_null_fd = -1;
-
-thread_local bool stdx::_NetworkIOService::m_init_null_fd = false;
-
 int stdx::_NetworkIOService::open_null_fd()
 {
 	return ::open("/dev/null", O_RDONLY | O_CLOEXEC);
-}
-
-void stdx::_NetworkIOService::init_null_fd()
-{
-	if (!stdx::_NetworkIOService::m_init_null_fd)
-	{
-		stdx::_NetworkIOService::m_init_null_fd = true;
-		stdx::_NetworkIOService::m_null_fd = stdx::_NetworkIOService::open_null_fd();
-	}
 }
 
 #endif
@@ -72,7 +59,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
 #else
-	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(GET_CPU_CORES()*2,[](stdx::network_io_context* context)
+	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(stdx::_NetworkIOService::loop_num,[](stdx::network_io_context* context)
 		{
 			_Clean(context);
 		}, [](stdx::network_io_context* context)
@@ -87,7 +74,7 @@ stdx::_NetworkIOService::_NetworkIOService()
 		}))
 #endif
 	, m_token()
-	, m_thread_pool(stdx::make_round_robin_thread_pool(GET_CPU_CORES()*2))
+	, m_thread_pool(stdx::make_round_robin_thread_pool(stdx::_NetworkIOService::loop_num))
 {
 	init_threadpoll();
 }
@@ -1047,10 +1034,32 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 #endif
 }
 
+const uint32_t stdx::_NetworkIOService::loop_num = GET_CPU_CORES()*2;
+
+void stdx::_NetworkIOService::set_keepalive(socket_t sock, bool opt)
+{
+#ifdef WIN32
+	tcp_keepalive keepin;
+	tcp_keepalive keepout;
+	keepin.keepaliveinterval = 75000;
+	keepin.keepalivetime = 7200*1000;
+	keepin.onoff = opt ? 1:0;
+	DWORD ret = 0;
+	::WSAIoctl(sock, SIO_KEEPALIVE_VALS, &keepin, sizeof(keepin), &keepout, sizeof(keepout), &ret, NULL, NULL);
+#else
+	int val = opt ? 1 : 0;
+	int r = ::setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+	if (r < 0)
+	{
+		_ThrowLinuxError
+	}
+#endif
+}
+
 void stdx::_NetworkIOService::init_threadpoll() noexcept
 {
 #ifdef WIN32
-	for (uint32_t i = 0, cores = GET_CPU_CORES()*2; i < cores; i++)
+	for (uint32_t i = 0, cores = stdx::_NetworkIOService::loop_num; i < cores; i++)
 	{
 		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
 			{
@@ -1116,22 +1125,20 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 			}, m_poller);
 	}
 #else
-	for (uint32_t i = 0, cores = GET_CPU_CORES() * 2; i < cores; i++)
+	for (uint32_t i = 0, cores = stdx::_NetworkIOService::loop_num; i < cores; i++)
 	{
-		m_thread_pool.run(([]()
-		{
-			stdx::_NetworkIOService::init_null_fd();
-		}));
-	}
-	for (uint32_t i = 0, cores = GET_CPU_CORES()*2; i < cores; i++)
-	{
-		m_thread_pool.long_loop(m_token,[i](stdx::io_poller<stdx::network_io_context> poller) mutable
+		int null_fd(open_null_fd());
+		m_thread_pool.long_loop(m_token,[i,null_fd,this](stdx::io_poller<stdx::network_io_context> poller) mutable
 			{
 				try
 				{
 					auto context = poller.get_at(i);
 					if (context == nullptr)
 					{
+						if (m_token.is_cancel())
+						{
+							::close(null_fd);
+						}
 						return;
 					}
 					auto call = context->callback;
@@ -1143,6 +1150,13 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					std::exception_ptr err(nullptr);
 					if (context->err_code != 0)
 					{
+						if (errno == EMFILE && context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
+						{
+							::close(null_fd);
+							null_fd = ::accept4(context->this_socket, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
+							::close(null_fd);
+							null_fd = open_null_fd();
+						}
 						err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
 					}
 					else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
@@ -1240,16 +1254,16 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 		{
 			return false;
 		}
-		else if(errno == EMFILE)
-		{
-			//Too may files open
-			::close(stdx::_NetworkIOService::m_null_fd);
-			stdx::_NetworkIOService::m_null_fd = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK | SOCK_CLOEXEC);
-			::close(stdx::_NetworkIOService::m_null_fd);
-			stdx::_NetworkIOService::m_null_fd = stdx::_NetworkIOService::open_null_fd();
-			context->target_socket = -1;
-			r = -1;
-		}
+		//else if(errno == EMFILE)
+		//{
+		//	//Too may files open
+		//	::close(stdx::_NetworkIOService::m_null_fd);
+		//	stdx::_NetworkIOService::m_null_fd = ::accept4(context->this_socket, (sockaddr*)&addr, &addr_size, SOCK_NONBLOCK | SOCK_CLOEXEC);
+		//	::close(stdx::_NetworkIOService::m_null_fd);
+		//	stdx::_NetworkIOService::m_null_fd = stdx::_NetworkIOService::open_null_fd();
+		//	context->target_socket = -1;
+		//	r = -1;
+		//}
 		else
 		{
 			if (context->target_socket != -1)
@@ -1611,6 +1625,11 @@ void stdx::_Socket::accept_until(stdx::cancel_token token, std::function<void(st
 				accept_until(token, fn, err_handler);
 			}
 	});
+}
+
+void stdx::_Socket::set_keepalive(bool opt)
+{
+	m_io_service.set_keepalive(m_handle,opt);
 }
 
 stdx::task<stdx::network_connected_event> stdx::socket::accept()

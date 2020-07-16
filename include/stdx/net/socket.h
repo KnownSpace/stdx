@@ -589,6 +589,10 @@ namespace stdx
 		void accept_ex(socket_t sock, std::function<void(network_accept_event, std::exception_ptr)> callback);
 
 		void connect_ex(socket_t sock,stdx::ipv4_addr addr,std::function<void(std::exception_ptr)> callback);
+
+		static const uint32_t loop_num;
+
+		void set_keepalive(socket_t sock,bool opt);
 #ifdef WIN32
 	public:
 		static LPFN_ACCEPTEX m_accept_ex;
@@ -625,13 +629,7 @@ namespace stdx
 		stdx::thread_pool m_thread_pool;
 
 #ifdef LINUX
-		static thread_local int m_null_fd;
-
-		static thread_local bool m_init_null_fd;
-
 		static int open_null_fd();
-
-		static void init_null_fd();
 #endif
 	};
 
@@ -738,6 +736,11 @@ namespace stdx
 		{
 			return m_impl == other.m_impl;
 		}
+
+		void set_keepalive(socket_t sock, bool opt)
+		{
+			return m_impl->set_keepalive(sock, opt);
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -811,6 +814,8 @@ namespace stdx
 		io_service_t get_io_service() const;
 
 		void accept_until(stdx::cancel_token token, std::function<void(stdx::network_accept_event)> fn, std::function<void(std::exception_ptr)> err_handler);
+
+		void set_keepalive(bool opt);
 	private:
 		io_service_t m_io_service;
 		std::atomic<socket_t> m_handle;
@@ -926,6 +931,11 @@ namespace stdx
 		stdx::task<void> connect(stdx::ipv4_addr& addr)
 		{
 			return m_impl->connect(addr);
+		}
+
+		void set_keepalive(bool opt)
+		{
+			return m_impl->set_keepalive(opt);
 		}
 
 	private:

@@ -97,6 +97,19 @@ void stdx::_EPOLL::update_event(int fd, epoll_event * event_ptr)
 		_ThrowLinuxError
 	}
 }
+
+void stdx::_EPOLL::add_or_update_event(int fd, epoll_event* event_ptr)
+{
+	if (epoll_ctl(m_handle, EPOLL_CTL_ADD, fd, event_ptr) == -1)
+	{
+		if (errno == EEXIST)
+		{
+			return;
+		}
+		_ThrowLinuxError
+	}
+}
+
 int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int & timeout) 
 {
 	sigset_t newmask;
