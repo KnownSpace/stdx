@@ -530,9 +530,15 @@ namespace stdx
 		~_FileHandle()
 		{
 #ifdef WIN32
-			CloseHandle(m_file);
+			if (m_file != INVALID_HANDLE_VALUE)
+			{
+				CloseHandle(m_file);
+			}
 #else
-			::close(m_file);
+			if (m_file != -1)
+			{
+				::close(m_file);
+			}
 #endif
 		}
 		operator native_file_handle() const
@@ -542,6 +548,10 @@ namespace stdx
 		native_file_handle get_file_handle() const
 		{
 			return m_file;
+		}
+		void set_file_handle(native_file_handle& file)
+		{
+			m_file = file;
 		}
 		DELETE_COPY(_FileHandle);
 	private:
@@ -574,6 +584,10 @@ namespace stdx
 		native_file_handle get_file_handle() const
 		{
 			return m_impl->get_file_handle();
+		}
+		void set_file_handle(native_file_handle& file)
+		{
+			m_impl->set_file_handle(file);
 		}
 		bool operator==(const file_handle& other) const
 		{
