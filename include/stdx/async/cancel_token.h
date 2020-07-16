@@ -12,33 +12,42 @@ namespace stdx
 	public:
 		cancel_token()
 			:m_value(std::make_shared<value_t>(false))
+			,m_after()
 		{}
 
 		cancel_token(const self_t& other)
 			:m_value(other.m_value)
+			,m_after(other.m_after)
 		{}
 
 		cancel_token(self_t&& other) noexcept
 			:m_value(std::move(other.m_value))
+			,m_after(std::move(other.m_after))
 		{}
 
 		~cancel_token() = default;
 
 		self_t& operator=(const self_t& other)
 		{
-			m_value = other.m_value;
+			stdx::cancel_token tmp(other);
+			stdx::copy_by_move(*this, std::move(tmp));
 			return *this;
 		}
 
 		self_t& operator=(self_t&& other) noexcept
 		{
 			m_value = std::move(other.m_value);
+			m_after = std::move(other.m_after);
 			return *this;
 		}
 
 		void cancel()
 		{
 			*m_value = true;
+			if (m_after)
+			{
+				m_after();
+			}
 		}
 
 		bool is_cancel() const
@@ -70,7 +79,18 @@ namespace stdx
 		{
 			std::swap(other.m_value, m_value);
 		}
+
+		void set_after(std::function<void()>&& after)
+		{
+			m_after = std::move(after);
+		}
+
+		void set_after(std::function<void()>& after)
+		{
+			m_after = after;
+		}
 	private:
 		std::shared_ptr<value_t> m_value;
+		std::function<void()> m_after;
 	};
 }
