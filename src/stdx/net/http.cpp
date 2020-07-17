@@ -190,7 +190,7 @@ stdx::string stdx::http_cookie::to_set_cookie_string_without_header() const
 		str.append(U("; "));
 		str.append(U("Max-Age="));
 		const unsigned long long int& tmp = m_max_age;
-		str.append(stdx::to_string(tmp));
+		str.append(std::move(stdx::to_string(tmp)));
 	}
 	else
 	{
@@ -198,12 +198,12 @@ stdx::string stdx::http_cookie::to_set_cookie_string_without_header() const
 		{
 			str.append(U("; "));
 			str.append(U("Expires="));
-			stdx::string tmp(stdx::to_day_name(m_expires.week_day()));
+			stdx::string tmp(std::move(stdx::to_day_name(m_expires.week_day())));
 			tmp.append(U(", "));
-			str.append(tmp);
-			tmp = m_expires.to_string(U("%day {0} %year %hour:%min:%sec GMT"));
+			str.append(std::move(tmp));
+			tmp = std::move(m_expires.to_string(U("%day {0} %year %hour:%min:%sec GMT")));
 			stdx::format_string(tmp, stdx::to_month_name(m_expires.month()));
-			str.append(str);
+			str.append(std::move(tmp));
 		}
 	}
 	if (!m_path.empty())
@@ -1046,14 +1046,14 @@ std::list<stdx::http_cookie> stdx::make_cookies_by_cookie_header(const stdx::str
 		pos = begin->find(U('='));
 		if (pos == stdx::string::npos)
 		{
-			stdx::http_cookie cookie(*begin, U(""));
+			stdx::http_cookie cookie(std::move(*begin), U(""));
 			list.push_back(std::move(cookie));
 		}
 		else
 		{
 			stdx::string&& name = begin->substr(0, pos);
 			stdx::string&& value = begin->substr(pos + 1, begin->size() - pos - 1);
-			stdx::http_cookie cookie(name,value);
+			stdx::http_cookie cookie(std::move(name),std::move(value));
 			list.push_back(std::move(cookie));
 		}
 	}
@@ -1267,15 +1267,15 @@ const std::list<stdx::http_cookie>& stdx::http_request_header::cookies() const
 stdx::string stdx::http_request_header::to_string() const
 {
 	//请求行
-	stdx::string str(stdx::http_method_string(m_method));
+	stdx::string str(std::move(stdx::http_method_string(m_method)));
 	str.push_back(U(' '));
 	stdx::string tmp(m_request_url);
-	str.append(tmp);
+	str.append(std::move(tmp));
 	str.push_back(U(' '));
-	str.append(stdx::http_version_string(version()));
+	str.append(std::move(stdx::http_version_string(version())));
 	str.append(U("\r\n"));
 	//其他头部
-	str.append(http_header::to_string());
+	str.append(std::move(http_header::to_string()));
 	//Cookie
 	if (!m_cookies.empty())
 	{
@@ -1313,7 +1313,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 		header.method() = stdx::make_http_method_by_string(*begin);
 		begin++;
 		begin->u8_url_decode();
-		header.request_url() = *begin;
+		header.request_url() = std::move(*begin);
 		begin++;
 		header.version() = stdx::make_http_version_by_string(*begin);
 	}
@@ -1332,7 +1332,7 @@ stdx::http_request_header stdx::http_request_header::from_string(const stdx::str
 				}
 				else
 				{
-					header.add_header(*begin);
+					header.add_header(std::move(*begin));
 				}
 			}
 			begin++;
@@ -1470,7 +1470,7 @@ stdx::http_response_header stdx::http_response_header::from_string(const stdx::s
 			}
 			else
 			{
-				header.add_header(*begin);
+				header.add_header(std::move(*begin));
 			}
 			begin++;
 		}
@@ -1772,10 +1772,10 @@ std::vector<typename stdx::http_urlencoded_form::byte_t> stdx::http_urlencoded_f
 			builder.append(begin->first.to_u8_string());
 			builder.push_back('=');
 			auto&& val = begin->second.val();
-			std::string str(val.cbegin(), val.cend());
+			std::string str(std::make_move_iterator(val.begin()), std::make_move_iterator(val.end()));
 			stdx::replace_string(str, std::string(" "),std::string("+"));
-			str = stdx::url_encode(str);
-			builder.append(str);
+			str = std::move(stdx::url_encode(str));
+			builder.append(std::move(str));
 		}
 		begin++;
 		if (m_collection.size() > 1)
@@ -1786,14 +1786,14 @@ std::vector<typename stdx::http_urlencoded_form::byte_t> stdx::http_urlencoded_f
 				builder.append(begin->first.to_u8_string());
 				builder.push_back('=');
 				auto&& val = begin->second.val();
-				std::string str(val.cbegin(), val.cend());
+				std::string str(std::make_move_iterator(val.begin()), std::make_move_iterator(val.end()));
 				stdx::replace_string(str, std::string(" "), std::string("+"));
 				str = stdx::url_encode(str);
-				builder.append(str);
+				builder.append(std::move(str));
 			}
 		}
 	}
-	std::vector<byte_t> vector(builder.begin(),builder.end());
+	std::vector<byte_t> vector(std::make_move_iterator(builder.begin()),std::make_move_iterator(builder.end()));
 	return vector;
 }
 
@@ -1891,17 +1891,17 @@ std::vector<typename stdx::http_multipart_form::byte_t> stdx::http_multipart_for
 	for (auto begin = m_collection.cbegin(),end=m_collection.cend();begin!=end;begin++)
 	{
 		builder.append("--");
-		builder.append(m_boundary.to_u8_string());
+		builder.append(std::move(m_boundary.to_u8_string()));
 		builder.append("\r\n");
 		builder.append("Content-Disposition: form-data; name=\"");
-		builder.append(begin->first.to_u8_string());
+		builder.append(std::move(begin->first.to_u8_string()));
 		builder.push_back('\"');
 		for (auto sub_begin = begin->second.valmap().cbegin(),sub_end = begin->second.valmap().cend();sub_begin!=sub_end;sub_begin++)
 		{
 			if (sub_begin->first != U("Body") && sub_begin->first != U("Content-Type") && sub_begin->first != U("Content-Transfer-Encoding"))
 			{
 				builder.append("; ");
-				builder.append(sub_begin->first.to_u8_string());
+				builder.append(std::move(sub_begin->first.to_u8_string()));
 				builder.push_back('=');
 				for (auto data_begin = sub_begin->second.cbegin(),data_end=sub_begin->second.cend();data_begin!=data_end;data_end++)
 				{
@@ -1941,7 +1941,7 @@ std::vector<typename stdx::http_multipart_form::byte_t> stdx::http_multipart_for
 	builder.append("--");
 	builder.append(m_boundary.to_u8_string());
 	builder.append("--\r\n");
-	std::vector<byte_t> vector(builder.begin(),builder.end());
+	std::vector<byte_t> vector(std::make_move_iterator(builder.begin()),std::make_move_iterator(builder.end()));
 	return vector;
 }
 
@@ -2083,11 +2083,11 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 				{
 
 					auto&& body = m_form->to_bytes();
-					std::string str(body.begin(), body.end());
+					std::string str(std::make_move_iterator(body.begin()),std::make_move_iterator(body.end()));
 					body.clear();
-					m_header->request_url().append(stdx::string::from_u8_string(str));
+					m_header->request_url().append(std::move(stdx::string::from_u8_string(str)));
 					std::string&& bytes_str = m_header->to_string().to_u8_string();
-					body = std::vector<unsigned char>(bytes_str.begin(), bytes_str.end());
+					body = std::vector<unsigned char>(std::make_move_iterator(bytes_str.begin()),std::make_move_iterator(bytes_str.end()));
 					return body;
 				}
 			}
@@ -2097,7 +2097,7 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 	{
 		if (m_form->form_type() == stdx::http_form_type::multipart)
 		{
-			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+			stdx::string &&content_type = stdx::http_form_type_string(m_form->form_type());
 			content_type.append(U("; boundary="));
 			const stdx::http_multipart_form& form = (const stdx::http_multipart_form&) * m_form;
 			content_type.append(form.boundary());
@@ -2105,7 +2105,7 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 		}
 		else
 		{
-			stdx::string content_type = stdx::http_form_type_string(m_form->form_type());
+			stdx::string &&content_type = stdx::http_form_type_string(m_form->form_type());
 			m_header->add_header(U("Content-Type"), content_type);
 		}
 	}
@@ -2118,7 +2118,7 @@ std::vector<typename stdx::http_request::byte_t> stdx::http_request::to_bytes() 
 	stdx::string&& header_string = m_header->to_string();
 	header_string.append(U("\r\n"));
 	std::string&& tmp = header_string.to_u8_string();
-	std::vector<byte_t> vector(tmp.cbegin(), tmp.cend());
+	std::vector<byte_t> vector(std::make_move_iterator(tmp.begin()), std::make_move_iterator(tmp.end()));
 	for (auto begin = body_byte.begin(), end = body_byte.end(); begin != end; begin++)
 	{
 		vector.push_back(*begin);
@@ -2225,8 +2225,8 @@ stdx::http_urlencoded_form stdx::make_http_urlencoded_form(const std::vector<uns
 				std::string&& name = begin->substr(0, pos);
 				std::string&& value = begin->substr(pos + 1, begin->size() - 1 - pos);
 				stdx::replace_string(value, std::string("+"), std::string(" "));
-				value = stdx::url_decode(value);
-				std::vector<unsigned char> vector(value.cbegin(), value.cend());
+				value = std::move(stdx::url_decode(value));
+				std::vector<unsigned char> vector(std::make_move_iterator(value.begin()), std::make_move_iterator(value.end()));
 				stdx::http_parameter arg(vector);
 				form.add(stdx::string::from_u8_string(name), arg);
 			}
@@ -2280,7 +2280,7 @@ stdx::http_multipart_form stdx::make_http_multipart_form(const std::vector<unsig
 		throw std::invalid_argument("invalid multipart form data");
 	}
 	stdx::http_multipart_form form;
-	std::string str(bytes.cbegin(),bytes.cend());
+	std::string str(std::make_move_iterator(bytes.begin()),std::make_move_iterator(bytes.end()));
 	std::list<std::string> parts;
 	form.boundary() = boundary;
 	std::string&& bound = boundary.to_u8_string();
@@ -2369,7 +2369,7 @@ stdx::http_multipart_form stdx::make_http_multipart_form(const std::vector<unsig
 									}
 									else
 									{
-										std::vector<unsigned char> vector(_value.begin(), _value.end());
+										std::vector<unsigned char> vector(std::make_move_iterator(_value.begin()), std::make_move_iterator(_value.end()));
 										arg.valmap().emplace(stdx::string::from_u8_string(_name), vector);
 									}
 								}
@@ -2381,7 +2381,7 @@ stdx::http_multipart_form stdx::make_http_multipart_form(const std::vector<unsig
 				{
 					throw std::invalid_argument("invalid multipart form data");
 				}
-				std::vector<unsigned char> bytes(body.begin(),body.end());
+				std::vector<unsigned char> bytes(std::make_move_iterator(body.begin()),std::make_move_iterator(body.end()));
 				arg.set_map_body(bytes);
 				form.add(name, arg);
 			}
@@ -2482,12 +2482,12 @@ stdx::http_multipart_form stdx::make_http_multipart_form(const std::string& byte
 									}
 									if (_name == "name")
 									{
-										name = stdx::string::from_u8_string(_value);
+										name = std::move(stdx::string::from_u8_string(_value));
 									}
 									else
 									{
-										std::vector<unsigned char> vector(_value.begin(), _value.end());
-										arg.valmap().emplace(stdx::string::from_u8_string(_name), vector);
+										std::vector<unsigned char> vector(std::make_move_iterator(_value.begin()), std::make_move_iterator(_value.end()));
+										arg.valmap().emplace(std::move(stdx::string::from_u8_string(_name)), std::move(vector));
 									}
 								}
 							}
@@ -2498,7 +2498,7 @@ stdx::http_multipart_form stdx::make_http_multipart_form(const std::string& byte
 				{
 					throw std::invalid_argument("invalid multipart form data");
 				}
-				std::vector<unsigned char> bytes(body.begin(), body.end());
+				std::vector<unsigned char> bytes(std::make_move_iterator(body.begin()), std::make_move_iterator(body.end()));
 				arg.set_map_body(bytes);
 				form.add(name, arg);
 			}
@@ -2669,7 +2669,6 @@ stdx::http_request stdx::http_request::from_bytes(const std::string& bytes)
 				stdx::http_request req(_header, _form);
 				return req;
 			}
-			::printf("1\n");
 		}
 		stdx::http_request req(_header);
 		return req;
@@ -2772,7 +2771,7 @@ std::vector<typename stdx::http_identity_body::byte_t> stdx::http_identity_body:
 stdx::string stdx::http_identity_body::data_as_string() const
 {
 	std::vector<byte_t>&& bytes = data();
-	std::string str(bytes.begin(), bytes.end());
+	std::string str(std::make_move_iterator(bytes.begin()),std::make_move_iterator(bytes.end()));
 	return stdx::string::from_u8_string(str);
 }
 
@@ -2786,7 +2785,7 @@ void stdx::http_identity_body::push(const byte_t* buffer, size_t count)
 		{
 			vec.push_back(buffer[i]);
 		}
-		m_data.push_back(vec);
+		m_data.push_back(std::move(vec));
 	}
 	else
 	{
@@ -2812,8 +2811,8 @@ void stdx::http_identity_body::push(const stdx::string& str)
 	if (!str.empty())
 	{
 		std::string&& tmp = str.to_u8_string();
-		std::vector<byte_t> vector(tmp.begin(),tmp.end());
-		m_data.push_back(vector);
+		std::vector<byte_t> vector(std::make_move_iterator(tmp.begin()),std::make_move_iterator(tmp.end()));
+		m_data.push_back(std::move(vector));
 	}
 }
 
@@ -2925,7 +2924,7 @@ std::vector<typename stdx::http_chunk_body::byte_t> stdx::http_chunk_body::to_by
 	else
 	{
 		builder.append("0\r\n");
-		builder.append(m_trailer.to_u8_string());
+		builder.append(std::move(m_trailer.to_u8_string()));
 		builder.append("\r\n");
 	}
 	std::vector<byte_t> vec(std::make_move_iterator(builder.begin()), std::make_move_iterator(builder.end()));
