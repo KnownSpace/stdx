@@ -133,9 +133,7 @@ int web_test(int argc, char** argv)
 		if (argc != 1)
 		{
 			stdx::string port_str = stdx::string::from_native_string(argv[1]);
-			stdx::uint32_union port_union;
-			port_union.value = port_str.to_uint32();
-			addr.port(port_union.low);
+			addr.port(stdx::implicit_cast<uint16_t>(port_str.to_uint32()));
 		}
 		//bind address
 		s.bind(addr);

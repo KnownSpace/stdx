@@ -1114,14 +1114,13 @@ stdx::http_cookie stdx::make_cookie_by_set_cookie_header(const stdx::string& hea
 					throw std::invalid_argument("invalid set-cookie string in expires field");
 				}
 				auto date_begin = date_list.begin();
-				stdx::uint32_union u;
-				u.value	= date_begin->to_uint32();
-				cookie.expires().day(u.low);
+				uint32_t u = date_begin->to_uint32();
+				cookie.expires().day(u >> 16);
 				date_begin++;
 				cookie.expires().month(stdx::month_name_to_time_int(*date_begin));
 				date_begin++;
-				u.value = date_begin->to_uint32();
-				cookie.expires().year(u.low);
+				u = date_begin->to_uint32();
+				cookie.expires().year(u >> 16);
 				date_begin++;
 				date_list = date_begin->split(U(":"));
 				if (date_list.size() != 3)
@@ -1129,14 +1128,14 @@ stdx::http_cookie stdx::make_cookie_by_set_cookie_header(const stdx::string& hea
 					throw std::invalid_argument("invalid set-cookie string in expires field");
 				}
 				date_begin = date_list.begin();
-				u.value = date_begin->to_uint32();
-				cookie.expires().hour(u.low);
+				u = date_begin->to_uint32();
+				cookie.expires().hour(u >> 16);
 				date_begin++;
-				u.value = date_begin->to_uint32();
-				cookie.expires().minute(u.low);
+				u = date_begin->to_uint32();
+				cookie.expires().minute(u >> 16);
 				date_begin++;
-				u.value = date_begin->to_uint32();
-				cookie.expires().second(u.low);
+				u = date_begin->to_uint32();
+				cookie.expires().second(u >> 16);
 				cookie.set_enable_expires(true);
 			}
 			else if (name == U("Max-Age"))

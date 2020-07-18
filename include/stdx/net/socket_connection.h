@@ -15,13 +15,8 @@ namespace stdx
 
 		virtual stdx::task<size_t> write(stdx::buffer buf, size_t size) override
 		{
-			stdx::uint64_union u;
-			u.value = size;
-			if (u.height != 0)
-			{
-				return stdx::error_task<size_t>(std::make_exception_ptr(std::invalid_argument("buffer size too big")));
-			}
-			auto t = m_socket.send(buf, u.low);
+			uint32_t _size = stdx::implicit_cast<uint32_t>(size);
+			auto t = m_socket.send(buf,_size);
 			auto x = t.then([](stdx::task_result<stdx::network_send_event> r)
 					{
 						auto ev = r.get();

@@ -102,64 +102,27 @@ namespace stdx
 
 namespace stdx
 {
-	union int64_union
+	union endian_checker
 	{
-		struct 
+		struct
 		{
-			uint32_t low;
-			int32_t height;
+			char a;
+			char b;
 		};
-		int64_t value;
+		int16_t v = 1;
 	};
 
-	union int32_union
-	{
-		struct
-		{
-			uint16_t low;
-			int16_t height;
-		};
-		int32_t value;
-	};
+	extern endian_checker _Checker;
 
-	union int16_union
-	{
-		struct
-		{
-			uint8_t low;
-			int8_t height;
-		};
-		int16_t value;
-	};
+	inline bool is_big_endian();
 
-	union uint64_union
-	{
-		struct
-		{
-			uint32_t low;
-			uint32_t height;
-		};
-		uint64_t value;
-	};
+	inline bool is_little_endian();
 
-	union uint32_union
+	template<typename _To,typename _From,typename = typename std::enable_if<std::is_convertible<_From,_To>::value>::type>
+	inline _To implicit_cast(const _From &obj)
 	{
-		struct
-		{
-			uint16_t low;
-			uint16_t height;
-		};
-		uint32_t value;
-	};
-	union uint16_union
-	{
-		struct
-		{
-			uint8_t low;
-			uint8_t height;
-		};
-		uint16_t value;
-	};
+		return obj;
+	}
 }
 
 #include <stdexcept>
