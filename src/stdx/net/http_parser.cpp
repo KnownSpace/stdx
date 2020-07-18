@@ -22,8 +22,8 @@ stdx::http_request_parser_state_machine stdx::_HttpRequestParserState::reset()
 	m_model->header_buffer.clear();
 	m_model->body_buffer.clear();
 	m_model->header.reset();
-	m_model->state = stdx::http_parser_state::pending;
-	auto t = stdx::make_state_machine<stdx::_HttpRequestParserPendingState>(m_model);
+	m_model->state = stdx::http_parser_state::wait_header;
+	auto t = stdx::make_state_machine<stdx::_HttpRequestParserWaitHeaderState>(m_model);
 	return t;
 }
 
@@ -93,18 +93,6 @@ void stdx::_HttpRequestParserState::_FinishParse()
 	stdx::http_request req(m_model->header);
 	m_model->requests.push_back(req);
 	m_model->header.reset();
-}
-
-stdx::_HttpRequestParserPendingState::_HttpRequestParserPendingState(const model_ptr_t model)
-	:base_t(model)
-{
-	model->state = stdx::http_parser_state::pending;
-}
-
-stdx::http_request_parser_state_machine stdx::_HttpRequestParserPendingState::move_next()
-{
-	_CheckArg();
-	return stdx::make_state_machine<stdx::_HttpRequestParserWaitHeaderState>(m_model);
 }
 
 stdx::_HttpRequestParserWaitHeaderState::_HttpRequestParserWaitHeaderState(const model_ptr_t model)
@@ -286,7 +274,7 @@ bool stdx::_HttpRequestParserErrorState::is_end() const
 
 stdx::http_request_parser::http_request_parser(uint64_t max_size)
 	:m_model(std::make_shared<stdx::http_request_parser_model>())
-	,m_state_machine(stdx::make_state_machine<stdx::_HttpRequestParserPendingState>(m_model))
+	,m_state_machine(stdx::make_state_machine<stdx::_HttpRequestParserWaitHeaderState>(m_model))
 {
 	m_model->max_size = max_size;
 }

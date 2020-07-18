@@ -7,7 +7,6 @@ namespace stdx
 {
 	enum class http_parser_state
 	{
-		pending,
 		wait_header,
 		wait_body,
 		finish,
@@ -62,18 +61,6 @@ namespace stdx
 		void _FinishParse(const stdx::http_form_ptr &form);
 
 		void _FinishParse();
-	};
-
-	class _HttpRequestParserPendingState:public stdx::_HttpRequestParserState
-	{
-		using base_t = stdx::_HttpRequestParserState;
-	public:
-		_HttpRequestParserPendingState(const model_ptr_t model);
-		~_HttpRequestParserPendingState() = default;
-
-		virtual stdx::http_request_parser_state_machine move_next() override;
-	private:
-
 	};
 
 	class _HttpRequestParserWaitHeaderState:public stdx::_HttpRequestParserState
