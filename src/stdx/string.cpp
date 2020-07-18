@@ -478,9 +478,9 @@ stdx::string stdx::string::from_buffer(const stdx::buffer &buf)
 	//末尾处理
 	if((size % 2) != 0)
 	{
-		int16_union u16;
-		u16.low = buf[size-1];
-		str.push_back((wchar_t)u16.value);
+		int16_t u16;
+		u16 = buf[size-1];
+		str.push_back((wchar_t)u16);
 	}
 #else
 	for(size_t i = 0,size = buf.size();i<size;++i)
@@ -1021,9 +1021,7 @@ void stdx::_FormatString(stdx::string& format_string, std::initializer_list<stdx
 {
 	auto begin = args.begin();
 	stdx::string str(U("{0}"));
-	stdx::uint64_union u;
-	u.value = args.size();
-	for (uint32_t i = 0, size = u.low; i < size; i++)
+	for (uint32_t i = 0, size = stdx::implicit_cast<uint32_t>(args.size()); i < size; i++)
 	{
 		if (i != 0)
 		{

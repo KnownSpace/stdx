@@ -1,5 +1,17 @@
 #include <stdx/env.h>
 
+stdx::endian_checker stdx::_Checker;
+
+bool stdx::is_big_endian()
+{
+	return _Checker.b == 1;
+}
+
+bool stdx::is_little_endian()
+{
+	return _Checker.a == 1;
+}
+
 void stdx::little_endian_to_big_endian(char* buffer, size_t n)
 {
 	if (n==0)
@@ -66,25 +78,3 @@ void* stdx::realloc(void* p, size_t size)
 	return ::realloc(p, size);
 #endif
 }
-
-#ifdef WIN32
-//void* operator new(size_t size, const std::nothrow_t& nothrow_value) noexcept
-//{
-//	return stdx::malloc(size);
-//}
-//
-//void operator delete(void* p, const std::nothrow_t& nothrow_value) noexcept
-//{
-//	return stdx::free(p);
-//}
-//
-//void* operator new[](size_t size, const std::nothrow_t& nothrow_value) noexcept
-//{
-//	return stdx::malloc(size);
-//}
-//
-//void operator delete[](void* p, const std::nothrow_t& nothrow_value) noexcept
-//{
-//	return stdx::free(p);
-//}
-#endif

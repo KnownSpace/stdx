@@ -111,10 +111,10 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	uint64_union li;
-	li.value = offset;
-	context->m_ol.Offset = li.low;
-	context->m_ol.OffsetHigh = li.height;
+	uint64_t li;
+	li = offset;
+	context->m_ol.Offset = li >> 32;
+	context->m_ol.OffsetHigh = (li ^ UINT32_MAX)>>32;
 	context->eof = false;
 	context->file = file;
 	context->offset = offset;
@@ -310,10 +310,10 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, stdx::buffe
 		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	uint64_union li;
-	li.value = offset;
-	context_ptr->m_ol.Offset = li.low;
-	context_ptr->m_ol.OffsetHigh = li.height;
+	uint64_t li;
+	li = offset;
+	context_ptr->m_ol.Offset = li >> 32;
+	context_ptr->m_ol.OffsetHigh = (li ^ UINT32_MAX)>>32;
 	context_ptr->size = 0;
 	context_ptr->offset = 0;
 	context_ptr->buf = buf;

@@ -395,13 +395,9 @@ namespace stdx
 
 		stdx::task<stdx::file_read_event> read_to_end(const uint64_t& offset)
 		{
-			uint64_union u;
-			u.value = size() - offset;
-			if (u.height != 0)
-			{
-				return stdx::error_task<stdx::file_read_event>(std::make_exception_ptr(std::out_of_range("file is too big")));
-			}
-			stdx::buffer buf = stdx::make_buffer(u.value);
+			uint32_t u;
+			u = stdx::implicit_cast<uint32_t>(size() - offset);
+			stdx::buffer buf = stdx::make_buffer(u);
 			if (!buf.check())
 			{
 				return stdx::error_task<stdx::file_read_event>(std::make_exception_ptr(std::bad_alloc()));
