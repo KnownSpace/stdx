@@ -1128,11 +1128,11 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 	for (uint32_t i = 0, cores = stdx::_NetworkIOService::loop_num; i < cores; i++)
 	{
 		int null_fd(open_null_fd());
-		m_thread_pool.long_loop(m_token,[i,null_fd,this](stdx::io_poller<stdx::network_io_context> poller) mutable
+		m_thread_pool.long_loop(m_token,[i,null_fd,this]() mutable
 			{
 				try
 				{
-					auto context = poller.get_at(i);
+					auto context = m_poller.get_at(i);
 					if (context == nullptr)
 					{
 						if (m_token.is_cancel())
@@ -1161,7 +1161,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					}
 					else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
 					{
-						poller.bind(context->target_socket);
+						m_poller.bind(context->target_socket);
 					}
 					stdx::finally fin([call]()
 						{
@@ -1173,6 +1173,7 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 					}
 					catch (const std::exception& ex)
 					{
+						DBG_VAR(ex);
 #ifdef DEBUG
 						::printf("[NetworkIOService]Callback error: %s\n", ex.what());
 #endif
@@ -1180,11 +1181,12 @@ void stdx::_NetworkIOService::init_threadpoll() noexcept
 				}
 				catch (const std::exception &ex)
 				{
+					DBG_VAR(ex);
 #ifdef DEBUG
 					::printf("[NetworkIOServcie]Error: %s\n", ex.what());
 #endif
 				}
-			},m_poller);
+			});
 	}
 #endif
 }

@@ -224,10 +224,19 @@ namespace stdx
 			m_impl->run_on_this_thread();
 		}
 
-		template<typename _Fn, typename ..._Args>
+		template<typename _Fn, typename ..._Args,typename = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
 		static task<_R> start(_Fn&& fn, _Args&&...args)
 		{
 			auto t = task<_R>(std::move(fn), std::move(args)...);
+			t.run();
+			return t;
+		}
+
+		template<typename _Fn, typename ..._Args, typename = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		static task<_R> start(stdx::thread_pool &pool,_Fn&& fn, _Args&&...args)
+		{
+			auto t = task<_R>(std::move(fn), std::move(args)...);
+			t.config(pool);
 			t.run();
 			return t;
 		}
@@ -287,6 +296,12 @@ namespace stdx
 		bool operator==(const stdx::task<_R>& other) const
 		{
 			return m_impl == other.m_impl;
+		}
+
+		stdx::task<_R>& config(stdx::thread_pool &pool)
+		{
+			m_impl->config(pool);
+			return *this;
 		}
 	private:
 		impl_t m_impl;
@@ -752,6 +767,7 @@ namespace stdx
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
 			, m_state(std::make_shared<task_state>(stdx::task_state::ready))
 			, m_lock()
+			, m_pool(nullptr)
 		{
 		}
 
@@ -763,6 +779,7 @@ namespace stdx
 			, m_next(std::make_shared<std::shared_ptr<stdx::basic_task>>(nullptr))
 			, m_state(std::make_shared<task_state>(stdx::task_state::ready))
 			, m_lock()
+			, m_pool(nullptr)
 		{
 		}
 
@@ -799,6 +816,11 @@ namespace stdx
 				stdx::_TaskCompleter<R>::call(r, promise, next, lock, state, future);
 			};
 			//放入线程池
+			if (m_pool)
+			{
+				m_pool->run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
+				return;
+			}
 			stdx::threadpool.run(f, m_action, m_promise, m_next, m_lock, m_state, m_future);
 		}
 
@@ -876,6 +898,11 @@ namespace stdx
 		//		});
 		//}
 
+		void config(stdx::thread_pool &pool)
+		{
+			m_pool = &pool;
+		}
+
 	protected:
 		stdx::runable_ptr<R> m_action;
 		stdx::promise_ptr<R> m_promise;
@@ -883,6 +910,7 @@ namespace stdx
 		std::shared_ptr<std::shared_ptr<stdx::basic_task>> m_next;
 		stdx::state_ptr m_state;
 		stdx::spin_lock m_lock;
+		stdx::thread_pool *m_pool;
 	};
 
 	//启动一个Task
@@ -890,6 +918,12 @@ namespace stdx
 	inline stdx::task<_R> async(_Fn&& fn, _Args&&...args)
 	{
 		return task<_R>::start(fn, args...);
+	}
+
+	template<typename _Fn, typename ..._Args, typename _R = typename stdx::function_info<_Fn>::result, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+	inline stdx::task<_R> async(stdx::thread_pool &pool,_Fn&& fn, _Args&&...args)
+	{
+		return task<_R>::start(pool,fn, args...);
 	}
 
 #pragma region TaskCompleteEvent
@@ -904,30 +938,55 @@ namespace stdx
 					return promise->get_future().get();
 				}, m_promise)
 		{}
+
+		_TaskCompleteEvent(stdx::thread_pool &pool)
+			:m_promise(stdx::make_promise_ptr<_R>())
+			, m_task([](promise_ptr<_R> promise)
+				{
+					return promise->get_future().get();
+				}, m_promise)
+		{
+			if (m_task)
+			{
+				m_task.config(pool);
+			}
+		}
+
 		~_TaskCompleteEvent() = default;
+
 		void set_value(_R&& value)
 		{
 			m_promise->set_value(value);
 		}
+
 		void set_value(const _R& value)
 		{
 			m_promise->set_value(value);
 		}
+
 		void set_exception(const std::exception_ptr& error)
 		{
 			m_promise->set_exception(error);
 		}
+
 		stdx::task<_R> get_task()
 		{
 			return m_task;
 		}
+
 		void run()
 		{
 			m_task.run();
 		}
+
 		void run_on_this_thread()
 		{
 			m_task.run_on_this_thread();
+		}
+
+		bool check_task() const
+		{
+			return m_task;
 		}
 	private:
 		promise_ptr<_R> m_promise;
@@ -946,6 +1005,21 @@ namespace stdx
 			promise->get_future().get();
 		}, m_promise)
 		{}
+
+		_TaskCompleteEvent(stdx::thread_pool &pool)
+			:m_promise(stdx::make_promise_ptr<void>())
+			, m_task([](promise_ptr<void> promise)
+				{
+
+					promise->get_future().get();
+				}, m_promise)
+		{
+			if (m_task)
+			{
+				m_task.config(pool);
+			}
+		}
+
 		~_TaskCompleteEvent() = default;
 		void set_value()
 		{
@@ -967,6 +1041,11 @@ namespace stdx
 		{
 			m_task.run_on_this_thread();
 		}
+
+		bool check_task() const
+		{
+			return m_task;
+		}
 	private:
 		promise_ptr<void> m_promise;
 		stdx::task<void> m_task;
@@ -979,6 +1058,10 @@ namespace stdx
 	public:
 		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<_R>>())
+		{}
+
+		task_completion_event(stdx::thread_pool &pool)
+			:m_impl(std::make_shared<_TaskCompleteEvent<_R>>(pool))
 		{}
 
 		task_completion_event(const task_completion_event<_R>& other)
@@ -1042,6 +1125,11 @@ namespace stdx
 		{
 			return (bool)m_impl;
 		}
+
+		bool check_task() const
+		{
+			return m_impl->check_task();
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -1053,6 +1141,10 @@ namespace stdx
 	public:
 		task_completion_event()
 			:m_impl(std::make_shared<_TaskCompleteEvent<void>>())
+		{}
+
+		task_completion_event(stdx::thread_pool &pool)
+			:m_impl(std::make_shared<_TaskCompleteEvent<void>>(pool))
 		{}
 
 		task_completion_event(const task_completion_event<void>& other)
@@ -1111,6 +1203,11 @@ namespace stdx
 		{
 			return (bool)m_impl;
 		}
+
+		bool check_task() const
+		{
+			return m_impl->check_task();
+		}
 	private:
 		impl_t m_impl;
 	};
@@ -1121,13 +1218,17 @@ namespace stdx
 	{
 	public:
 		_TaskFlag();
+		_TaskFlag(stdx::thread_pool &pool);
 		~_TaskFlag();
 		stdx::task<void> lock();
 		void unlock() noexcept;
 	private:
+		void _RunOrPush(stdx::task_completion_event<void> &ce);
+
 		stdx::spin_lock m_lock;
 		bool m_locked;
 		std::queue<stdx::task_completion_event<void>> m_wait_queue;
+		stdx::thread_pool* m_pool;
 	};
 
 	class task_flag
@@ -1136,6 +1237,10 @@ namespace stdx
 	public:
 		task_flag()
 			:m_impl(std::make_shared<_TaskFlag>())
+		{}
+
+		task_flag(stdx::thread_pool &pool)
+			:m_impl(std::make_shared<_TaskFlag>(pool))
 		{}
 
 		task_flag(const task_flag& other)
@@ -1186,7 +1291,7 @@ namespace stdx
 #pragma endregion
 
 	template<typename _T>
-	inline stdx::task<_T> complete_task(const _T& arg)
+	inline stdx::task<_T> complete_task(_T&& arg)
 	{
 		stdx::task_completion_event<_T> ev;
 		ev.set_value(arg);
@@ -1204,6 +1309,8 @@ namespace stdx
 
 	extern stdx::task<void> lazy(uint64_t ms);
 
+	extern stdx::task<void> lazy(stdx::thread_pool &pool,uint64_t ms);
+
 	template<typename _T>
 	inline stdx::task<_T> error_task(const std::exception_ptr& err)
 	{
@@ -1212,4 +1319,102 @@ namespace stdx
 		ev.run_on_this_thread();
 		return ev.get_task();
 	}
+
+	class _RWFlag
+	{
+	public:
+
+		enum class lock_state 
+		{
+			free,
+			read,
+			write
+		};
+
+		_RWFlag();
+
+		_RWFlag(stdx::thread_pool& pool);
+
+		~_RWFlag();
+
+		stdx::task<void> lock_read();
+
+		stdx::task<void> lock_write();
+
+		void unlock() noexcept;
+
+	private:
+
+		stdx::spin_lock m_lock;
+		lock_state m_state;
+		std::queue<stdx::task_completion_event<void>> m_write_queue;
+		std::queue<stdx::task_completion_event<void>> m_read_queue;
+		stdx::thread_pool* m_pool;
+		size_t m_read_ref;
+	};
+
+	class rw_flag
+	{
+		using impl_t = std::shared_ptr<stdx::_RWFlag>;
+		using self_t = stdx::rw_flag;
+	public:
+		using lock_state = stdx::_RWFlag::lock_state;
+
+		rw_flag()
+			:m_impl(std::make_shared<stdx::_RWFlag>())
+		{}
+
+		rw_flag(stdx::thread_pool &pool)
+			:m_impl(std::make_shared<stdx::_RWFlag>(pool))
+		{}
+
+		rw_flag(const self_t &other)
+			:m_impl(other.m_impl)
+		{}
+
+		rw_flag(self_t &&other)
+			:m_impl(std::move(other.m_impl))
+		{}
+
+		~rw_flag() = default;
+
+		self_t& operator=(const self_t& other)
+		{
+			m_impl = other.m_impl;
+			return *this;
+		}
+
+		self_t& operator=(self_t&& other)
+		{
+			m_impl = std::move(other.m_impl);
+			return *this;
+		}
+
+		bool operator==(const self_t& other) const
+		{
+			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
+		stdx::task<void> lock_read()
+		{
+			return m_impl->lock_read();
+		}
+
+		stdx::task<void> lock_write()
+		{
+			return m_impl->lock_write();
+		}
+
+		void unlock() noexcept
+		{
+			return m_impl->unlock();
+		}
+	private:
+		impl_t m_impl;
+	};
 }
