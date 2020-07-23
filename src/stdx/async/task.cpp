@@ -47,11 +47,12 @@ stdx::task<void> stdx::_TaskFlag::lock()
 
 void stdx::_TaskFlag::unlock() noexcept
 {
-	std::lock_guard<stdx::spin_lock> guard(m_lock);
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
 	if (!m_wait_queue.empty())
 	{
 		auto ce = m_wait_queue.front();
 		m_wait_queue.pop();
+		lock.unlock();
 		ce.set_value();
 		ce.run();
 	}
@@ -244,3 +245,73 @@ stdx::_RWFlag::_RWFlag(stdx::thread_pool & pool)
 	, m_pool(&pool)
 	,m_read_ref(0)
 {}
+
+stdx::_SharedFlag::_SharedFlag(size_t count)
+	:m_lock()
+	,m_count(count)
+	,m_wait_queue()
+	,m_pool(nullptr)
+{}
+
+stdx::_SharedFlag::~_SharedFlag()
+{
+	bool i = !m_wait_queue.empty();
+	while (i)
+	{
+		auto ce = m_wait_queue.front();
+		m_wait_queue.pop();
+		ce.set_exception(std::make_exception_ptr(std::logic_error("the flag has been free!")));
+		ce.run();
+		i = !m_wait_queue.empty();
+	}
+}
+
+stdx::task<void> stdx::_SharedFlag::lock()
+{
+	if (m_pool)
+	{
+		stdx::task_completion_event<void> ce(*m_pool);
+		_RunOrPush(ce);
+		return ce.get_task();
+	}
+	stdx::task_completion_event<void> ce;
+	_RunOrPush(ce);
+	return ce.get_task();
+}
+
+void stdx::_SharedFlag::unlock() noexcept
+{
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	if (m_wait_queue.empty())
+	{
+		m_count += 1;
+		return;
+	}
+	auto ce = m_wait_queue.front();
+	m_wait_queue.pop();
+	lock.unlock();
+	ce.set_value();
+	ce.run();
+}
+
+void stdx::_SharedFlag::_RunOrPush(stdx::task_completion_event<void>& ce)
+{
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	if (m_count)
+	{
+		m_count -= 1;
+		lock.unlock();
+		ce.set_value();
+		ce.run_on_this_thread();
+		return;
+	}
+	m_wait_queue.push(ce);
+}
+
+stdx::_SharedFlag::_SharedFlag(size_t count, stdx::thread_pool& pool)
+	:m_lock()
+	, m_count(count)
+	, m_wait_queue()
+	, m_pool(&pool)
+{}
+

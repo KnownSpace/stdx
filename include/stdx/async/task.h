@@ -1372,7 +1372,7 @@ namespace stdx
 			:m_impl(other.m_impl)
 		{}
 
-		rw_flag(self_t &&other)
+		rw_flag(self_t &&other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 
@@ -1384,7 +1384,7 @@ namespace stdx
 			return *this;
 		}
 
-		self_t& operator=(self_t&& other)
+		self_t& operator=(self_t&& other) noexcept
 		{
 			m_impl = std::move(other.m_impl);
 			return *this;
@@ -1414,6 +1414,87 @@ namespace stdx
 		{
 			return m_impl->unlock();
 		}
+	private:
+		impl_t m_impl;
+	};
+
+	class _SharedFlag
+	{
+	public:
+		_SharedFlag(size_t count);
+
+		_SharedFlag(size_t count,stdx::thread_pool &pool);
+
+		~_SharedFlag();
+
+		stdx::task<void> lock();
+
+		void unlock() noexcept;
+
+	private:
+		void _RunOrPush(stdx::task_completion_event<void> &ce);
+
+		stdx::spin_lock m_lock;
+		size_t m_count;
+		std::queue<stdx::task_completion_event<void>> m_wait_queue;
+		stdx::thread_pool* m_pool;
+	};
+
+	class shared_flag
+	{
+		using impl_t = std::shared_ptr<stdx::_SharedFlag>;
+		using self_t = stdx::shared_flag;
+	public:
+		shared_flag(size_t count)
+			:m_impl(std::make_shared<stdx::_SharedFlag>(count))
+		{}
+
+		shared_flag(size_t count,stdx::thread_pool& pool)
+			:m_impl(std::make_shared<stdx::_SharedFlag>(count,pool))
+		{}
+
+		shared_flag(const self_t& other)
+			:m_impl(other.m_impl)
+		{}
+
+		shared_flag(self_t &&other) noexcept
+			:m_impl(std::move(other.m_impl))
+		{}
+
+		~shared_flag() = default;
+
+		self_t& operator=(const self_t& other)
+		{
+			m_impl = other.m_impl;
+			return *this;
+		}
+
+		self_t& operator=(self_t&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
+			return *this;
+		}
+
+		bool operator==(const self_t& other) const
+		{
+			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
+		stdx::task<void> lock()
+		{
+			return m_impl->lock();
+		}
+
+		void unlock() noexcept
+		{
+			return m_impl->unlock();
+		}
+
 	private:
 		impl_t m_impl;
 	};
