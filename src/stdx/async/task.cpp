@@ -89,7 +89,7 @@ stdx::task<void> stdx::lazy(uint64_t ms)
 	return ce.get_task();
 }
 
-extern stdx::task<void> stdx::lazy(thread_pool& pool, uint64_t ms)
+extern stdx::task<void> stdx::lazy_on(thread_pool& pool, uint64_t ms)
 {
 	stdx::task_completion_event<void> ce(pool);
 	pool.lazy_run(ms, [](stdx::task_completion_event<void> ce)
@@ -136,43 +136,40 @@ stdx::_RWFlag::~_RWFlag()
 
 stdx::task<void> stdx::_RWFlag::lock_read()
 {
-	std::unique_lock<stdx::spin_lock> lock(m_lock);
-	if (m_state != lock_state::write)
-	{
-		m_state = lock_state::read;
-		m_read_ref += 1;
-		lock.unlock();
-		return stdx::complete_task();
-	}
 	if (m_pool)
 	{
 		stdx::task_completion_event<void> ce(*m_pool);
-		m_read_queue.push(ce);
+		_RunOrPushRead(ce);
 		return ce.get_task();
 	}
 	stdx::task_completion_event<void> ce;
-	m_read_queue.push(ce);
+	_RunOrPushRead(ce);
 	return ce.get_task();
 }
 
 stdx::task<void> stdx::_RWFlag::lock_write()
 {
-	std::unique_lock<stdx::spin_lock> lock(m_lock);
-	if (m_state == lock_state::free)
-	{
-		m_state = lock_state::write;
-		lock.unlock();
-		return stdx::complete_task();
-	}
 	if (m_pool)
 	{
 		stdx::task_completion_event<void> ce(*m_pool);
-		m_write_queue.push(ce);
+		_RunOrPushWrite(ce);
 		return ce.get_task();
 	}
 	stdx::task_completion_event<void> ce;
-	m_write_queue.push(ce);
+	_RunOrPushWrite(ce);
 	return ce.get_task();
+}
+
+stdx::task<void> stdx::_RWFlag::relock_to_write()
+{
+	unlock();
+	return lock_write();
+}
+
+stdx::task<void> stdx::_RWFlag::relock_to_read()
+{
+	unlock();
+	return lock_write();
 }
 
 void stdx::_RWFlag::unlock() noexcept
@@ -234,6 +231,39 @@ void stdx::_RWFlag::unlock() noexcept
 			m_state = lock_state::free;
 			return;
 		}
+	}
+}
+
+void stdx::_RWFlag::_RunOrPushRead(stdx::task_completion_event<void>& ce)
+{
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	if (m_state != lock_state::write)
+	{
+		m_state = lock_state::read;
+		m_read_ref += 1;
+		lock.unlock();
+		ce.set_value();
+		ce.run_on_this_thread();
+	}
+	else
+	{
+		m_read_queue.push(ce);
+	}
+}
+
+void stdx::_RWFlag::_RunOrPushWrite(stdx::task_completion_event<void>& ce)
+{
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	if (m_state == lock_state::free)
+	{
+		m_state = lock_state::write;
+		lock.unlock();
+		ce.set_value();
+		ce.run_on_this_thread();
+	}
+	else
+	{
+		m_write_queue.push(ce);
 	}
 }
 
@@ -315,3 +345,44 @@ stdx::_SharedFlag::_SharedFlag(size_t count, stdx::thread_pool& pool)
 	, m_pool(&pool)
 {}
 
+stdx::_NoticeFlag::_NoticeFlag(size_t count)
+	:m_count(count ? count:1)
+	,m_ce()
+	,m_max_count(count ? count : 1)
+{}
+
+void stdx::_NoticeFlag::notice()
+{
+	size_t old_value = m_count.fetch_sub(1);
+	if (old_value == 1)
+	{
+		m_ce.set_value();
+		m_ce.run();
+	}
+}
+
+void stdx::_NoticeFlag::notice_on_this_thread()
+{
+	size_t old_value = m_count.fetch_sub(1);
+	if (old_value == 1)
+	{
+		m_ce.set_value();
+		m_ce.run_on_this_thread();
+	}
+}
+
+stdx::task<void> stdx::_NoticeFlag::get_task()
+{
+	return m_ce.get_task();
+}
+
+void stdx::_NoticeFlag::reset()
+{
+	m_count = m_max_count;
+}
+
+stdx::_NoticeFlag::_NoticeFlag(size_t count, stdx::thread_pool& pool)
+	:m_count(count ? count:1)
+	,m_ce(pool)
+	,m_max_count(count ? count : 1)
+{}

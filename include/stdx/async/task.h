@@ -224,7 +224,7 @@ namespace stdx
 			m_impl->run_on_this_thread();
 		}
 
-		template<typename _Fn, typename ..._Args,typename = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
+		template<typename _Fn, typename ..._Args>
 		static task<_R> start(_Fn&& fn, _Args&&...args)
 		{
 			auto t = task<_R>(std::move(fn), std::move(args)...);
@@ -232,8 +232,8 @@ namespace stdx
 			return t;
 		}
 
-		template<typename _Fn, typename ..._Args, typename = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
-		static task<_R> start(stdx::thread_pool &pool,_Fn&& fn, _Args&&...args)
+		template<typename _Fn, typename ..._Args>
+		static task<_R> start_on(stdx::thread_pool &pool,_Fn&& fn, _Args&&...args)
 		{
 			auto t = task<_R>(std::move(fn), std::move(args)...);
 			t.config(pool);
@@ -921,9 +921,9 @@ namespace stdx
 	}
 
 	template<typename _Fn, typename ..._Args, typename _R = typename stdx::function_info<_Fn>::result, class = typename std::enable_if<stdx::is_callable<_Fn>::value>::type>
-	inline stdx::task<_R> async(stdx::thread_pool &pool,_Fn&& fn, _Args&&...args)
+	inline stdx::task<_R> async_on(stdx::thread_pool &pool,_Fn&& fn, _Args&&...args)
 	{
-		return task<_R>::start(pool,fn, args...);
+		return task<_R>::start_on(pool,fn, args...);
 	}
 
 #pragma region TaskCompleteEvent
@@ -1309,7 +1309,7 @@ namespace stdx
 
 	extern stdx::task<void> lazy(uint64_t ms);
 
-	extern stdx::task<void> lazy(stdx::thread_pool &pool,uint64_t ms);
+	extern stdx::task<void> lazy_on(stdx::thread_pool &pool,uint64_t ms);
 
 	template<typename _T>
 	inline stdx::task<_T> error_task(const std::exception_ptr& err)
@@ -1341,9 +1341,17 @@ namespace stdx
 
 		stdx::task<void> lock_write();
 
+		stdx::task<void> relock_to_write();
+
+		stdx::task<void> relock_to_read();
+
 		void unlock() noexcept;
 
 	private:
+
+		void _RunOrPushRead(stdx::task_completion_event<void>& ce);
+
+		void _RunOrPushWrite(stdx::task_completion_event<void>& ce);
 
 		stdx::spin_lock m_lock;
 		lock_state m_state;
@@ -1408,6 +1416,16 @@ namespace stdx
 		stdx::task<void> lock_write()
 		{
 			return m_impl->lock_write();
+		}
+
+		stdx::task<void> relock_to_write()
+		{
+			return m_impl->relock_to_write();
+		}
+
+		stdx::task<void> relock_to_read()
+		{
+			return m_impl->relock_to_read();
 		}
 
 		void unlock() noexcept
@@ -1493,6 +1511,98 @@ namespace stdx
 		void unlock() noexcept
 		{
 			return m_impl->unlock();
+		}
+
+	private:
+		impl_t m_impl;
+	};
+
+	class _NoticeFlag
+	{
+	public:
+		_NoticeFlag(size_t count);
+
+		_NoticeFlag(size_t count,stdx::thread_pool &pool);
+
+		~_NoticeFlag() = default;
+
+		void notice();
+
+		void notice_on_this_thread();
+
+		stdx::task<void> get_task();
+
+		void reset();
+	private:
+		std::atomic_size_t m_count;
+		stdx::task_completion_event<void> m_ce;
+		size_t m_max_count;
+	};
+
+	class notice_flag
+	{
+		using impl_t = std::shared_ptr<stdx::_NoticeFlag>;
+		using self_t = stdx::notice_flag;
+	public:
+		notice_flag(size_t count)
+			:m_impl(std::make_shared<stdx::_NoticeFlag>(count))
+		{}
+
+		notice_flag(size_t count,stdx::thread_pool &pool)
+			:m_impl(std::make_shared<stdx::_NoticeFlag>(count,pool))
+		{}
+
+		notice_flag(const self_t &other)
+			:m_impl(other.m_impl)
+		{}
+
+		notice_flag(self_t &&other) noexcept
+			:m_impl(std::move(other.m_impl))
+		{}
+
+		~notice_flag() = default;
+
+
+		self_t& operator=(const self_t& other)
+		{
+			m_impl = other.m_impl;
+			return *this;
+		}
+
+		self_t& operator=(self_t&& other) noexcept
+		{
+			m_impl = std::move(other.m_impl);
+			return *this;
+		}
+
+		bool operator==(const self_t& other) const
+		{
+			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
+		void notice()
+		{
+			return m_impl->notice();
+		}
+
+		void notice_on_this_thread()
+		{
+			return m_impl->notice_on_this_thread();
+		}
+
+		stdx::task<void> get_task()
+		{
+			return m_impl->get_task();
+		}
+
+		void reset()
+		{
+			return m_impl->reset();
 		}
 
 	private:
