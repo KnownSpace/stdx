@@ -100,6 +100,16 @@ extern stdx::task<void> stdx::lazy_on(thread_pool& pool, uint64_t ms)
 	return ce.get_task();
 }
 
+extern stdx::task<stdx::ignore_t> stdx::as_ignore_task(task<void>& task)
+{
+	auto t = task.then([](stdx::task_result<void> r) 
+	{
+		r.get();
+		return stdx::ignore;
+	});
+	return t;
+}
+
 stdx::_RWFlag::_RWFlag()
 	:m_lock()
 	,m_state(stdx::_RWFlag::lock_state::free)

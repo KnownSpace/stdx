@@ -6,6 +6,7 @@
 #include <stdx/traits/value_type.h>
 #include <stdx/function.h>
 #include <stdx/env.h>
+#include <tuple>
 
 
 namespace stdx
@@ -167,6 +168,8 @@ namespace stdx
 	{
 		using impl_t = std::shared_ptr<stdx::_Task<_R>>;
 	public:
+		using result_t = stdx::task_result<_R>;
+
 		task()
 			:m_impl(nullptr)
 		{}
@@ -888,16 +891,6 @@ namespace stdx
 			return t;
 		}
 
-		//合并Task
-		//template<typename _R>
-		//std::shared_ptr<_Task<void>> with(std::shared_ptr<_Task<_R>> other)
-		//{
-		//	return then([other](stdx::task_result<void>&)
-		//		{
-		//			other->lock();
-		//		});
-		//}
-
 		void config(stdx::thread_pool &pool)
 		{
 			m_pool = &pool;
@@ -1608,4 +1601,134 @@ namespace stdx
 	private:
 		impl_t m_impl;
 	};
+
+	template<typename _Lock>
+	struct unlocker
+	{
+	public:
+		unlocker(_Lock &lock)
+			:m_lock(lock)
+			,m_locked(true)
+		{}
+
+		~unlocker()
+		{
+			unlock();
+		}
+
+		DELETE_COPY(unlocker<_Lock>);
+		DELETE_MOVE(unlocker<_Lock>);
+
+		void unlock()
+		{
+			if (m_locked)
+			{
+				m_lock.unlock();
+			}
+		}
+
+		void cancel()
+		{
+			m_locked = false;
+		}
+
+		void reset()
+		{
+			m_locked = true;
+		}
+	private:
+		_Lock& m_lock;
+		bool m_locked;
+	};
+
+	template<typename _TuplePtr,typename _TuplePromisePtr,size_t _Size,size_t _Index,typename _Task,typename ..._Tasks>
+	struct _TaskCombiner
+	{
+		static void fill_tuple(_TuplePtr tuple,_TuplePromisePtr promise,stdx::notice_flag flag,_Task task,_Tasks ...tasks)
+		{
+			using result_t = typename _Task::result_t;
+			task.then([flag,tuple,promise](result_t r) mutable
+			{
+				try
+				{
+					std::get<_Size - _Index>(*tuple) = r.get();
+				}
+				catch (const std::exception&)
+				{
+					promise->set_exception(std::current_exception());
+				}
+				flag.notice();
+			});
+			_TaskCombiner<_TuplePtr, _TuplePromisePtr,_Size, _Index - 1, _Tasks...>::fill_tuple(tuple,promise,flag,tasks...);
+		}
+	};
+
+	template<typename _TuplePtr, typename _TuplePromisePtr,typename _Task,size_t _Size>
+	struct _TaskCombiner<_TuplePtr, _TuplePromisePtr,_Size, 1, _Task>
+	{
+		static void fill_tuple(_TuplePtr tuple, _TuplePromisePtr promise, stdx::notice_flag flag, _Task task)
+		{
+			using result_t = typename _Task::result_t;
+			task.then([flag, tuple, promise](result_t r) mutable
+			{
+				try
+				{
+					std::get<_Size - 1>(*tuple) = r.get();
+				}
+				catch (const std::exception&)
+				{
+					promise->set_exception(std::current_exception());
+				}
+				flag.notice();
+			});
+		}
+	};
+
+	template<typename _TaskResult,typename __TaskResult,typename ..._TaskResults>
+	stdx::task<std::tuple<_TaskResult, __TaskResult, _TaskResults...>> combine_tasks(stdx::task<_TaskResult> task,stdx::task<__TaskResult> _task,stdx::task<_TaskResults>... tasks)
+	{
+		using result_t = std::tuple<_TaskResult, __TaskResult, _TaskResults...>;
+		stdx::notice_flag flag(sizeof...(_TaskResults)+2);
+		std::shared_ptr<result_t> tuple_ptr = std::make_shared<result_t>();
+		stdx::promise_ptr<result_t> promise_ptr = std::make_shared<std::promise<result_t>>();
+		std::shared_future<result_t> future = promise_ptr->get_future();
+		auto x = flag.get_task().then([promise_ptr,tuple_ptr,future]() mutable
+		{
+				auto state = future.wait_for(std::chrono::nanoseconds(0));
+				if (state != std::future_status::ready)
+				{
+					promise_ptr->set_value(std::move(*tuple_ptr));
+				}
+				return future.get();
+		});
+		stdx::_TaskCombiner<std::shared_ptr<result_t>,stdx::promise_ptr<result_t>,sizeof...(_TaskResults) + 2, sizeof...(_TaskResults) + 2,stdx::task<_TaskResult>,stdx::task<__TaskResult>,stdx::task<_TaskResults>...>::fill_tuple(tuple_ptr, promise_ptr, flag, task, _task, tasks...);
+		return x;
+	}
+
+	template<typename _TaskResult, typename __TaskResult, typename ..._TaskResults>
+	stdx::task<std::tuple<_TaskResult, __TaskResult, _TaskResults...>> combine_tasks_on(stdx::thread_pool &pool,stdx::task<_TaskResult> task, stdx::task<__TaskResult> _task, stdx::task<_TaskResults>... tasks)
+	{
+		using result_t = std::tuple<_TaskResult, __TaskResult, _TaskResults...>;
+		stdx::notice_flag flag(sizeof...(_TaskResults) + 2,pool);
+		std::shared_ptr<result_t> tuple_ptr = std::make_shared<result_t>();
+		stdx::promise_ptr<result_t> promise_ptr = std::make_shared<std::promise<result_t>>();
+		std::shared_future<result_t> future = promise_ptr->get_future();
+		auto x = flag.get_task().then([promise_ptr, tuple_ptr, future]() mutable
+			{
+				auto state = future.wait_for(std::chrono::nanoseconds(0));
+				if (state != std::future_status::ready)
+				{
+					promise_ptr->set_value(std::move(*tuple_ptr));
+				}
+				return future.get();
+			});
+		stdx::_TaskCombiner<std::shared_ptr<result_t>, stdx::promise_ptr<result_t>, sizeof...(_TaskResults) + 2, sizeof...(_TaskResults) + 2, stdx::task<_TaskResult>, stdx::task<__TaskResult>, stdx::task<_TaskResults>...>::fill_tuple(tuple_ptr, promise_ptr, flag, task, _task, tasks...);
+		return x;
+	}
+
+	using ignore_t = typename std::remove_const<typename std::remove_reference<decltype(std::ignore)>::type>::type;
+
+	constexpr ignore_t ignore{};
+
+	extern stdx::task<stdx::ignore_t> as_ignore_task(stdx::task<void> &task);
 }
