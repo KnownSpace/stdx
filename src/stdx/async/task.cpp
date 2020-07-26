@@ -213,7 +213,6 @@ void stdx::_RWFlag::unlock() noexcept
 		{
 			auto ce = m_write_queue.front();
 			m_write_queue.pop();
-			m_state = lock_state::write;
 			lock.unlock();
 			ce.set_value();
 			ce.run();
