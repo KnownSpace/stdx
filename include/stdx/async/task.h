@@ -1340,6 +1340,8 @@ namespace stdx
 
 		void unlock() noexcept;
 
+		lock_state get_state() const;
+
 	private:
 
 		void _RunOrPushRead(stdx::task_completion_event<void>& ce);
@@ -1359,7 +1361,7 @@ namespace stdx
 		using impl_t = std::shared_ptr<stdx::_RWFlag>;
 		using self_t = stdx::rw_flag;
 	public:
-		using lock_state = stdx::_RWFlag::lock_state;
+		using lock_state_t = stdx::_RWFlag::lock_state;
 
 		rw_flag()
 			:m_impl(std::make_shared<stdx::_RWFlag>())
@@ -1424,6 +1426,11 @@ namespace stdx
 		void unlock() noexcept
 		{
 			return m_impl->unlock();
+		}
+
+		lock_state_t get_state() const
+		{
+			return m_impl->get_state();
 		}
 	private:
 		impl_t m_impl;

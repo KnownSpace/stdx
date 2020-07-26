@@ -243,6 +243,11 @@ void stdx::_RWFlag::unlock() noexcept
 	}
 }
 
+stdx::_RWFlag::lock_state stdx::_RWFlag::get_state() const
+{
+	return m_state;
+}
+
 void stdx::_RWFlag::_RunOrPushRead(stdx::task_completion_event<void>& ce)
 {
 	std::unique_lock<stdx::spin_lock> lock(m_lock);
