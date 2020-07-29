@@ -2,21 +2,21 @@
 #include <chrono>
 #include <stdx/datetime.h>
 
-stdx::_TaskFlag::_TaskFlag()
+stdx::_UniqueFlag::_UniqueFlag()
 	:m_lock()
 	, m_locked(false)
 	, m_wait_queue()
 	, m_pool(nullptr)
 {}
 
-stdx::_TaskFlag::_TaskFlag(stdx::thread_pool& pool)
+stdx::_UniqueFlag::_UniqueFlag(stdx::thread_pool& pool)
 	:m_lock()
 	,m_locked(false)
 	,m_wait_queue()
 	,m_pool(&pool)
 {}
 
-stdx::_TaskFlag::~_TaskFlag()
+stdx::_UniqueFlag::~_UniqueFlag()
 {
 	if (m_locked)
 	{
@@ -32,7 +32,7 @@ stdx::_TaskFlag::~_TaskFlag()
 	}
 }
 
-stdx::task<void> stdx::_TaskFlag::lock()
+stdx::task<void> stdx::_UniqueFlag::lock()
 {
 	if (m_pool)
 	{
@@ -45,7 +45,7 @@ stdx::task<void> stdx::_TaskFlag::lock()
 	return ce.get_task();
 }
 
-void stdx::_TaskFlag::unlock() noexcept
+void stdx::_UniqueFlag::unlock() noexcept
 {
 	std::unique_lock<stdx::spin_lock> lock(m_lock);
 	if (!m_wait_queue.empty())
@@ -62,7 +62,7 @@ void stdx::_TaskFlag::unlock() noexcept
 	}
 }
 
-void stdx::_TaskFlag::_RunOrPush(stdx::task_completion_event<void>& ce)
+void stdx::_UniqueFlag::_RunOrPush(stdx::task_completion_event<void>& ce)
 {
 	std::unique_lock<stdx::spin_lock> lock(m_lock);
 	if (m_locked)

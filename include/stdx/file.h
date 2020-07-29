@@ -609,7 +609,7 @@ namespace stdx
 
 namespace stdx
 {
-	extern stdx::task_flag _FullpathNameFlag;
+	extern stdx::unique_flag _FullpathNameFlag;
 
 	extern stdx::task<stdx::string> realpath(stdx::string path);
 

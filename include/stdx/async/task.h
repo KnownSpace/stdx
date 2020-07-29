@@ -1207,12 +1207,12 @@ namespace stdx
 #pragma endregion
 
 #pragma region task_flag
-	class _TaskFlag
+	class _UniqueFlag
 	{
 	public:
-		_TaskFlag();
-		_TaskFlag(stdx::thread_pool &pool);
-		~_TaskFlag();
+		_UniqueFlag();
+		_UniqueFlag(stdx::thread_pool &pool);
+		~_UniqueFlag();
 		stdx::task<void> lock();
 		void unlock() noexcept;
 	private:
@@ -1224,41 +1224,41 @@ namespace stdx
 		stdx::thread_pool* m_pool;
 	};
 
-	class task_flag
+	class unique_flag
 	{
-		using impl_t = std::shared_ptr<_TaskFlag>;
+		using impl_t = std::shared_ptr<_UniqueFlag>;
 	public:
-		task_flag()
-			:m_impl(std::make_shared<_TaskFlag>())
+		unique_flag()
+			:m_impl(std::make_shared<_UniqueFlag>())
 		{}
 
-		task_flag(stdx::thread_pool &pool)
-			:m_impl(std::make_shared<_TaskFlag>(pool))
+		unique_flag(stdx::thread_pool &pool)
+			:m_impl(std::make_shared<_UniqueFlag>(pool))
 		{}
 
-		task_flag(const task_flag& other)
+		unique_flag(const unique_flag& other)
 			:m_impl(other.m_impl)
 		{}
 
-		task_flag(task_flag&& other) noexcept
+		unique_flag(unique_flag&& other) noexcept
 			:m_impl(std::move(other.m_impl))
 		{}
 
-		~task_flag() = default;
+		~unique_flag() = default;
 
-		task_flag& operator=(const task_flag& other)
+		unique_flag& operator=(const unique_flag& other)
 		{
 			m_impl = other.m_impl;
 			return *this;
 		}
 
-		task_flag& operator=(task_flag&& other) noexcept
+		unique_flag& operator=(unique_flag&& other) noexcept
 		{
 			m_impl = std::move(other.m_impl);
 			return *this;
 		}
 
-		bool operator==(const task_flag& other) const
+		bool operator==(const unique_flag& other) const
 		{
 			return m_impl == other.m_impl;
 		}

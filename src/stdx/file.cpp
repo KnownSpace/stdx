@@ -832,7 +832,7 @@ stdx::file_handle stdx::open_for_senfile(const stdx::string & path, const stdx::
 #endif
 }
 
-stdx::task_flag stdx::_FullpathNameFlag;
+stdx::unique_flag stdx::_FullpathNameFlag;
 stdx::task<stdx::string> stdx::realpath(stdx::string path)
 {
 	return _FullpathNameFlag.lock()
