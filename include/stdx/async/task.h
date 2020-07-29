@@ -1631,6 +1631,7 @@ namespace stdx
 			if (m_locked)
 			{
 				m_lock.unlock();
+				m_locked = false;
 			}
 		}
 
