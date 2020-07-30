@@ -261,4 +261,11 @@ namespace stdx
 		std::shared_ptr<stdx::basic_poller<_Context, _KeyType>> impl = std::make_shared<stdx::basic_multipoller<_Impl>>(num_of_poller,dispath,getter,args...);
 		return stdx::poller<_Context, _KeyType>(impl);
 	}
+
+	struct stand_context
+	{
+		bool is_io_operation;
+
+		std::function<void(stdx::stand_context*)> execute;
+	};
 }

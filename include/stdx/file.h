@@ -80,7 +80,7 @@ namespace stdx
 #endif
 		uint64_t offset;
 		bool eof;
-		std::function<void(file_io_context*, std::exception_ptr)>* callback;
+		std::function<void(file_io_context*, std::exception_ptr)> callback;
 #ifdef LINUX
 		int32_t op_code;
 #endif

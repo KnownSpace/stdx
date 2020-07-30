@@ -7,6 +7,7 @@
 #include <stdx/function.h>
 #include <stdx/async/cancel_token.h>
 #include <stdx/async/worker.h>
+#include <stdexcept>
 
 #define GET_CPU_CORES() std::thread::hardware_concurrency()
 
@@ -23,6 +24,22 @@ namespace stdx
 		virtual void run(std::function<void()> &&task) = 0;
 
 		virtual void join_as_worker() = 0;
+
+#ifdef WIN32
+		using key_t = HANDLE;
+#else
+		using key_t = int;
+#endif
+
+		virtual void bind(key_t key) 
+		{
+			throw std::logic_error("Unsupported operation");
+		}
+
+		virtual stdx::poller<stdx::stand_context,key_t> getPoller() 
+		{
+			throw std::logic_error("Unsupported operation");
+		}
 	};
 
 	//线程池
@@ -82,6 +99,34 @@ namespace stdx
 		size_t m_size;
 
 		size_t _GetIndex();
+	};
+
+	class _IoThreadPool:public stdx::basic_thread_pool
+	{
+		using poller_t = stdx::poller<stdx::stand_context,key_t>;
+	public:
+		_IoThreadPool(uint32_t num_threads);
+
+		~_IoThreadPool();
+
+		virtual void bind(key_t key) override;
+
+		virtual void run(std::function<void()>&& task) override;
+
+		virtual void join_as_worker() override;
+
+		virtual stdx::poller<stdx::stand_context, key_t> getPoller()
+		{
+			return m_poller;
+		}
+	private:
+		void _Join();
+
+		void _Post(stdx::stand_context *context);
+
+		poller_t m_poller;
+		stdx::cancel_token m_token;
+		std::vector<std::shared_ptr<std::thread>> m_threads;
 	};
 
 	//线程池静态类

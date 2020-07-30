@@ -1,6 +1,7 @@
 ﻿#include <stdx/async/threadpool.h>
 #include <stdx/finally.h>
 #include <stdx/datetime.h>
+#include <stdx/io.h>
 
 stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(GET_CPU_CORES());
 
@@ -257,4 +258,76 @@ stdx::thread_pool stdx::make_mcmp_thread_pool(uint32_t size)
 stdx::thread_pool stdx::make_round_robin_thread_pool(uint32_t size)
 {
 	return stdx::make_thread_pool<stdx::_RoundRobinThreadPool>(size);
+}
+
+stdx::_IoThreadPool::_IoThreadPool(uint32_t num_threads)
+#ifdef WIN32
+	:m_poller(stdx::make_iocp_poller<stdx::stand_context>())
+#else
+	:m_poller()
+#endif
+	,m_token()
+	,m_threads(num_threads)
+{
+	for (uint32_t i =0;i < num_threads;++i)
+	{
+		m_threads.push_back(std::make_shared<std::thread>([this,i]() {
+			while (!m_token.is_cancel())
+			{
+#ifdef WIN32
+				stdx::stand_context* context = m_poller.get();
+#else
+				stdx::stand_context* context = m_poller.get_at(i);
+#endif
+				context->execute(context);
+			}
+		}));
+	}
+}
+
+stdx::_IoThreadPool::~_IoThreadPool()
+{
+	m_token.cancel();
+	_Join();
+}
+
+void stdx::_IoThreadPool::bind(key_t key)
+{
+	m_poller.bind(key);
+}
+
+void stdx::_IoThreadPool::run(std::function<void()>&& task)
+{
+	stdx::stand_context *context = new stdx::stand_context;
+	if (context == nullptr)
+	{
+		throw std::bad_alloc();
+	}
+	std::function<void()> _task(std::move(task));
+	context->execute = [_task](stdx::stand_context *context) {
+		delete context;
+		_task();
+	};
+	m_poller.post(context);
+}
+
+void stdx::_IoThreadPool::join_as_worker()
+{
+#ifdef WIN32
+	while (!m_token.is_cancel())
+	{
+		stdx::stand_context* context = m_poller.get();
+		context->execute(context);
+	}
+#else
+	_Join();
+#endif
+}
+
+void stdx::_IoThreadPool::_Join()
+{
+	for (auto begin = m_threads.begin(), end = m_threads.end(); begin != end; ++begin)
+	{
+		(*begin)->join();
+	}
 }

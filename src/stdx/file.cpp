@@ -120,14 +120,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 	context->offset = offset;
 	context->buf = buf;
 	context->size = static_cast<DWORD>(buf.size());
-	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
+	std::function<void(file_io_context*, std::exception_ptr)> call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -177,7 +170,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			delete context;
 			callback(stdx::file_read_event(), std::current_exception());
 			return;
@@ -208,14 +200,7 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 	ptr->offset = offset;
 	ptr->file = file;
 	//设置回调
-	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete ptr;
-		callback(stdx::file_read_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback, size](file_io_context* context_ptr, std::exception_ptr error)
+	std::function<void(file_io_context*, std::exception_ptr)> call  = [callback, size](file_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -242,7 +227,6 @@ void stdx::_FileIOService::read_file(stdx::native_file_handle file, stdx::buffer
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete ptr;
 		callback(file_read_event(), std::current_exception());
 	}
@@ -317,14 +301,7 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, stdx::buffe
 	context_ptr->size = 0;
 	context_ptr->offset = 0;
 	context_ptr->buf = buf;
-	auto* call = new std::function<void(file_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context_ptr;
-		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
+	std::function<void(file_io_context*, std::exception_ptr)> call = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -345,7 +322,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, stdx::buffe
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			stdx::finally fin([context_ptr]()
 				{
 					delete context_ptr;
@@ -386,14 +362,7 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, stdx::buffe
 	ptr->offset = offset;
 	ptr->file = file;
 	//设置回调
-	std::function<void(file_io_context*, std::exception_ptr)>* call = new std::function<void(file_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete ptr;
-		callback(stdx::file_write_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](file_io_context* context_ptr, std::exception_ptr error)
+	std::function<void(file_io_context*, std::exception_ptr)> call  = [callback](file_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -416,7 +385,6 @@ void stdx::_FileIOService::write_file(stdx::native_file_handle file, stdx::buffe
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete ptr;
 		callback(file_write_event(), std::current_exception());
 	}
@@ -533,14 +501,10 @@ void stdx::_FileIOService::init_threadpoll() noexcept
 				{
 					error = std::current_exception();
 				}
-				auto* call = context_ptr->callback;
-				stdx::finally fin([call]()
-					{
-						delete call;
-					});
+				auto call = context_ptr->callback;
 				try
 				{
-					(*call)(context_ptr, error);
+					call(context_ptr, error);
 				}
 				catch (const std::exception &ex)
 				{
