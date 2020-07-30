@@ -40,7 +40,7 @@ namespace stdx
 	}
 
 	//task_result模板
-	template<typename _T>
+	/*template<typename _T>
 	class task_result
 	{
 	public:
@@ -136,7 +136,9 @@ namespace stdx
 		}
 	private:
 		std::shared_future<_T> m_future;
-	};
+	};*/
+	template<typename _T>
+	using task_result = std::shared_future<_T>;
 #pragma endregion
 
 
