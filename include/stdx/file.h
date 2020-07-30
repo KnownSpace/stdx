@@ -55,15 +55,19 @@ namespace stdx
 	};
 #endif
 
-	struct file_io_context
+	struct file_io_context:public stdx::stand_context
 	{
 		file_io_context()
+			:stdx::stand_context()
 		{
+			is_io_operation = true;
 #ifdef WIN32
 			memset(&m_ol, 0, sizeof(OVERLAPPED));
 #endif
 		}
+
 		~file_io_context() = default;
+
 #ifdef WIN32
 		OVERLAPPED m_ol;
 #endif

@@ -1034,7 +1034,7 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 #endif
 }
 
-const uint32_t stdx::_NetworkIOService::loop_num = GET_CPU_CORES()*2;
+const uint32_t stdx::_NetworkIOService::loop_num = GET_CPU_CORES();
 
 void stdx::_NetworkIOService::set_keepalive(socket_t sock, bool opt)
 {

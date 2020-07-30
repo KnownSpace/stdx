@@ -1035,3 +1035,13 @@ namespace stdx
 		_Plogf(std::move(format), std::move(std::initializer_list<stdx::string>{ stdx::to_string(args)... }));
 	}
 }
+
+namespace stdx
+{
+	struct stand_context
+	{
+		bool is_io_operation;
+
+		std::function<bool(stand_context*)> callback;
+	};
+}

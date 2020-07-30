@@ -339,16 +339,16 @@ namespace stdx
 #endif
 	};
 
-	struct network_io_context
+	struct network_io_context:public stdx::stand_context
 	{
-#ifdef WIN32
 		network_io_context()
+			:stdx::stand_context()
 		{
+			is_io_operation = true;
+#ifdef WIN32
 			std::memset(&m_ol, 0, sizeof(OVERLAPPED));
-		}
-#else
-		network_io_context() = default;
 #endif
+		}
 
 		~network_io_context() 
 		{}
