@@ -60,17 +60,15 @@ namespace stdx
 		file_io_context()
 			:stdx::stand_context()
 		{
-			is_io_operation = true;
 #ifdef WIN32
 			memset(&m_ol, 0, sizeof(OVERLAPPED));
+#else
+			is_io_operation = true;
 #endif
 		}
 
 		~file_io_context() = default;
 
-#ifdef WIN32
-		OVERLAPPED m_ol;
-#endif
 		native_file_handle file;
 		stdx::buffer buf;
 #ifdef WIN32
@@ -83,8 +81,8 @@ namespace stdx
 		std::function<void(file_io_context*, std::exception_ptr)> callback;
 #ifdef LINUX
 		int32_t op_code;
+		int err_code;
 #endif
-
 };
 	//文件读取完成事件
 	struct file_read_event
@@ -288,13 +286,7 @@ namespace stdx
 #endif
 		}
 	private:
-		poller_t m_poller;
-
-		stdx::cancel_token m_token;
-
-		void init_threadpoll() noexcept;
-
-		stdx::thread_pool m_thread_pool;
+		void prepare_callback(stdx::file_io_context *context);
 	};
 
 	//文件IO服务

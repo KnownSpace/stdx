@@ -449,27 +449,18 @@ namespace stdx
 	class _EpollProactor :public stdx::basic_poller<_IOContext, int>
 	{
 	public:
-		using clean_t = std::function<void(_IOContext*)>;
-		using operate_t = std::function<bool(_IOContext*)>;
-		using fd_getter_t = std::function<int(_IOContext*)>;
-		using event_getter_t = std::function<uint32_t(_IOContext*)>;
 		using task_t = std::function<void()>;
 		using lock_t = stdx::spin_lock;
 		using map_t = std::unordered_map<int, stdx::epoll_context_list<_IOContext>>;
 	public:
-		_EpollProactor(clean_t clean, operate_t io_operator, fd_getter_t fd_getter, event_getter_t event_getter)
+		_EpollProactor()
 			:m_epoll()
 			, m_map()
-			, m_clean(clean)
-			, m_operate(io_operator)
-			, m_fd_getter(fd_getter)
-			, m_event_getter(event_getter)
 			, m_eventfd(stdx::make_eventfd(EFD_NONBLOCK))
 			, m_ev_lock()
 			, m_tasks()
 			, m_completions()
 			, m_wokeup(false)
-			, m_events_buf(16)
 		{
 			epoll_event ev;
 			ev.events = stdx::epoll_events::in | stdx::epoll_events::et;
@@ -490,16 +481,13 @@ namespace stdx
 			{
 				return cont;
 			}
-			int r = m_epoll.wait(m_events_buf.data(),m_events_buf.size(), -1);
+			epoll_event ev[64];
+			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
 			if (r > 0)
 			{
 				for (int i = 0; i < r; i++)
 				{
-					_HandleEv(m_events_buf[i]);
-				}
-				if (r == m_events_buf.size())
-				{
-					m_events_buf.reserve(m_events_buf.size() * 2);
+					_HandleEv(ev[i]);
 				}
 				cont = _CheckCompletions();
 			}
@@ -513,18 +501,15 @@ namespace stdx
 			{
 				return cont;
 			}
-			int r = m_epoll.wait(m_events_buf.data(),m_events_buf.size(), timeout_ms);
+			epoll_event ev[64];
+			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
 			if (r < 0)
 			{
 				return nullptr;
 			}
 			for (int i = 0; i < r; i++)
 			{
-				_HandleEv(m_events_buf[i]);
-			}
-			if (r == m_events_buf.size())
-			{
-				m_events_buf.reserve(m_events_buf.size() * 2);
+				_HandleEv(ev[i]);
 			}
 			cont = _CheckCompletions();
 			return cont;
@@ -539,36 +524,49 @@ namespace stdx
 		{
 			_RunInLoop([this](_IOContext* p)
 				{
+					if (!p->is_io_operation)
+					{
+						try
+						{
+							p->execute(p);
+						}
+						catch (const std::exception &e)
+						{
+#ifdef DEBUG
+							::printf("[EpollProactor]Error: %s\n",e.what());
+#endif
+						}
+						return;
+					}
 					//get fd
-					int fd = m_fd_getter(p);
+					int fd = p->key;
 					//get context manager
 					stdx::epoll_context_list<_IOContext>& ev = m_map[fd];
 					//is hup or error
 					if (ev.model.is_err_or_hup)
 					{
 						//clean context
-						m_clean(p);
+						p->io_operation(p);
+						m_completions.push_back(p);
 						return;
 					}
 					//get events
-					uint32_t events = m_event_getter(p);
+					uint32_t events = p->events;
 					if (events & stdx::epoll_events::in)
 					{
 						if (ev.in_contexts.empty())
 						{
 							if (ev.ready_in)
 							{
-								bool r = m_operate(p);
+								bool r = p->io_operation(p);
+								ev.ready_in = false;
 								if (r)
 								{
 									m_completions.push_back(p);
-									ev.ready_in = false;
 									return;
 								}
-								ev.ready_in = false;
 							}
 							ev.in_contexts.push_back(p);
-							ev.model.ev.events |= stdx::epoll_events::in;
 							_ResetFd(ev);
 							return;
 						}
@@ -580,7 +578,7 @@ namespace stdx
 						{
 							if (ev.ready_out)
 							{
-								bool r = m_operate(p);
+								bool r = p->io_operation(p);
 								if (r)
 								{
 									m_completions.push_back(p);
@@ -592,7 +590,6 @@ namespace stdx
 							return;
 						}
 						ev.out_contexts.push_back(p);
-						ev.model.ev.events |= stdx::epoll_events::out;
 						_ResetFd(ev);
 						return;
 					}
@@ -727,7 +724,7 @@ namespace stdx
 				{
 					_IOContext* cont = ev_.in_contexts.front();
 					//I/O operation
-					if (m_operate(cont))
+					if (cont->io_operation(cont))
 					{
 						//I/O operation finish
 						ev_.in_contexts.pop_front();
@@ -750,7 +747,7 @@ namespace stdx
 				{
 					_IOContext* cont = ev_.out_contexts.front();
 					//I/O operation
-					if (m_operate(cont))
+					if (cont->io_operation(cont))
 					{
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
@@ -801,13 +798,15 @@ namespace stdx
 			auto* contexts = &(ev.in_contexts);
 			for (auto begin = contexts->begin(), end = contexts->end(); begin != end; ++begin)
 			{
-				m_clean(*begin);
+				(*begin)->io_operation(*begin);
+				m_completions.push_back(*begin);
 			}
 			contexts->clear();
 			contexts = &(ev.out_contexts);
 			for (auto begin = contexts->begin(), end = contexts->end(); begin != end; ++begin)
 			{
-				m_clean(*begin);
+				(*begin)->io_operation(*begin);
+				m_completions.push_back(*begin);
 			}
 			contexts->clear();
 		}
@@ -864,116 +863,30 @@ namespace stdx
 
 		stdx::epoll m_epoll;
 		map_t m_map;
-		clean_t m_clean;
-		operate_t m_operate;
-		fd_getter_t m_fd_getter;
-		event_getter_t m_event_getter;
 		int m_eventfd;
 		lock_t m_ev_lock;
 		std::list<task_t> m_tasks;
 		std::list<_IOContext*> m_completions;
 		bool m_wokeup;
-		std::vector<epoll_event> m_events_buf;
 	};
 
 	template<typename _IOContext>
-	inline stdx::io_poller<_IOContext> make_epoll_proactor_poller(typename stdx::_EpollProactor<_IOContext>::clean_t clean,
-		typename stdx::_EpollProactor<_IOContext>::operate_t io_operate,
-		typename stdx::_EpollProactor<_IOContext>::fd_getter_t fd_getter,
-		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
+	inline stdx::io_poller<_IOContext> make_epoll_proactor_poller()
 	{
-		return stdx::make_poller<stdx::_EpollProactor<_IOContext>>(clean, io_operate, fd_getter, event_getter);
+		return stdx::make_poller<stdx::_EpollProactor<_IOContext>>();
 	}
 
 	template<typename _IOContext>
-	inline stdx::io_poller<_IOContext> make_epoll_multipoller(size_t num_of_poller,
-		typename stdx::_EpollProactor<_IOContext>::clean_t clean,
-		typename stdx::_EpollProactor<_IOContext>::operate_t io_operate,
-		typename stdx::_EpollProactor<_IOContext>::fd_getter_t fd_getter,
-		typename stdx::_EpollProactor<_IOContext>::event_getter_t event_getter)
+	inline stdx::io_poller<_IOContext> make_epoll_multipoller(size_t num_of_poller)
 	{
 		return stdx::make_multipoller<stdx::_EpollProactor<_IOContext>>(num_of_poller, [](const int& fd, size_t size)
 			{
 				size_t index = fd % size;
 				return index;
-			}, fd_getter, clean, io_operate, fd_getter, event_getter);
-	}
-
-	template<typename _IOContext>
-	class _BIOPoller :public stdx::basic_poller<_IOContext, int>
-	{
-	public:
-		_BIOPoller()
-			:m_lock()
-			, m_cv()
-			, m_list()
-			, m_quit(false)
-		{}
-
-		~_BIOPoller() = default;
-
-		virtual _IOContext* get() override
-		{
-			m_quit = false;
-			std::unique_lock<std::mutex> lock(m_lock);
-			while (m_list.empty())
+			}, [](_IOContext *cont)
 			{
-				if (m_quit)
-				{
-					return nullptr;
-				}
-				m_cv.wait(lock);
-			}
-			_IOContext* p = m_list.front();
-			m_list.pop_front();
-			return p;
-		}
-
-		virtual _IOContext* get(uint32_t ms) override
-		{
-			m_quit = false;
-			std::unique_lock<std::mutex> lock(m_lock);
-			while (m_list.empty())
-			{
-				if (m_quit)
-				{
-					return nullptr;
-				}
-				auto status = m_cv.wait_for(lock, std::chrono::milliseconds(ms));
-				if (status == std::cv_status::timeout)
-				{
-					return nullptr;
-				}
-			}
-			_IOContext* p = m_list.front();
-			m_list.pop_front();
-			return p;
-		}
-
-		virtual void post(_IOContext* p) override
-		{
-			std::unique_lock<std::mutex> lock(m_lock);
-			m_list.push_back(p);
-			m_cv.notify_one();
-		}
-
-		void notice()
-		{
-			m_quit = true;
-			m_cv.notify_all();
-		}
-
-	private:
-		std::mutex m_lock;
-		std::condition_variable m_cv;
-		std::list<_IOContext*> m_list;
-		std::atomic_bool m_quit;
-	};
-
-	template<typename _IOContext>
-	inline stdx::io_poller<_IOContext> make_bio_poller()
-	{
-		return stdx::make_poller<stdx::_BIOPoller<_IOContext>>();
+				return cont->key;
+			});
 	}
 }
 

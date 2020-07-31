@@ -125,8 +125,7 @@ int web_test(int argc, char** argv)
 	stdx::file_io_service file_io_service;
 	//build io service
 	stdx::network_io_service service;
-	//open socket
-	stdx::socket s = stdx::open_socket(service, stdx::addr_family::ip, stdx::socket_type::stream, stdx::protocol::tcp);
+	stdx::http_acceptor s;
 	try
 	{
 		stdx::ipv4_addr addr(U("0.0.0.0"), 8080);
@@ -135,10 +134,7 @@ int web_test(int argc, char** argv)
 			stdx::string port_str = stdx::string::from_native_string(argv[1]);
 			addr.port(stdx::implicit_cast<uint16_t>(port_str.to_uint32()));
 		}
-		//bind address
-		s.bind(addr);
-		//listen
-		s.listen(65535);
+		s = stdx::make_http_acceptor(service, addr, 8 * 1021 * 1024);
 		stdx::printf(U("Listen: {0}:{1}\n"), addr.ip(), addr.port());
 	}
 	catch (std::exception& e)
@@ -152,10 +148,8 @@ int web_test(int argc, char** argv)
 	stdx::cancel_token accept_token;
 	std::shared_ptr<std::atomic_size_t> counter = std::make_shared<std::atomic_size_t>(0);
 	//持续accept
-	s.accept_until(accept_token, [file_io_service, logger,counter](stdx::network_connected_event ev)  mutable
+	s.accept_until(accept_token, [file_io_service, logger,counter](stdx::http_connection conn)  mutable
 		{
-			//获取于客户端的连接
-			stdx::http_connection conn = stdx::make_http_connection(ev.connection, 8 * 1024 * 1024);
 			stdx::cancel_token token;
 			//持续read
 			conn.read_until(token, [token, conn, file_io_service,counter](stdx::http_request req) mutable

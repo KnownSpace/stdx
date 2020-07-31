@@ -115,10 +115,18 @@ int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int
 	sigset_t newmask;
 	sigemptyset(&newmask);
 	sigaddset(&newmask, SIGINT);
-	int r = epoll_pwait(m_handle, event_ptr, maxevents, timeout,&newmask);
-	if (r == -1)
+	int r = 0;
+	while (!r)
 	{
-		_ThrowLinuxError
+		r = epoll_pwait(m_handle, event_ptr, maxevents, timeout, &newmask);
+		if (r == -1)
+		{
+			if (errno == EINTR)
+			{
+				continue;
+			}
+			_ThrowLinuxError
+		}
 	}
 	return r;
 }

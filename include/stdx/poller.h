@@ -264,8 +264,14 @@ namespace stdx
 
 	struct stand_context
 	{
+#ifdef WIN32
+		OVERLAPPED m_ol;
+#else
+		uint32_t events;
+		int key;
 		bool is_io_operation;
-
+		std::function<bool(stdx::stand_context*)> io_operation;
+#endif
 		std::function<void(stdx::stand_context*)> execute;
 	};
 }

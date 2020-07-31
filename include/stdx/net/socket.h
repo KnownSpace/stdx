@@ -344,17 +344,15 @@ namespace stdx
 		network_io_context()
 			:stdx::stand_context()
 		{
-			is_io_operation = true;
 #ifdef WIN32
 			std::memset(&m_ol, 0, sizeof(OVERLAPPED));
+#else
+			is_io_operation = true;
 #endif
 		}
 
-		~network_io_context() 
-		{}
-#ifdef WIN32
-		WSAOVERLAPPED m_ol;
-#else
+		~network_io_context() = default;
+#ifndef WIN32
 		int code;
 		ssize_t err_code;
 #endif 
@@ -375,7 +373,7 @@ namespace stdx
 #endif
 		stdx::socket_size_t size;
 		
-		std::function <void(network_io_context*, std::exception_ptr)>* callback;
+		std::function <void(network_io_context*, std::exception_ptr)> callback;
 	};
 
 #ifdef LINUX
@@ -603,10 +601,6 @@ namespace stdx
 
 #ifdef LINUX
 	private:
-		static void _Clean(stdx::network_io_context* context);
-
-		static int _GetFd(stdx::network_io_context *context);
-
 		static bool _IOOperate(stdx::network_io_context* context);
 
 		static uint32_t _GetEvents(stdx::network_io_context* context);
@@ -614,19 +608,14 @@ namespace stdx
 		static void _SetNonBlocking(socket_t sock);
 
 		static void _SetReuseAddr(socket_t sock);
-#endif // LINUX
+#endif
 
 	private:
+		void prepare_callback(stdx::network_io_context *context);
+
 #ifdef WIN32
 		static DWORD recv_flag;
 #endif
-		stdx::io_poller<stdx::network_io_context> m_poller;
-
-		stdx::cancel_token m_token;
-
-		void init_threadpoll() noexcept;
-
-		stdx::thread_pool m_thread_pool;
 
 #ifdef LINUX
 		static int open_null_fd();
@@ -816,6 +805,11 @@ namespace stdx
 		void accept_until(stdx::cancel_token token, std::function<void(stdx::network_accept_event)> fn, std::function<void(std::exception_ptr)> err_handler);
 
 		void set_keepalive(bool opt);
+
+		socket_t native_handle() const
+		{
+			return m_handle;
+		}
 	private:
 		io_service_t m_io_service;
 		std::atomic<socket_t> m_handle;
@@ -936,6 +930,11 @@ namespace stdx
 		void set_keepalive(bool opt)
 		{
 			return m_impl->set_keepalive(opt);
+		}
+
+		socket_t native_handle() const
+		{
+			return m_impl->native_handle();
 		}
 
 	private:

@@ -8,6 +8,7 @@
 #include <stdx/async/cancel_token.h>
 #include <stdx/async/worker.h>
 #include <stdexcept>
+#include <stdx/poller.h>
 
 #define GET_CPU_CORES() std::thread::hardware_concurrency()
 
@@ -31,30 +32,21 @@ namespace stdx
 		using key_t = int;
 #endif
 
-		virtual void bind(key_t key) 
-		{
-			throw std::logic_error("Unsupported operation");
-		}
-
-		virtual stdx::poller<stdx::stand_context,key_t> getPoller() 
+		virtual stdx::poller<stdx::stand_context, key_t> get_poller()
 		{
 			throw std::logic_error("Unsupported operation");
 		}
 	};
 
-	//线程池
 	class _McmpThreadPool:public stdx::basic_thread_pool
 	{
 		using runable = std::function<void()>;
 		using base_t = stdx::basic_thread_pool;
 	public:
-		//构造函数
 		_McmpThreadPool(uint32_t num_threads) noexcept;
 
-		//析构函数
 		~_McmpThreadPool() noexcept;
 
-		//删除复制构造函数
 		_McmpThreadPool(const _McmpThreadPool&) = delete;
 
 		void run(std::function<void()> &&task)
@@ -71,10 +63,9 @@ namespace stdx
 		std::shared_ptr<std::queue<runable>> m_task_queue;
 		std::shared_ptr<std::condition_variable> m_cv;
 		std::shared_ptr<std::mutex> m_mutex;
-		//添加线程
+
 		void add_thread() noexcept;
 		
-		//初始化线程池
 		void init_threads(uint32_t num_threads) noexcept;
 	};
 
@@ -109,27 +100,27 @@ namespace stdx
 
 		~_IoThreadPool();
 
-		virtual void bind(key_t key) override;
-
 		virtual void run(std::function<void()>&& task) override;
 
 		virtual void join_as_worker() override;
 
-		virtual stdx::poller<stdx::stand_context, key_t> getPoller()
+		virtual stdx::poller<stdx::stand_context, key_t> get_poller()
 		{
 			return m_poller;
 		}
 	private:
 		void _Join();
 
-		void _Post(stdx::stand_context *context);
+		void _Run(std::function<void()> task);
 
 		poller_t m_poller;
 		stdx::cancel_token m_token;
 		std::vector<std::shared_ptr<std::thread>> m_threads;
+#ifndef WIN32
+		int m_key;
+#endif
 	};
 
-	//线程池静态类
 	class thread_pool
 	{
 		using impl_t = std::shared_ptr<stdx::basic_thread_pool>;
@@ -221,6 +212,11 @@ namespace stdx
 					}
 			},call,token);
 		}
+
+		stdx::poller<stdx::stand_context,stdx::basic_thread_pool::key_t> get_poller()
+		{
+			return m_impl->get_poller();
+		}
 	private:
 		void loop_do(stdx::cancel_token token, std::function<void()> call);
 
@@ -241,6 +237,8 @@ namespace stdx
 	extern stdx::thread_pool make_mcmp_thread_pool(uint32_t size);
 
 	extern stdx::thread_pool make_round_robin_thread_pool(uint32_t size);
+
+	extern stdx::thread_pool make_io_thread_pool(uint32_t size);
 
 	extern stdx::thread_pool threadpool;
 }

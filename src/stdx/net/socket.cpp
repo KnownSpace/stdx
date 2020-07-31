@@ -56,41 +56,10 @@ int stdx::_NetworkIOService::open_null_fd()
 
 
 stdx::_NetworkIOService::_NetworkIOService()
-#ifdef WIN32
-	:m_poller(stdx::make_iocp_poller<stdx::network_io_context>())
-#else
-	:m_poller(stdx::make_epoll_multipoller<stdx::network_io_context>(stdx::_NetworkIOService::loop_num,[](stdx::network_io_context* context)
-		{
-			_Clean(context);
-		}, [](stdx::network_io_context* context)
-		{
-			return _IOOperate(context);
-		}, [](stdx::network_io_context* context)
-		{
-			return _GetFd(context);
-		}, [](stdx::network_io_context* context)
-		{
-			return _GetEvents(context);
-		}))
-#endif
-	, m_token()
-	, m_thread_pool(stdx::make_round_robin_thread_pool(stdx::_NetworkIOService::loop_num))
-{
-	init_threadpoll();
-}
+{}
 
 stdx::_NetworkIOService::~_NetworkIOService()
-{
-	m_token.cancel();
-#ifdef WIN32
-	for (uint32_t i = 0, size = GET_CPU_CORES() * 2; i < size; i++)
-	{
-		m_poller.notice();
-	}
-#else
-	m_poller.notice();
-#endif
-}
+{}
 
 #ifdef WIN32
 
@@ -161,7 +130,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 		_ThrowWSAError
 	}
 	_SetLoopBackFastPath(sock);
-	m_poller.bind((HANDLE)sock);
+	stdx::threadpool.get_poller().bind((HANDLE)sock);
 #else
 	if (sock == -1)
 	{
@@ -169,7 +138,7 @@ typename stdx::_NetworkIOService::socket_t stdx::_NetworkIOService::create_socke
 	}
 	_SetReuseAddr(sock);
 	_SetNonBlocking(sock);
-	m_poller.bind(sock);
+	stdx::threadpool.get_poller().bind(sock);
 #endif
 	return sock;
 }
@@ -183,7 +152,7 @@ SOCKET stdx::_NetworkIOService::create_wsasocket(const int& addr_family, const i
 		_ThrowWSAError
 	}
 	_SetLoopBackFastPath(sock);
-	m_poller.bind((HANDLE)sock);
+	stdx::threadpool.get_poller().bind((HANDLE)sock);
 	return sock;
 }
 #endif
@@ -201,14 +170,7 @@ void stdx::_NetworkIOService::send(socket_t sock, stdx::buffer buf, const socket
 	context_ptr->buf = buf;
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context_ptr;
-		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
+	std::function <void(network_io_context*, std::exception_ptr)> call  = [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -224,6 +186,7 @@ void stdx::_NetworkIOService::send(socket_t sock, stdx::buffer buf, const socket
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
+	prepare_callback(context_ptr);
 	if (WSASend(sock, &(context_ptr->buffer), 1, &(context_ptr->size), NULL, &(context_ptr->m_ol), NULL) == SOCKET_ERROR)
 	{
 		try
@@ -232,7 +195,6 @@ void stdx::_NetworkIOService::send(socket_t sock, stdx::buffer buf, const socket
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			delete context_ptr;
 			callback(stdx::network_send_event(), std::current_exception());
 			return;
@@ -251,14 +213,7 @@ void stdx::_NetworkIOService::send(socket_t sock, stdx::buffer buf, const socket
 	context->code = stdx::network_io_context_code::send;
 	context->err_code = 0;
 	context->send_size = size;
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context *context_ptr, std::exception_ptr error)
+	auto call = [callback](network_io_context *context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -274,13 +229,13 @@ void stdx::_NetworkIOService::send(socket_t sock, stdx::buffer buf, const socket
 		callback(context, nullptr);
 	};
 	context->callback = call;
+	prepare_callback(context);
 	try
 	{
-		m_poller.post(context);
+		stdx::threadpool.get_poller().post(context);
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete context;
 		callback(stdx::network_send_event(), std::current_exception());
 	}
@@ -292,13 +247,7 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 	stdx::network_io_context* context_ptr = new network_io_context;
 	context_ptr->buffer.buf = NULL;
 	context_ptr->buffer.len = 0;
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		callback(std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
+	auto call =  [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		stdx::finally fin([context_ptr]()
 		{
@@ -307,6 +256,7 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 		callback(error);
 	};
 	context_ptr->callback = call;
+	prepare_callback(context_ptr);
 	if (!(::TransmitFile(sock, file_with_cache, 0, 0, &context_ptr->m_ol, NULL, 0)))
 	{
 		try
@@ -315,7 +265,6 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			delete context_ptr;
 			callback(std::current_exception());
 			return;
@@ -333,14 +282,7 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 	context->this_socket = sock;
 	context->code = stdx::network_io_context_code::send;
 	context->err_code = 0;
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
+	auto call =  [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -355,13 +297,13 @@ void stdx::_NetworkIOService::send_file(socket_t sock, file_handle_t file_with_c
 		callback(nullptr);
 	};
 	context->callback = call;
+	prepare_callback(context);
 	try
 	{
-		m_poller.post(context);
+		stdx::threadpool.get_poller().post(context);
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete context;
 		callback(std::current_exception());
 	}
@@ -381,14 +323,7 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 	context_ptr->buf = buf;
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = static_cast<ULONG>(buf.size());
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context_ptr;
-		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
+	auto call = [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -417,6 +352,7 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 		callback(context, std::exception_ptr(nullptr));
 	};
 	context_ptr->callback = call;
+	prepare_callback(context_ptr);
 	if (WSARecv(sock, &(context_ptr->buffer), 1, &(context_ptr->size), &(_NetworkIOService::recv_flag), &(context_ptr->m_ol), NULL) == SOCKET_ERROR)
 	{
 		try
@@ -425,7 +361,6 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			delete context_ptr;
 			callback(stdx::network_recv_event(), std::current_exception());
 			return;
@@ -441,14 +376,7 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 	context->this_socket = sock;
 	context->size = buf.size();
 	context->buf = buf;
-	std::function<void(stdx::network_io_context*, std::exception_ptr)>* call = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](stdx::network_io_context* context, std::exception_ptr err) mutable
+	std::function<void(stdx::network_io_context*, std::exception_ptr)> call = [callback](stdx::network_io_context* context, std::exception_ptr err) mutable
 	{
 		if (err)
 		{
@@ -464,13 +392,13 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 		callback(ev, err);
 	};
 	context->callback = call;
+	prepare_callback(context);
 	try
 	{
-		m_poller.post(context);
+		stdx::threadpool.get_poller().post(context);
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete context;
 		callback(stdx::network_recv_event(), std::current_exception());
 	}
@@ -522,14 +450,7 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, stdx
 	context_ptr->buf = buf;
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = size;
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context_ptr;
-		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
+	auto call = [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -545,6 +466,7 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, stdx
 		callback(context, nullptr);
 	};
 	context_ptr->callback = call;
+	prepare_callback(context_ptr);
 	if (WSASendTo(sock, &(context_ptr->buffer), 1, &(context_ptr->size), NULL, (context_ptr->addr), ipv4_addr::addr_len, &(context_ptr->m_ol), NULL) == SOCKET_ERROR)
 	{
 		try
@@ -553,7 +475,6 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, stdx
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			delete context_ptr;
 			callback(stdx::network_send_event(), std::current_exception());
 			return;
@@ -573,14 +494,7 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, stdx
 	context->code = stdx::network_io_context_code::sendto;
 	context->err_code = 0;
 	context->addr = addr;
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(stdx::network_send_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](network_io_context* context_ptr, std::exception_ptr error)
+	auto call =  [callback](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -596,13 +510,13 @@ void stdx::_NetworkIOService::send_to(socket_t sock, const ipv4_addr& addr, stdx
 		callback(context, nullptr);
 	};
 	context->callback = call;
+	prepare_callback(context);
 	try
 	{
-		m_poller.post(context);
+		stdx::threadpool.get_poller().post(context);
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete context;
 		callback(stdx::network_send_event(), std::current_exception());
 	}
@@ -623,7 +537,6 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 	context_ptr->buf = buf;
 	context_ptr->buffer.buf = buf;
 	context_ptr->buffer.len = static_cast<ULONG>(buf.size());
-	auto* call = new std::function <void(network_io_context*, std::exception_ptr)>;
 	SOCKADDR_IN* addr = (SOCKADDR_IN*)stdx::malloc(sizeof(SOCKADDR_IN));
 	if (addr == nullptr)
 	{
@@ -641,7 +554,7 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 		return;
 	}
 	*addr_size = sizeof(SOCKADDR_IN);
-	*call = [callback, addr, addr_size](network_io_context* context_ptr, std::exception_ptr error)
+	context_ptr->callback = [callback, addr, addr_size](network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -685,7 +598,7 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 			});
 		callback(context, std::exception_ptr(nullptr));
 	};
-	context_ptr->callback = call;
+	prepare_callback(context_ptr);
 	if (WSARecvFrom(sock, &(context_ptr->buffer), 1, &(context_ptr->size), &(_NetworkIOService::recv_flag), (SOCKADDR*)addr, addr_size, &(context_ptr->m_ol), NULL) == SOCKET_ERROR)
 	{
 		try
@@ -694,7 +607,6 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 		}
 		catch (const std::exception&)
 		{
-			delete call;
 			stdx::free(addr);
 			stdx::free(addr_size);
 			stdx::free(context_ptr->buffer.buf);
@@ -714,14 +626,7 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 	context->this_socket = sock;
 	context->size = buf.size();
 	context->buf = buf;
-	std::function<void(stdx::network_io_context*, std::exception_ptr)>* call = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](stdx::network_io_context* context, std::exception_ptr err) mutable
+	std::function<void(stdx::network_io_context*, std::exception_ptr)> call =  [callback](stdx::network_io_context* context, std::exception_ptr err) mutable
 	{
 		if (err)
 		{
@@ -737,13 +642,13 @@ void stdx::_NetworkIOService::recv_from(socket_t sock, stdx::buffer buf, std::fu
 		callback(ev, err);
 	};
 	context->callback = call;
+	prepare_callback(context);
 	try
 	{
-		m_poller.post(context);
+		stdx::threadpool.get_poller().post(context);
 	}
 	catch (const std::exception &err)
 	{
-		delete call;
 		delete context;
 		callback(stdx::network_recv_event(), std::current_exception());
 	}
@@ -759,7 +664,7 @@ void stdx::_NetworkIOService::close(socket_t sock)
 		_ThrowWSAError
 	}
 #else
-	m_poller.unbind(sock, [](int fd)
+	stdx::threadpool.get_poller().unbind(sock, [](int fd)
 	{
 			::close(fd);
 	});
@@ -833,15 +738,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		return;
 	}
 	memset(context->buffer.buf, 0, context->buffer.len);
-	context->callback = new std::function<void(stdx::network_io_context*,std::exception_ptr)>;
-	if (context->callback == nullptr)
-	{
-		stdx::free(context->buffer.buf);
-		delete context;
-		callback(stdx::network_accept_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*(context->callback) = [callback](stdx::network_io_context* context_ptr, std::exception_ptr error)
+	context->callback = [callback](stdx::network_io_context* context_ptr, std::exception_ptr error)
 	{
 		if (error)
 		{
@@ -870,6 +767,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		new_sock = create_wsasocket(stdx::forward_addr_family(stdx::addr_family::ip), stdx::forward_socket_type(stdx::socket_type::stream), stdx::forward_protocol(stdx::protocol::ip));
 		context->target_socket = new_sock;
 		context->this_socket = sock;
+		prepare_callback(context);
 		BOOL r = m_accept_ex(sock, context->target_socket, context->buffer.buf, 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, &(context->buffer.len), &(context->m_ol));
 		if (r == FALSE)
 		{
@@ -882,7 +780,6 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		{
 			close(new_sock);
 		}
-		delete context->callback;
 		stdx::free(context->buffer.buf);
 		delete context;
 		callback(stdx::network_accept_event(), std::current_exception());
@@ -896,14 +793,7 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 	}
 	context->code = stdx::network_io_context_code::accept;
 	context->this_socket = sock;
-	std::function<void(stdx::network_io_context*, std::exception_ptr)>* call = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
-	if (call == nullptr)
-	{
-		delete context;
-		callback(stdx::network_accept_event(), std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*call = [callback](stdx::network_io_context* context_ptr, std::exception_ptr err) mutable
+	std::function<void(stdx::network_io_context*, std::exception_ptr)> call = [callback](stdx::network_io_context* context_ptr, std::exception_ptr err) mutable
 	{
 		if (err)
 		{
@@ -918,13 +808,13 @@ void stdx::_NetworkIOService::accept_ex(socket_t sock, std::function<void(networ
 		callback(ev, err);
 	};
 	context->callback = call;
+	prepare_callback(context);
 	try
 	{
-		m_poller.post(context);
+		stdx::threadpool.get_poller().post(context);
 	}
 	catch (const std::exception&)
 	{
-		delete call;
 		delete context;
 		callback(stdx::network_accept_event(), std::current_exception());
 	}
@@ -949,14 +839,7 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 		callback(std::make_exception_ptr(std::bad_alloc()));
 		return;
 	}
-	context_ptr->callback = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
-	if (context_ptr->callback == nullptr)
-	{
-		delete context_ptr;
-		callback(std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*(context_ptr->callback) = [callback](stdx::network_io_context* context, std::exception_ptr err)
+	context_ptr->callback = [callback](stdx::network_io_context* context, std::exception_ptr err)
 	{
 		stdx::finally fin([context]()
 			{
@@ -964,6 +847,7 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 			});
 		callback(err);
 	};
+	prepare_callback(context_ptr);
 	try
 	{
 		BOOL r =  m_connect_ex(sock, addr, addr.addr_len, NULL, 0, NULL,&(context_ptr->m_ol));
@@ -974,7 +858,6 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 	}
 	catch (const std::exception &)
 	{
-		delete context_ptr->callback;
 		delete context_ptr;
 		callback(std::current_exception());
 	}
@@ -1006,14 +889,7 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 	}
 	context_ptr->code = stdx::network_io_context_code::connect;
 	context_ptr->this_socket = sock;
-	context_ptr->callback = new std::function<void(stdx::network_io_context*, std::exception_ptr)>;
-	if (context_ptr->callback == nullptr)
-	{
-		delete context_ptr;
-		callback(std::make_exception_ptr(std::bad_alloc()));
-		return;
-	}
-	*(context_ptr->callback) = [callback](stdx::network_io_context* context, std::exception_ptr err)
+	context_ptr->callback = [callback](stdx::network_io_context* context, std::exception_ptr err)
 	{
 		stdx::finally fin([context]()
 			{
@@ -1021,13 +897,13 @@ void stdx::_NetworkIOService::connect_ex(socket_t sock,stdx::ipv4_addr addr, std
 			});
 		callback(err);
 	};
+	prepare_callback(context_ptr);
 	try
 	{
-		m_poller.post(context_ptr);
+		stdx::threadpool.get_poller().post(context_ptr);
 	}
 	catch (const std::exception&)
 	{
-		delete context_ptr->callback;
 		delete context_ptr;
 		callback(std::current_exception());
 	}
@@ -1056,169 +932,97 @@ void stdx::_NetworkIOService::set_keepalive(socket_t sock, bool opt)
 #endif
 }
 
-void stdx::_NetworkIOService::init_threadpoll() noexcept
+void stdx::_NetworkIOService::prepare_callback(stdx::network_io_context* context)
 {
 #ifdef WIN32
-	for (uint32_t i = 0, cores = stdx::_NetworkIOService::loop_num; i < cores; i++)
+	context->execute = [](stdx::stand_context *cont) 
 	{
-		m_thread_pool.long_loop(m_token,[](stdx::io_poller<stdx::network_io_context> poller)
+		stdx::network_io_context* context = (stdx::network_io_context*)cont;
+		if (!context)
+		{
+			return;
+		}
+		std::exception_ptr error(nullptr);
+		try
+		{
+			DWORD flag = 0;
+			if (!WSAGetOverlappedResult(context->this_socket, &(context->m_ol), &(context->size), true, &flag))
 			{
-				try
-				{
-					stdx::network_io_context* context_ptr = nullptr;
-					try
-					{
-						context_ptr = poller.get();
-					}
-					catch (const std::exception&)
-					{
-					}
-					if (context_ptr == nullptr)
-					{
-						return;
-					}
-					std::exception_ptr error(nullptr);
-					try
-					{
-						DWORD flag = 0;
-						if (!WSAGetOverlappedResult(context_ptr->this_socket, &(context_ptr->m_ol), &(context_ptr->size), true, &flag))
-						{
-							_ThrowWSAError
-						}
-					}
-					catch (const std::exception&)
-					{
-						error = std::current_exception();
-					}
-					auto* call = context_ptr->callback;
-					if (call == nullptr)
-					{
-						delete context_ptr;
-						return;
-					}
-					stdx::finally fin([call]()
-						{
-							if (call)
-							{
-								delete call;
-							}
-						});
-					try
-					{
-						(*call)(context_ptr, error);
-					}
-					catch (const std::exception &ex)
-					{
-						DBG_VAR(ex);
+				_ThrowWSAError
+			}
+		}
+		catch (const std::exception&)
+		{
+			error = std::current_exception();
+		}
+		auto call = context->callback;
+		if (!call)
+		{
+			delete context;
+			return;
+		}
+		try
+		{
+			call(context, error);
+		}
+		catch (const std::exception& ex)
+		{
+			DBG_VAR(ex);
 #ifdef DEBUG
-						::printf("[NetworkIOService]Callback error: %s\n", ex.what());
+			::printf("[NetworkIOService]Callback error: %s\n", ex.what());
 #endif
-					}
-				}
-				catch (const std::exception &ex)
-				{
-					DBG_VAR(ex);
-#ifdef DEBUG
-					::printf("[NetworkIOServcie]Error: %s\n", ex.what());
-#endif
-				}
-			}, m_poller);
-	}
+		}
+	};
 #else
-	for (uint32_t i = 0, cores = stdx::_NetworkIOService::loop_num; i < cores; i++)
+	context->events = _GetEvents(context);
+	context->key = context->this_socket;
+	context->io_operation = [](stdx::stand_context* cont) 
 	{
-		int null_fd(open_null_fd());
-		m_thread_pool.long_loop(m_token,[i,null_fd,this]() mutable
-			{
-				try
-				{
-					auto context = m_poller.get_at(i);
-					if (context == nullptr)
-					{
-						if (m_token.is_cancel())
-						{
-							::close(null_fd);
-						}
-						return;
-					}
-					auto call = context->callback;
-					if (call == nullptr)
-					{
-						delete context;
-						return;
-					}
-					std::exception_ptr err(nullptr);
-					if (context->err_code != 0)
-					{
-						if (errno == EMFILE && context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
-						{
-							::close(null_fd);
-							null_fd = ::accept4(context->this_socket, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
-							::close(null_fd);
-							null_fd = open_null_fd();
-						}
-						err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
-					}
-					else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
-					{
-						m_poller.bind(context->target_socket);
-					}
-					stdx::finally fin([call]()
-						{
-							delete call;
-						});
-					try
-					{
-						(*call)(context, err);
-					}
-					catch (const std::exception& ex)
-					{
-						DBG_VAR(ex);
+		stdx::network_io_context* context = (stdx::network_io_context*)cont;
+		if (!context)
+		{
+			return true;
+		}
+		return _IOOperate(context);
+	};
+	context->execute = [](stdx::stand_context *cont) 
+	{
+		stdx::network_io_context* context = (stdx::network_io_context*)cont;
+		if (!context)
+		{
+			return;
+		}
+		auto call = context->callback;
+		if (call == nullptr)
+		{
+			delete context;
+			return;
+		}
+		std::exception_ptr err(nullptr);
+		if (context->err_code != 0)
+		{
+			err = std::make_exception_ptr(std::system_error(std::error_code(context->err_code, std::system_category())));
+		}
+		else if (context->code == stdx::network_io_context_code::accept || context->code == stdx::network_io_context_code::accept_ipv6)
+		{
+			stdx::threadpool.get_poller().bind(context->target_socket);
+		}
+		try
+		{
+			call(context, err);
+		}
+		catch (const std::exception& ex)
+		{
+			DBG_VAR(ex);
 #ifdef DEBUG
-						::printf("[NetworkIOService]Callback error: %s\n", ex.what());
+			::printf("[NetworkIOService]Callback error: %s\n", ex.what());
 #endif
-					}
-				}
-				catch (const std::exception &ex)
-				{
-					DBG_VAR(ex);
-#ifdef DEBUG
-					::printf("[NetworkIOServcie]Error: %s\n", ex.what());
-#endif
-				}
-			});
-	}
+		}
+	};
 #endif
 }
 
 #ifdef LINUX
-void stdx::_NetworkIOService::_Clean(stdx::network_io_context* context)
-{
-	auto* callback = context->callback;
-	if (callback != nullptr)
-	{
-		try
-		{
-			(*callback)(context, std::make_exception_ptr(std::system_error(std::error_code(ECONNRESET, std::system_category()))));
-		}
-		catch (const std::exception& err)
-		{
-#ifdef DEBUG
-			::printf("[Epoll]执行Callback出错%s\n", err.what());
-#endif // DEBUG
-		}
-		delete callback;
-	}
-	else
-	{
-		delete context;
-	}
-}
-
-int stdx::_NetworkIOService::_GetFd(stdx::network_io_context* context)
-{
-	return context->this_socket;
-}
 
 void stdx::_NetworkIOService::_SetNonBlocking(socket_t sock)
 {
@@ -1344,7 +1148,7 @@ bool stdx::_NetworkIOService::_IOOperate(stdx::network_io_context* context)
 
 uint32_t stdx::_NetworkIOService::_GetEvents(stdx::network_io_context* context)
 {
-	uint32_t check_in = stdx::network_io_context_code::accept | 
+	constexpr uint32_t check_in = stdx::network_io_context_code::accept | 
 		stdx::network_io_context_code::accept_ipv6 | 
 		stdx::network_io_context_code::recv | 
 		stdx::network_io_context_code::recvfrom | 
@@ -1353,7 +1157,7 @@ uint32_t stdx::_NetworkIOService::_GetEvents(stdx::network_io_context* context)
 	{
 		return stdx::epoll_events::in;
 	}
-	uint32_t check_out = stdx::network_io_context_code::send |
+	constexpr uint32_t check_out = stdx::network_io_context_code::send |
 		stdx::network_io_context_code::sendfile |
 		stdx::network_io_context_code::sendto |
 		stdx::network_io_context_code::sendto_ipv6 |

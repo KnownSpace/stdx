@@ -3,7 +3,7 @@
 #include <stdx/datetime.h>
 #include <stdx/io.h>
 
-stdx::thread_pool stdx::threadpool = stdx::make_round_robin_thread_pool(GET_CPU_CORES());
+stdx::thread_pool stdx::threadpool = stdx::make_io_thread_pool(GET_CPU_CORES()*2+2);
 
 //构造函数
 stdx::_McmpThreadPool::_McmpThreadPool(uint32_t num_threads) noexcept
@@ -260,26 +260,57 @@ stdx::thread_pool stdx::make_round_robin_thread_pool(uint32_t size)
 	return stdx::make_thread_pool<stdx::_RoundRobinThreadPool>(size);
 }
 
+extern stdx::thread_pool stdx::make_io_thread_pool(uint32_t size)
+{
+	return stdx::make_thread_pool<stdx::_IoThreadPool>(size);
+}
+
 stdx::_IoThreadPool::_IoThreadPool(uint32_t num_threads)
 #ifdef WIN32
 	:m_poller(stdx::make_iocp_poller<stdx::stand_context>())
 #else
-	:m_poller()
+	:m_poller(stdx::make_epoll_multipoller<stdx::stand_context>(stdx::implicit_cast<size_t>(num_threads)))
 #endif
 	,m_token()
-	,m_threads(num_threads)
+	,m_threads()
+#ifndef WIN32
+	, m_key(0)
+#endif
 {
 	for (uint32_t i =0;i < num_threads;++i)
 	{
 		m_threads.push_back(std::make_shared<std::thread>([this,i]() {
 			while (!m_token.is_cancel())
 			{
+				try
+				{
 #ifdef WIN32
-				stdx::stand_context* context = m_poller.get();
+					stdx::stand_context* context = m_poller.get();
 #else
-				stdx::stand_context* context = m_poller.get_at(i);
+					stdx::stand_context* context = m_poller.get_at(i);
 #endif
-				context->execute(context);
+					if (context)
+					{
+						try
+						{
+							context->execute(context);
+						}
+						catch (const std::exception& e)
+						{
+							DBG_VAR(e);
+#ifdef DEBUG
+							::printf("[Thread Pool]Error: %s\n", e.what());
+#endif
+						}
+					}
+				}
+				catch (const std::exception &e)
+				{
+					DBG_VAR(e);
+#ifdef DEBUG
+					::printf("[Thread Pool]Get task error: %s\n",e.what());
+#endif
+				}
 			}
 		}));
 	}
@@ -291,24 +322,9 @@ stdx::_IoThreadPool::~_IoThreadPool()
 	_Join();
 }
 
-void stdx::_IoThreadPool::bind(key_t key)
-{
-	m_poller.bind(key);
-}
-
 void stdx::_IoThreadPool::run(std::function<void()>&& task)
 {
-	stdx::stand_context *context = new stdx::stand_context;
-	if (context == nullptr)
-	{
-		throw std::bad_alloc();
-	}
-	std::function<void()> _task(std::move(task));
-	context->execute = [_task](stdx::stand_context *context) {
-		delete context;
-		_task();
-	};
-	m_poller.post(context);
+	_Run(std::move(task));
 }
 
 void stdx::_IoThreadPool::join_as_worker()
@@ -330,4 +346,36 @@ void stdx::_IoThreadPool::_Join()
 	{
 		(*begin)->join();
 	}
+}
+
+void stdx::_IoThreadPool::_Run(std::function<void()> task)
+{
+	stdx::stand_context* context = new stdx::stand_context;
+#ifndef WIN32
+	context->key = m_key;
+	m_key++;
+#endif
+	if (context == nullptr)
+	{
+		throw std::bad_alloc();
+	}
+	context->execute = [task](stdx::stand_context* context) mutable
+	{
+		try
+		{
+			task();
+		}
+		catch (const std::exception &e)
+		{
+			::printf("[Thread Pool]Error: %s\n", e.what());
+		}
+		delete context;
+	};
+#ifdef WIN32
+	::memset(&(context->m_ol), 0, sizeof(OVERLAPPED));
+#else
+	context->events = 0;
+	context->is_io_operation = false;
+#endif
+	m_poller.post(context);
 }

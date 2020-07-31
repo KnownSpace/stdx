@@ -8,5 +8,6 @@
 #include <stdx/net/http_connection.h>
 #include <stdx/debug.h>
 #include <stdx/traits/max_type.h>
+#include <stdx/net/http_acceptor.h>
 
 extern int web_test(int argc, char** argv);
