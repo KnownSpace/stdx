@@ -351,14 +351,14 @@ void stdx::_IoThreadPool::_Join()
 void stdx::_IoThreadPool::_Run(std::function<void()> task)
 {
 	stdx::stand_context* context = new stdx::stand_context;
-#ifndef WIN32
-	context->key = m_key;
-	m_key++;
-#endif
 	if (context == nullptr)
 	{
 		throw std::bad_alloc();
 	}
+#ifndef WIN32
+	context->key = m_key;
+	m_key++;
+#endif
 	context->execute = [task](stdx::stand_context* context) mutable
 	{
 		try
