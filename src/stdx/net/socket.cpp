@@ -371,6 +371,7 @@ void stdx::_NetworkIOService::recv(socket_t sock,stdx::buffer buf, std::function
 	if (context == nullptr)
 	{
 		callback(stdx::network_recv_event(), std::make_exception_ptr(std::bad_alloc()));
+		return;
 	}
 	context->code = stdx::network_io_context_code::recv;
 	context->this_socket = sock;
