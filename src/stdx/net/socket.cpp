@@ -46,21 +46,6 @@ std::once_flag stdx::_NetworkIOService::m_once_flag;
 LPFN_CONNECTEX stdx::_NetworkIOService::m_connect_ex = nullptr;
 #endif
 
-#ifdef LINUX
-int stdx::_NetworkIOService::open_null_fd()
-{
-	return ::open("/dev/null", O_RDONLY | O_CLOEXEC);
-}
-
-#endif
-
-
-stdx::_NetworkIOService::_NetworkIOService()
-{}
-
-stdx::_NetworkIOService::~_NetworkIOService()
-{}
-
 #ifdef WIN32
 
 void stdx::_NetworkIOService::_GetAcceptEx(SOCKET s, LPFN_ACCEPTEX* ptr)

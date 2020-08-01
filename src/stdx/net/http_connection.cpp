@@ -3,7 +3,7 @@
 stdx::basic_http_connection::basic_http_connection(const stdx::socket& sock, uint64_t max_size)
 	:base_t(sock)
 	,m_parser(max_size)
-	,m_read_buf(stdx::make_buffer(8192))
+	,m_read_buf(stdx::make_buffer(4096))
 {}
 
 void stdx::basic_http_connection::_Read(std::function<void(stdx::http_request, std::exception_ptr)> callback)
@@ -82,7 +82,7 @@ void stdx::basic_http_connection::read_until(stdx::cancel_token token, std::func
 	{
 		return;
 	}
-	_Read([token,fn,err_handler,this](stdx::http_request req,std::exception_ptr err) 
+	_Read([token,fn,err_handler,this](stdx::http_request req,std::exception_ptr err) mutable
 	{
 		if (err)
 		{

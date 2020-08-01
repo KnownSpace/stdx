@@ -538,11 +538,13 @@ namespace stdx
 		using socket_t = int;
 		using file_handle_t = int;
 #endif
-		_NetworkIOService();
+		_NetworkIOService() = default;
 
 		DELETE_COPY(_NetworkIOService);
 
-		~_NetworkIOService();
+		DELETE_MOVE(_NetworkIOService);
+
+		~_NetworkIOService() = default;
 
 #ifdef WIN32
 		SOCKET create_socket(const int& addr_family, const int& sock_type, const int& protocol);
@@ -615,10 +617,6 @@ namespace stdx
 
 #ifdef WIN32
 		static DWORD recv_flag;
-#endif
-
-#ifdef LINUX
-		static int open_null_fd();
 #endif
 	};
 

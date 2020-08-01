@@ -63,7 +63,7 @@ namespace stdx
 #ifdef WIN32
 			memset(&m_ol, 0, sizeof(OVERLAPPED));
 #else
-			is_io_operation = true;
+			is_io_operation = false;
 #endif
 		}
 

@@ -481,7 +481,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[64];
+			epoll_event ev[32];
 			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
 			if (r > 0)
 			{
@@ -501,7 +501,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[64];
+			epoll_event ev[32];
 			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
 			if (r < 0)
 			{
@@ -522,22 +522,16 @@ namespace stdx
 
 		virtual void post(_IOContext* p) override
 		{
-			_RunInLoop([this](_IOContext* p)
+			if (!p->is_io_operation)
+			{
+				_RunInLoop([p]()mutable 
 				{
-					if (!p->is_io_operation)
-					{
-						try
-						{
-							p->execute(p);
-						}
-						catch (const std::exception &e)
-						{
-#ifdef DEBUG
-							::printf("[EpollProactor]Error: %s\n",e.what());
-#endif
-						}
-						return;
-					}
+						p->execute(p);
+				});
+				return;
+			}
+			_RunInLoop([this,p]()
+				{
 					//get fd
 					int fd = p->key;
 					//get context manager
@@ -593,7 +587,7 @@ namespace stdx
 						_ResetFd(ev);
 						return;
 					}
-				}, p);
+				});
 		}
 
 		virtual void bind(const int& fd) override
@@ -611,6 +605,7 @@ namespace stdx
 					}
 					catch (const std::exception &ex)
 					{
+						DBG_VAR(ex);
 #ifdef DEBUG
 						::printf("[EpollProactor]Add event fail: %s\n",ex.what());
 #endif
@@ -632,6 +627,7 @@ namespace stdx
 					}
 					catch (const std::exception& err)
 					{
+						DBG_VAR(err);
 #ifdef DEBUG
 						::printf("[EpollProactor]Remove event failure: %s\n", err.what());
 #endif
@@ -654,6 +650,7 @@ namespace stdx
 					}
 					catch (const std::exception& err)
 					{
+						DBG_VAR(err);
 #ifdef DEBUG
 						::printf("[EpollProactor]Remove event or delete fd failure: %s\n", err.what());
 #endif
@@ -697,6 +694,7 @@ namespace stdx
 			}
 			catch (const std::exception &err)
 			{
+				DBG_VAR(err);
 #ifdef DEBUG
 				::printf("[EpollProactor]Reset event fail: %s\n",err.what());
 #endif
@@ -752,7 +750,7 @@ namespace stdx
 						//I/O operation finish
 						ev_.out_contexts.pop_front();
 						m_completions.push_back(cont);
-						if (!ev_.in_contexts.empty())
+						if (!ev_.out_contexts.empty())
 						{
 							_ResetFd(ev_);
 						}
@@ -770,6 +768,7 @@ namespace stdx
 			if (ev.data.fd == m_eventfd)
 			{
 				_HandleTasks();
+				return;
 			}
 			else if (ev.events & (stdx::epoll_events::err | stdx::epoll_events::hup))
 			{
@@ -786,6 +785,7 @@ namespace stdx
 				}
 				catch (const std::exception& err)
 				{
+					DBG_VAR(err);
 #ifdef DEBUG
 					::printf("[EpollProactor]Handle IO Event Fail: %s\n",err.what());
 #endif 

@@ -112,13 +112,10 @@ void stdx::_EPOLL::add_or_update_event(int fd, epoll_event* event_ptr)
 
 int stdx::_EPOLL::wait(epoll_event * event_ptr, const int & maxevents, const int & timeout) 
 {
-	sigset_t newmask;
-	sigemptyset(&newmask);
-	sigaddset(&newmask, SIGINT);
 	int r = 0;
 	while (!r)
 	{
-		r = epoll_pwait(m_handle, event_ptr, maxevents, timeout, &newmask);
+		r = epoll_wait(m_handle, event_ptr, maxevents, timeout);
 		if (r == -1)
 		{
 			if (errno == EINTR)
@@ -145,7 +142,7 @@ int stdx::make_semaphore_eventfd(int flags)
 {
 	return stdx::make_eventfd(EFD_SEMAPHORE);
 }
-#endif // LINUX
+#endif
 
 #ifdef WIN32
 std::wistream& stdx::cin()

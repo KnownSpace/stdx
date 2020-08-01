@@ -55,7 +55,6 @@ stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & 
 	{
 		_ThrowLinuxError
 	}
-	stdx::threadpool.get_poller().bind(fd);
 	return fd;
 }
 
@@ -66,7 +65,6 @@ stdx::native_file_handle stdx::_FileIOService::create_file(const stdx::string & 
 	{
 		_ThrowLinuxError
 	}
-	stdx::threadpool.get_poller().bind(fd);
 	return fd;
 }
 #endif
@@ -354,12 +352,12 @@ void stdx::_FileIOService::prepare_callback(stdx::file_io_context* context)
 	}
 	context->key = context->file;
 	context->err_code = 0;
-	context->io_operation = [](stdx::stand_context *cont) 
+	context->execute = [](stdx::stand_context* cont) 
 	{
 		stdx::file_io_context* context = (stdx::file_io_context*)cont;
 		if (!context)
 		{
-			return true;
+			return;
 		}
 		ssize_t r = 0;
 		if (context->op_code == stdx::file_bio_op_code::write)
@@ -379,16 +377,6 @@ void stdx::_FileIOService::prepare_callback(stdx::file_io_context* context)
 			context->err_code = errno;
 		}
 		context->size = stdx::implicit_cast<size_t>(r);
-		return true;
-	};
-	context->execute = [](stdx::stand_context* cont) 
-	{
-		stdx::file_io_context* context = (stdx::file_io_context*)cont;
-		if (!context)
-		{
-			return;
-		}
-		
 		auto callback = context->callback;
 		std::exception_ptr err(nullptr);
 		if (context->err_code)

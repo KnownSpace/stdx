@@ -350,7 +350,7 @@ void stdx::_IoThreadPool::_Join()
 
 void stdx::_IoThreadPool::_Run(std::function<void()> task)
 {
-	stdx::stand_context* context = new stdx::stand_context;
+	stdx::stand_context* context = new stdx::stand_context();
 	if (context == nullptr)
 	{
 		throw std::bad_alloc();

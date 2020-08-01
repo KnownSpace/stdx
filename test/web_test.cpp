@@ -155,7 +155,7 @@ int web_test(int argc, char** argv)
 			conn.read_until(token, [token, conn, file_io_service,counter](stdx::http_request req) mutable
 				{
 					//处理请求
-					if (!handle_request_hello(conn, req))
+					if (!handle_request(conn, req,file_io_service))
 					{
 						token.cancel();
 					}
