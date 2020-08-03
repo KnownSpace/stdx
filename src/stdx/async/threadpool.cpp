@@ -274,7 +274,8 @@ stdx::_IoThreadPool::_IoThreadPool(uint32_t num_threads)
 	,m_token()
 	,m_threads()
 #ifndef WIN32
-	, m_key(0)
+	, m_lock()
+	, m_tasks()
 #endif
 {
 	for (uint32_t i =0;i < num_threads;++i)
@@ -282,6 +283,10 @@ stdx::_IoThreadPool::_IoThreadPool(uint32_t num_threads)
 		m_threads.push_back(std::make_shared<std::thread>([this,i]() {
 			while (!m_token.is_cancel())
 			{
+#ifndef WIN32
+				while (_HandleTasks())
+				{}
+#endif
 				try
 				{
 #ifdef WIN32
@@ -350,32 +355,62 @@ void stdx::_IoThreadPool::_Join()
 
 void stdx::_IoThreadPool::_Run(std::function<void()> task)
 {
+#ifdef WIN32
 	stdx::stand_context* context = new stdx::stand_context();
 	if (context == nullptr)
 	{
 		throw std::bad_alloc();
 	}
-#ifndef WIN32
-	context->key = m_key;
-	m_key++;
-#endif
 	context->execute = [task](stdx::stand_context* context) mutable
 	{
 		try
 		{
 			task();
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 			::printf("[Thread Pool]Error: %s\n", e.what());
 		}
 		delete context;
 	};
-#ifdef WIN32
 	::memset(&(context->m_ol), 0, sizeof(OVERLAPPED));
-#else
-	context->events = 0;
-	context->is_io_operation = false;
-#endif
 	m_poller.post(context);
+#else
+	bool need_notice;
+	{
+		std::unique_lock<stdx::spin_lock> lock(m_lock);
+		need_notice = m_tasks.empty();
+		m_tasks.push_back(std::move(task));
+	}
+	if (need_notice)
+	{
+		m_poller.notice();
+	}
+#endif
 }
+
+#ifndef WIN32
+bool stdx::_IoThreadPool::_HandleTasks()
+{
+	std::unique_lock<stdx::spin_lock> lock(m_lock);
+	if (m_tasks.empty())
+	{
+		return false;
+	}
+	std::function<void()> task = std::move(m_tasks.front());
+	m_tasks.pop_front();
+	lock.unlock();
+	try
+	{
+		task();
+	}
+	catch (const std::exception &e)
+	{
+		DBG_VAR(e);
+#ifdef DEBUG
+		::printf("[Thread Pool]Error: %s\n",e.what());
+#endif
+	}
+	return true;
+}
+#endif

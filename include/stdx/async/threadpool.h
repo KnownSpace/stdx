@@ -113,11 +113,16 @@ namespace stdx
 
 		void _Run(std::function<void()> task);
 
+#ifndef WIN32
+		bool _HandleTasks();
+#endif
+
 		poller_t m_poller;
 		stdx::cancel_token m_token;
 		std::vector<std::shared_ptr<std::thread>> m_threads;
 #ifndef WIN32
-		int m_key;
+		stdx::spin_lock m_lock;
+		std::list<std::function<void()>> m_tasks;
 #endif
 	};
 
