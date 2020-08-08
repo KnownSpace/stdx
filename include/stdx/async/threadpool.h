@@ -128,9 +128,13 @@ namespace stdx
 
 	class thread_pool
 	{
+
+	protected:
 		using impl_t = std::shared_ptr<stdx::basic_thread_pool>;
 
+	private:
 		using self_t = stdx::thread_pool;
+
 	public:
 		thread_pool()
 			:m_impl(nullptr)
@@ -148,7 +152,7 @@ namespace stdx
 			:m_impl(std::move(other.m_impl))
 		{}
 
-		~thread_pool() = default;
+		virtual ~thread_pool() = default;
 
 		self_t& operator=(const self_t& other)
 		{
@@ -217,11 +221,6 @@ namespace stdx
 					}
 			},call,token);
 		}
-
-		stdx::poller<stdx::stand_context,stdx::basic_thread_pool::key_t> get_poller()
-		{
-			return m_impl->get_poller();
-		}
 	private:
 		void loop_do(stdx::cancel_token token, std::function<void()> call);
 
@@ -229,7 +228,63 @@ namespace stdx
 
 		void lazy_loop_do(stdx::cancel_token token,uint64_t lazy_ms,std::function<void()> call);
 
+	protected:
+
 		impl_t m_impl;
+	};
+
+	class io_thread_pool:public stdx::thread_pool
+	{
+		using base_t = stdx::thread_pool;
+
+		using self_t = stdx::io_thread_pool;
+	public:
+		io_thread_pool()
+			:base_t()
+		{}
+
+		io_thread_pool(impl_t &impl)
+			:base_t(impl)
+		{}
+
+		io_thread_pool(const self_t &other)
+			:base_t(other)
+		{}
+
+		io_thread_pool(self_t &&other) noexcept
+			:base_t(std::move(other))
+		{}
+
+		virtual ~io_thread_pool() = default;
+
+		self_t &operator=(const self_t &other)
+		{
+			base_t::operator=(other);
+			return *this;
+		}
+
+		self_t& operator=(self_t&& other) noexcept
+		{
+			base_t::operator=(std::move(other));
+			return *this;
+		}
+
+		bool operator==(const self_t& other) const
+		{
+			return m_impl == other.m_impl;
+		}
+
+		operator bool() const
+		{
+			return (bool)m_impl;
+		}
+
+		stdx::poller<stdx::stand_context, stdx::basic_thread_pool::key_t> get_poller()
+		{
+			return m_impl->get_poller();
+		}
+	private:
+
 	};
 
 	template<typename _Impl,typename ..._Args>
@@ -243,7 +298,7 @@ namespace stdx
 
 	extern stdx::thread_pool make_round_robin_thread_pool(uint32_t size);
 
-	extern stdx::thread_pool make_io_thread_pool(uint32_t size);
+	extern stdx::io_thread_pool make_io_thread_pool(uint32_t size);
 
-	extern stdx::thread_pool threadpool;
+	extern stdx::io_thread_pool threadpool;
 }

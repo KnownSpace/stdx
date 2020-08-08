@@ -3,7 +3,7 @@
 #include <stdx/datetime.h>
 #include <stdx/io.h>
 
-stdx::thread_pool stdx::threadpool = stdx::make_io_thread_pool(GET_CPU_CORES()*2+2);
+stdx::io_thread_pool stdx::threadpool = stdx::make_io_thread_pool(GET_CPU_CORES()*2+2);
 
 //构造函数
 stdx::_McmpThreadPool::_McmpThreadPool(uint32_t num_threads) noexcept
@@ -260,9 +260,10 @@ stdx::thread_pool stdx::make_round_robin_thread_pool(uint32_t size)
 	return stdx::make_thread_pool<stdx::_RoundRobinThreadPool>(size);
 }
 
-extern stdx::thread_pool stdx::make_io_thread_pool(uint32_t size)
+extern stdx::io_thread_pool stdx::make_io_thread_pool(uint32_t size)
 {
-	return stdx::make_thread_pool<stdx::_IoThreadPool>(size);
+	std::shared_ptr<stdx::basic_thread_pool> impl = std::make_shared<stdx::_IoThreadPool>(size);
+	return stdx::io_thread_pool(impl);
 }
 
 stdx::_IoThreadPool::_IoThreadPool(uint32_t num_threads)
