@@ -260,7 +260,7 @@ namespace stdx
 				//调用方法
 				//设置promise
 				auto&& r = call->run();
-				promise->set_value(r);
+				promise->set_value(std::move(r));
 			}
 			catch (const std::exception&)
 			{
@@ -389,7 +389,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				t->run();
+				t->run_on_this_thread();
 				return t;
 			}
 			*next = t;
@@ -415,7 +415,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				t->run();
+				t->run_on_this_thread();
 				return t;
 			}
 			*next = t;
@@ -445,7 +445,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				t->run();
+				t->run_on_this_thread();
 				return t;
 			}
 			*next = t;
@@ -471,7 +471,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				t->run();
+				t->run_on_this_thread();
 				return t;
 			}
 			*next = t;
@@ -516,7 +516,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				start->run();
+				start->run_on_this_thread();
 				return t;
 			}
 			*next = start;
@@ -575,7 +575,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				start->run();
+				start->run_on_this_thread();
 				return t;
 			}
 			*next = start;
@@ -612,7 +612,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				start->run();
+				start->run_on_this_thread();
 				return t;
 			}
 			*next = start;
@@ -649,7 +649,7 @@ namespace stdx
 				//解锁
 				lock.unlock();
 				//运行
-				start->run();
+				start->run_on_this_thread();
 				return t;
 			}
 			*next = start;

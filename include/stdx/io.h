@@ -517,7 +517,15 @@ namespace stdx
 
 		virtual void notice() override
 		{
-			_WokenUpFd();
+			bool wokeup = true;
+			{
+				std::unique_lock<lock_t> lock(m_ev_lock);
+				std::swap(m_wokeup, wokeup);
+			}
+			if (!wokeup)
+			{
+				_WokenUpFd();
+			}
 		}
 
 		virtual void post(_IOContext* p) override
