@@ -481,7 +481,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[32];
+			epoll_event ev[16];
 			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), -1);
 			if (r > 0)
 			{
@@ -501,7 +501,7 @@ namespace stdx
 			{
 				return cont;
 			}
-			epoll_event ev[32];
+			epoll_event ev[16];
 			int r = m_epoll.wait(ev,stdx::sizeof_array(ev), timeout_ms);
 			if (r < 0)
 			{

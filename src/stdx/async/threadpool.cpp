@@ -3,7 +3,7 @@
 #include <stdx/datetime.h>
 #include <stdx/io.h>
 
-stdx::io_thread_pool stdx::threadpool = stdx::make_io_thread_pool(GET_CPU_CORES()*2);
+stdx::io_thread_pool stdx::threadpool = stdx::make_io_thread_pool(GET_CPU_CORES()*2+2);
 
 //构造函数
 stdx::_McmpThreadPool::_McmpThreadPool(uint32_t num_threads) noexcept
